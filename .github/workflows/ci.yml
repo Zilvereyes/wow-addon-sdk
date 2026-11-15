@@ -23,6 +23,9 @@ jobs:
             node: '24'
             shell: pwsh
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -31,16 +34,12 @@ jobs:
           package-manager-cache: false
       # Bootstrap: npm install until the reviewed lockfile is committed.
       - name: Pin npm version
-        shell: ${{ matrix.shell }}
         run: npm install --global npm@10.9.2
       - name: Document toolchain
-        shell: ${{ matrix.shell }}
         run: |
           node --version
           npm --version
       - name: Install dependencies (bootstrap only)
-        shell: ${{ matrix.shell }}
         run: npm install --ignore-scripts --no-audit --no-fund
       - name: Build, tests, architecture and public exports
-        shell: ${{ matrix.shell }}
         run: npm run check:all
