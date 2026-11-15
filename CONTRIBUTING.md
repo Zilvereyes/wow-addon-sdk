@@ -6,7 +6,7 @@ Thanks for helping build a reusable, editor-agnostic SDK.
 
 1. Open an issue or discussion for breaking public API changes or new package boundaries.
 2. Keep parser, metadata, registry and adapters separate; see `docs/ARCHITECTURE.md`.
-3. Use Node.js 20+ and run `npm install`, `npm run check:all` and `npm test` locally.
+3. Use Node.js 22+ with npm 10.9.2 (the pinned CI npm version). Until the lockfile is bootstrapped, run `npm install`; then use `npm ci`, `npm run check:all` and `npm test`. Validate lockfile registry URLs before approving it.
 4. Add regression tests for new behavior and diagnostics; preserve source order and UTF-16 ranges.
 5. Document changes in `CHANGELOG.md`. Include `docs/MIGRATION-*.md` for breaking changes.
 6. Avoid committing generated `dist/`, `node_modules/`, `.tsbuildinfo` or credentials.

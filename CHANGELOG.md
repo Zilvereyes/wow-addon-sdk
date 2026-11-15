@@ -4,6 +4,15 @@ Changes are recorded by release. This project is in pre-1.0 development.
 
 ## [Unreleased]
 
+### Repository hardening (in progress)
+
+- Test Node 22 and 24 on both Windows and Linux; retire EOL Node 20.
+- Discover tests deterministically and fail if no test files are found.
+- Make build explicit in the validation pipeline and audit public package entry points.
+- Normalize source line endings and document portable quick-start commands.
+- Pending: reviewed npm lockfile, `npm ci`, and approved API Extractor reports as a mandatory gate.
+
+
 ### Review follow-up
 
 - Fix TOC0001 end positions after recognized header conditions are removed.

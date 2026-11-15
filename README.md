@@ -22,12 +22,12 @@ The core contains **no dependencies on VS Code, LuaLS or Continue**. Dependency 
 
 ## Quick start
 
-Requires Node.js 20+ and npm. On Windows, PowerShell 7 is recommended.
+Requires Node.js 22+ and npm. On Windows, PowerShell 7 is recommended.
 
 ```powershell
 npm install
 npm run check:all
-node .\examples\inspect-toc.mjs .\examples\ZilverUI\ZilverUI_Mainline.toc
+node ./examples/inspect-toc.mjs ./examples/ZilverUI/ZilverUI_Mainline.toc
 ```
 
 ```typescript
@@ -65,7 +65,7 @@ npm run check:api
 npm run check:all
 ```
 
-GitHub Actions validates Linux/Node 22 and Windows/Node 20. The repository includes GitHub Actions verification, TypeScript project references, a custom import-boundary audit, dependency-cruiser rules, versioned declaration snapshots and API Extractor configurations. **API Extractor reports require an initial online bootstrap and review before being made a mandatory CI check.**
+GitHub Actions validates Node 22 and 24 on both Ubuntu 24.04 and Windows. The repository includes GitHub Actions verification, TypeScript project references, a custom import-boundary audit, dependency-cruiser rules, versioned declaration snapshots and API Extractor configurations. **API Extractor reports require a separate online bootstrap and review before becoming a mandatory CI check.**
 
 ## Non-goals (v0.2.0)
 
