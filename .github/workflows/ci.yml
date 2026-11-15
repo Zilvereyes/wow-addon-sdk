@@ -31,15 +31,17 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
-          package-manager-cache: false
-      # Bootstrap: npm install until the reviewed lockfile is committed.
+          cache: npm
+          cache-dependency-path: package-lock.json
       - name: Pin npm version
         run: npm install --global npm@10.9.2
+
       - name: Document toolchain
         run: |
           node --version
           npm --version
-      - name: Install dependencies (bootstrap only)
-        run: npm install --ignore-scripts --no-audit --no-fund
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Build, tests, architecture and public exports
         run: npm run check:all
