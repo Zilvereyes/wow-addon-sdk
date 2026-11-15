@@ -65,7 +65,7 @@ npm run check:api
 npm run check:all
 ```
 
-The repository includes GitHub Actions verification, TypeScript project references, a custom import-boundary audit, dependency-cruiser rules, versioned declaration snapshots and API Extractor configurations. **API Extractor reports require an initial online bootstrap and review before being made a mandatory CI check.**
+GitHub Actions validates Linux/Node 22 and Windows/Node 20. The repository includes GitHub Actions verification, TypeScript project references, a custom import-boundary audit, dependency-cruiser rules, versioned declaration snapshots and API Extractor configurations. **API Extractor reports require an initial online bootstrap and review before being made a mandatory CI check.**
 
 ## Non-goals (v0.2.0)
 

@@ -127,7 +127,10 @@ export function parseToc(content: string, tocPath: string, options: TocParseOpti
       const leftTrim = segment.length - segment.trimStart().length;
       const token = segment.trim();
       const tokenStartIndex = start + leftTrim;
-      const startOriginal = positions[tokenStartIndex] ?? 0;
+      // A trailing empty cell has no mapped character; use the mapped end
+      // rather than incorrectly pointing back to the start of the value.
+      const mappedEnd = positions.length > 0 ? positions[positions.length - 1]! + 1 : 0;
+      const startOriginal = positions[tokenStartIndex] ?? mappedEnd;
       const endOriginal = token.length > 0
         ? (positions[tokenStartIndex + token.length - 1] ?? startOriginal) + 1
         : startOriginal;
@@ -164,7 +167,24 @@ export function parseToc(content: string, tocPath: string, options: TocParseOpti
       const name = match[1] ?? '';
       const rawValue = match[3] ?? '';
       const headerStart = line.indexOf(name) + name.length;
-      const headerConditions = extractConditions(match[2] ?? '', tocPath, lineIndex, bomOffset + headerStart).conditions;
+      const headerText = match[2] ?? '';
+      const parsedHeader = extractConditions(headerText, tocPath, lineIndex, bomOffset + headerStart);
+      // Reject unrecognized bracket annotations rather than silently erasing
+      // their conditional semantics and exposing an unconditional global.
+      if (parsedHeader.clean.trim().length > 0) {
+        const first = parsedHeader.clean.search(/\S/);
+        const firstOriginal = parsedHeader.positions[first] ?? 0;
+        const invalidText = parsedHeader.clean.slice(first).trimEnd();
+        const annotationSource = source(
+          tocPath, lineIndex,
+          bomOffset + headerStart + firstOriginal,
+          bomOffset + headerStart + firstOriginal + invalidText.length,
+        );
+        addDiagnostic('error', 'TOC0001', `Unsupported or malformed TOC header annotation: ${invalidText}`, annotationSource);
+        kindEntry('invalid');
+        continue;
+      }
+      const headerConditions = parsedHeader.conditions;
       const colonIndex = line.length - rawValue.length - 1;
       const rawStart = bomOffset + colonIndex + 1;
       const { clean, positions, conditions: valueConditions } = extractConditions(rawValue, tocPath, lineIndex, rawStart);

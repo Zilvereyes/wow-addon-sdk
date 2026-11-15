@@ -4,6 +4,13 @@ Changes are recorded by release. This project is in pre-1.0 development.
 
 ## [Unreleased]
 
+### Fixed
+
+- Reject unknown or malformed TOC header conditions instead of exposing globals unconditionally (TOC0001).
+- Correct diagnostic spans for trailing empty and whitespace-only CSV cells (TOC0004).
+- Detect forbidden TypeScript import type references and reject non-static module loads in architecture checks (ARCH0001).
+- Use Node test discovery without shell globbing; add Windows/Node 20 CI coverage.
+
 - Planned: condition normalization, active client/TOC resolution, richer symbol contracts.
 - Under review: separating provider `GlobalDeclaration` input from consolidated `GlobalSymbol` output; not yet implemented in the v0.2.0 API.
 
