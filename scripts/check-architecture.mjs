@@ -62,11 +62,15 @@ for (const [name, permitted] of allowed) {
         }
       }
       if (ts.isCallExpression(node)) {
-        const moduleLoad = node.expression.kind === ts.SyntaxKind.ImportKeyword ||
-          (ts.isIdentifier(node.expression) && node.expression.text === 'require');
-        if (moduleLoad) {
+        const importCall = node.expression.kind === ts.SyntaxKind.ImportKeyword;
+        const requireCall = ts.isIdentifier(node.expression) && node.expression.text === 'require';
+        if (importCall || requireCall) {
           const target = node.arguments[0];
-          if (node.arguments.length !== 1 || !target || !ts.isStringLiteral(target)) {
+          // import(specifier, options) remains auditable; require() stays single-argument.
+          const validArity = importCall
+            ? node.arguments.length === 1 || node.arguments.length === 2
+            : node.arguments.length === 1;
+          if (!validArity || !target || !ts.isStringLiteral(target)) {
             errors.push(`ARCH0001: non-static module load (${path.relative(root,file)})`);
           } else {
             specs.push(target.text);

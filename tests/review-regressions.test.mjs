@@ -80,3 +80,45 @@ test('dependency-free package passes architecture audit', () => {
   assert.equal(result.status,0,result.stderr);
   assert.match(result.stdout,/Architecture PASS/);
 });
+
+// Copilot follow-up: both ends must map to original offsets across stripped annotations.
+test('malformed separated TOC annotations map full original header span', () => {
+  const parsed = parseToc('## SavedVariables[Bad][AllowLoadGameType vanilla][Oops]: DB', 'Test/Test.toc');
+  const diagnostic = parsed.diagnostics.find(d => d.code === 'TOC0001');
+  assert.deepEqual(diagnostic?.source.range, {
+    start: { line: 0, column: 17 }, end: { line: 0, column: 55 },
+  });
+  assert.deepEqual(listGlobals(buildTocGlobalRegistry([parsed.metadata])), []);
+});
+
+test('malformed header annotation preserves original end after interleaved recognized conditions', () => {
+  const input = '## SavedVariables[Bad][AllowLoadGameType vanilla][Oops]   : DB';
+  const parsed = parseToc(input, 'Test/Test.toc');
+  const diagnostic = parsed.diagnostics.find(d => d.code === 'TOC0001');
+  assert.deepEqual(diagnostic?.source.range, {
+    start: { line: 0, column: 17 }, end: { line: 0, column: 55 },
+  });
+});
+
+test('architecture audit permits static local dynamic import with options', () => {
+  const result = auditWithSource('addon-metadata', "void import('./index.js', {});");
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('architecture audit still refuses a dynamic module target with options', () => {
+  const result = auditWithSource('addon-metadata', "const target = '@wow-addon/global-registry'; void import(target, {});");
+  assert.notEqual(result.status, 0, result.stdout);
+  assert.match(result.stderr, /ARCH0001.*non-static module load/);
+});
+
+test('architecture audit preserves require single-argument rule', () => {
+  const result = auditWithSource('addon-metadata', "declare const require: (...args: unknown[]) => unknown; void require('./index.js', {});");
+  assert.notEqual(result.status, 0, result.stdout);
+  assert.match(result.stderr, /ARCH0001.*non-static module load/);
+});
+
+test('architecture audit checks forbidden literal imports even with options', () => {
+  const result = auditWithSource('addon-metadata', "void import('@wow-addon/global-registry', {});");
+  assert.notEqual(result.status, 0, result.stdout);
+  assert.match(result.stderr, /addon-metadata cannot import @wow-addon\/global-registry/);
+});

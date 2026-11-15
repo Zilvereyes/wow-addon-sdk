@@ -4,6 +4,13 @@ Changes are recorded by release. This project is in pre-1.0 development.
 
 ## [Unreleased]
 
+### Review follow-up
+
+- Fix TOC0001 end positions after recognized header conditions are removed.
+- Allow static `import(specifier, options)` without bypassing architecture rules; `require()` retains a single-argument restriction.
+- Add six regression tests without changing the public TypeScript API.
+
+
 ### Fixed
 
 - Reject unknown or malformed TOC header conditions instead of exposing globals unconditionally (TOC0001).
