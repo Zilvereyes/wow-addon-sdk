@@ -53,9 +53,24 @@ for (const [name, permitted] of allowed) {
       if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference) && node.moduleReference.expression && ts.isStringLiteral(node.moduleReference.expression)) {
         specs.push(node.moduleReference.expression.text);
       }
-      if (ts.isCallExpression(node) && node.arguments.length >= 1 && ts.isStringLiteral(node.arguments[0])) {
-        if (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === 'require')) {
-          specs.push(node.arguments[0].text);
+      if (ts.isImportTypeNode(node)) {
+        const argument = node.argument;
+        if (ts.isLiteralTypeNode(argument) && ts.isStringLiteral(argument.literal)) {
+          specs.push(argument.literal.text);
+        } else {
+          errors.push(`ARCH0001: non-static module type import (${path.relative(root,file)})`);
+        }
+      }
+      if (ts.isCallExpression(node)) {
+        const moduleLoad = node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+          (ts.isIdentifier(node.expression) && node.expression.text === 'require');
+        if (moduleLoad) {
+          const target = node.arguments[0];
+          if (node.arguments.length !== 1 || !target || !ts.isStringLiteral(target)) {
+            errors.push(`ARCH0001: non-static module load (${path.relative(root,file)})`);
+          } else {
+            specs.push(target.text);
+          }
         }
       }
       ts.forEachChild(node, visit);

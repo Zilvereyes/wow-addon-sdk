@@ -10,7 +10,7 @@
     "build": "tsc -b",
     "clean": "tsc -b --clean",
     "typecheck": "tsc -b --pretty false",
-    "test": "npm run build && node --test tests/*.test.mjs",
+    "test": "npm run build && node --test",
     "check:architecture": "node scripts/check-architecture.mjs",
     "check:api": "node scripts/check-api-snapshots.mjs",
     "check:deps": "depcruise --config .dependency-cruiser.cjs packages",
