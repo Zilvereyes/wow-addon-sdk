@@ -1,0 +1,14 @@
+## Interface: 120100, 120105
+## Title: ZilverUI
+## Notes: Shared TOC parser demonstration
+## Dependencies: LibStub
+## OptionalDeps: CallbackHandler
+## X-Embeds: LibStub, CallbackHandler
+## SavedVariables: ZUI_DB, ZUI_Config
+## SavedVariablesPerCharacter: ZUI_CharacterDB
+## SavedVariables: RetailOnlyDB [AllowLoadGameType standard]
+# TOC file order is significant
+Core.lua
+Modules\Chat.lua
+[Family]\Core_Family.lua
+Localization\[TextLocale].lua

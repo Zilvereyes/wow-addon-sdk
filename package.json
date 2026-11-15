@@ -1,0 +1,30 @@
+{
+  "name": "wow-addon-sdk",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "tsc -b --clean",
+    "typecheck": "tsc -b --pretty false",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "check:architecture": "node scripts/check-architecture.mjs",
+    "check:api": "node scripts/check-api-snapshots.mjs",
+    "check:deps": "depcruise --config .dependency-cruiser.cjs packages",
+    "check:all": "npm run typecheck && node --test tests/*.test.mjs && npm run check:architecture && npm run check:deps && npm run check:api",
+    "api:extractor": "node scripts/run-api-extractor.mjs",
+    "api:extractor:local": "node scripts/run-api-extractor.mjs --local"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "dependency-cruiser": "^16.10.0",
+    "@microsoft/api-extractor": "^7.52.0"
+  },
+  "license": "MIT"
+}
