@@ -173,12 +173,14 @@ export function parseToc(content: string, tocPath: string, options: TocParseOpti
       // their conditional semantics and exposing an unconditional global.
       if (parsedHeader.clean.trim().length > 0) {
         const first = parsedHeader.clean.search(/\S/);
+        const last = parsedHeader.clean.trimEnd().length - 1;
         const firstOriginal = parsedHeader.positions[first] ?? 0;
+        const lastOriginal = parsedHeader.positions[last] ?? firstOriginal;
         const invalidText = parsedHeader.clean.slice(first).trimEnd();
         const annotationSource = source(
           tocPath, lineIndex,
           bomOffset + headerStart + firstOriginal,
-          bomOffset + headerStart + firstOriginal + invalidText.length,
+          bomOffset + headerStart + lastOriginal + 1,
         );
         addDiagnostic('error', 'TOC0001', `Unsupported or malformed TOC header annotation: ${invalidText}`, annotationSource);
         kindEntry('invalid');
