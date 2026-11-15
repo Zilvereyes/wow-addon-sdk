@@ -1,0 +1,20 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "./packages/diagnostics"
+    },
+    {
+      "path": "./packages/addon-metadata"
+    },
+    {
+      "path": "./packages/toc-parser"
+    },
+    {
+      "path": "./packages/global-registry"
+    },
+    {
+      "path": "./packages/toc-metadata-adapter"
+    }
+  ]
+}

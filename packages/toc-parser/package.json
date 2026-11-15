@@ -1,0 +1,21 @@
+{
+  "name": "@wow-addon/toc-parser",
+  "version": "0.2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@wow-addon/addon-metadata": "0.2.0",
+    "@wow-addon/diagnostics": "0.2.0"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,16 @@
+name: SDK contract and architecture checks
+on:
+  push:
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Bootstrap uses npm install because original offline artifact has no lockfile.
+      # After the initial online install, commit package-lock.json and switch to npm ci.
+      - run: npm install --ignore-scripts --no-audit --no-fund
+      - run: npm run check:all
