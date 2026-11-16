@@ -8,7 +8,7 @@ The [v0.3.5 milestone epic](https://github.com/Zilvereyes/wow-addon-sdk/issues/7
 
 **Core accepted:** v0.3.5 is integrated through PR #21 / `0cee5c9`, following v0.3.4 composition. All 142 core tests and four supported final-head/main CI jobs passed. The [pre-freeze review](PRE-FREEZE-REVIEW.md) addresses protection, surface, named rules, union compatibility, placement and TOC errors. Built-in WoW policies remain separate verified-data work. See the [readiness mapping](RELEASE-READINESS-v0.3.5.md), [execution plan](EXECUTION-v0.3.5.md), [core migration](MIGRATION-v0.2-to-v0.3.md) and [measured corpus baseline](LOCAL-CORPUS-TESTING.md).
 
-**Current extension:** approved [Lua A–E](DESIGN-LUA-ANALYSIS.md) adds an actual syntax/provider package without changing core edges. All 200 integrated tests and strict local gates pass; exact-head supported CI/review belongs to its PR/#11. Actual corpus parsing is measured with explicit encoding/budget/dynamic-environment limitations. XML/reference graph remain next. Tag/publication of the verified v0.3.5 cut is a separate decision; the overall goal stays active.
+**Current extension:** approved [Lua A–E](DESIGN-LUA-ANALYSIS.md) adds an actual syntax/provider package without changing core edges. All 207 integrated tests and strict local gates pass; exact-head supported CI/review belongs to its PR/#11. Actual corpus parsing is measured with explicit encoding/budget/dynamic-environment limitations. XML/reference graph remain next. Tag/publication of the verified v0.3.5 cut is a separate decision; the overall goal stays active.
 
 | Version | Independently reviewed delivery |
 | --- | --- |

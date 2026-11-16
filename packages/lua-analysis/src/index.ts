@@ -97,7 +97,7 @@ export function analyzeLua(content: string, sourcePath: string, options: LuaAnal
     ] };
   }
   if (typeof content !== 'string' || !nonempty(sourcePath) || !record(options) || !nonempty(options.addonId) ||
-      (Object.hasOwn(options, 'conditions') && (!denseArray(options.conditions) || !options.conditions.every(validCondition)))) {
+      ('conditions' in options && (!denseArray(options.conditions) || !options.conditions.every(validCondition)))) {
     return failure('LUA0001', 'Invalid Lua analysis input projection.');
   }
   if (content.length > 1024 * 1024) return failure('LUA0003', 'Lua analysis resource limit exceeded.');
