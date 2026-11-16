@@ -4,6 +4,13 @@ Changes are recorded by release. This project is in pre-1.0 development.
 
 ## [Unreleased]
 
+### Pre-freeze review checkpoint
+
+- Name and export the existing policy rule as beta `ConditionEvaluationRule` at the user's request (52 total exports); preserve structural fields, readonly restrictions, policy JSON and runtime behavior.
+- Record every export's consumer purpose, exhaustive-union compatibility risks, evaluator placement rationale and remaining real-provider/dialect evidence. Correct stale static-vs-resolved wording.
+- Record the user-selected solo-owner protection: PRs, four up-to-date required GitHub Actions checks and administrator enforcement; chat sign-off is distinct from a GitHub approving review.
+- Classify all 19 remaining corpus errors as unsupported nonempty heading syntax, retain failures and extend authored strict-heading regressions without copying installed sources. No v0.3.5 freeze, source version bump, parser dependency or release publication is claimed by this checkpoint.
+
 ### v0.3.4 composed resolved globals (source version; not published)
 
 - Add the six approved resolver contracts/function in the existing adapter leaf (51 beta exports total), with independent resolved-result schema 1 and unchanged metadata/environment schemas 2/1.

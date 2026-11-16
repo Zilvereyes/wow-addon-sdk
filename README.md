@@ -50,7 +50,7 @@ console.log(listGlobals(registry)); // ['ZUI_DB', 'ZUI_Character']
 - `toc-parser` can depend on `diagnostics` and `addon-metadata`, never the registry.
 - `toc-metadata-adapter` connects the two domains without reversing their dependency direction.
 - Source positions use **zero-based UTF-16 offsets with exclusive end ranges**.
-- Conditions are **preserved**, not yet evaluated. Conditional symbols are omitted from `listGlobals()` by default.
+- Static APIs preserve conditions and omit conditional symbols from `listGlobals()` by default. Explicit evaluation/resolution APIs derive availability under caller-supplied policies.
 
 See [architecture](docs/ARCHITECTURE.md), [diagnostic codes](docs/DIAGNOSTIC-CODES.md), and the [v0.1 → v0.2 migration guide](docs/MIGRATION-v0.1-to-v0.2.md).
 
@@ -69,7 +69,7 @@ npm run check:packages
 
 GitHub Actions validates Node 22 and 24 on both Ubuntu 24.04 and Windows. The repository includes GitHub Actions verification, TypeScript project references, a custom import-boundary audit, dependency-cruiser rules, versioned declaration snapshots and API Extractor configurations. **Strict API Extractor and actual npm dry-run file-list assertions are mandatory CI gates.** Use `npm run api:extractor:local` only to intentionally regenerate reviewed reports, then run strict `npm run api:extractor`.
 
-v0.3.0 adds separate environment schema 1 and caller-owned logical/variant identity contracts. v0.3.1–0.3.3 provide explicit-policy selection, provenance and conservative evaluation. v0.3.4 composes them into a resolved view: known active names, selected declaration origins and active-only scope conflicts. Static APIs retain their behavior. Metadata remains schema 2; the original 30 beta exports are preserved (51 total), and no built-in WoW-loader policy is inferred. See [migration](docs/MIGRATION-v0.2-to-v0.3.md), [selection](docs/DESIGN-v0.3.1.md), [provenance](docs/DESIGN-v0.3.2.md), [evaluation](docs/DESIGN-v0.3.3.md) and [resolution design](docs/DESIGN-v0.3.4.md). For optional read-only installed-AddOn checks, see [local corpus testing](docs/LOCAL-CORPUS-TESTING.md). The [detailed plan](docs/EXECUTION-v0.3.5.md) covers core freeze and subsequent actual Lua/XML parsing.
+v0.3.0 adds separate environment schema 1 and caller-owned logical/variant identity contracts. v0.3.1–0.3.3 provide explicit-policy selection, provenance and conservative evaluation. v0.3.4 composes them into a resolved view: known active names, selected declaration origins and active-only scope conflicts. Static APIs retain their behavior. Metadata remains schema 2; the original 30 beta exports are preserved (52 total including the named condition-rule type), and no built-in WoW-loader policy is inferred. See [migration](docs/MIGRATION-v0.2-to-v0.3.md), [selection](docs/DESIGN-v0.3.1.md), [provenance](docs/DESIGN-v0.3.2.md), [evaluation](docs/DESIGN-v0.3.3.md) and [resolution design](docs/DESIGN-v0.3.4.md). For optional read-only installed-AddOn checks, see [local corpus testing](docs/LOCAL-CORPUS-TESTING.md). The [pre-freeze review](docs/PRE-FREEZE-REVIEW.md) and [public surface inventory](docs/PUBLIC-SURFACE.md) record remaining acceptance before v0.3.5. The [detailed plan](docs/EXECUTION-v0.3.5.md) covers core freeze and subsequent actual Lua/XML parsing.
 
 ## Non-goals (v0.3.4)
 

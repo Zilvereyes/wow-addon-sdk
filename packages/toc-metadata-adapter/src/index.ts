@@ -257,6 +257,20 @@ export function selectTocVariant(
 }
 
 /**
+ * One reusable caller rule. Provider identity, field, operation and comparison
+ * retain the same structure previously inlined in ConditionEvaluationPolicy.
+ *
+ * @beta
+ */
+export interface ConditionEvaluationRule {
+  readonly providerId: string;
+  readonly name: string;
+  readonly field: 'gameType' | 'textLocale' | 'gameMode';
+  readonly operator: 'include' | 'exclude';
+  readonly valueComparison: 'exact' | 'ascii-insensitive';
+}
+
+/**
  * Explicit data-only caller semantics, not a built-in WoW condition table.
  * Provider IDs always match exactly; ASCII comparison folds A-Z only.
  * Values are ORed within a rule, with conservative AND across conditions.
@@ -267,13 +281,7 @@ export interface ConditionEvaluationPolicy {
   readonly schemaVersion: 1;
   readonly id: string;
   readonly nameComparison: 'exact' | 'ascii-insensitive';
-  readonly rules: readonly {
-    readonly providerId: string;
-    readonly name: string;
-    readonly field: 'gameType' | 'textLocale' | 'gameMode';
-    readonly operator: 'include' | 'exclude';
-    readonly valueComparison: 'exact' | 'ascii-insensitive';
-  }[];
+  readonly rules: readonly ConditionEvaluationRule[];
 }
 
 /**
@@ -306,7 +314,7 @@ function asciiFold(value: string): string {
   return value.replace(/[A-Z]/g, character => character.toLowerCase());
 }
 
-function validConditionRule(value: unknown): value is ConditionEvaluationPolicy['rules'][number] {
+function validConditionRule(value: unknown): value is ConditionEvaluationRule {
   return record(value) && nonempty(value.providerId) && nonempty(value.name) &&
     typeof value.field === 'string' && ['gameType', 'textLocale', 'gameMode'].includes(value.field) &&
     typeof value.operator === 'string' && ['include', 'exclude'].includes(value.operator) &&
@@ -343,7 +351,7 @@ function conditionResult(
 }
 
 interface EvaluationContext {
-  rules: Map<string, ConditionEvaluationPolicy['rules'][number]>;
+  rules: Map<string, ConditionEvaluationRule>;
   normalizeName: (value: string) => string;
 }
 
@@ -361,7 +369,7 @@ function evaluationContext(
       !record(policy) || policy.schemaVersion !== 1 || !nonempty(policy.id) ||
       !['exact', 'ascii-insensitive'].includes(policy.nameComparison) || !Array.isArray(policy.rules)) return invalidContext();
   const normalizeName = (value: string): string => policy.nameComparison === 'exact' ? value : asciiFold(value);
-  const rules = new Map<string, ConditionEvaluationPolicy['rules'][number]>();
+  const rules = new Map<string, ConditionEvaluationRule>();
   for (const rule of Array.from(policy.rules)) {
     if (!validConditionRule(rule)) return invalidContext();
     const key = JSON.stringify([rule.providerId, normalizeName(rule.name)]);

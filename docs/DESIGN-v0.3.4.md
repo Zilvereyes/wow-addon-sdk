@@ -1,6 +1,6 @@
 # v0.3.4: selection-aware resolved globals
 
-**Status: A–E approved, implemented on the feature branch and under final verification.** The user approved implementation in [issue #6, comment 6919012067](https://github.com/Zilvereyes/wow-addon-sdk/issues/6#issuecomment-6919012067). The starting baseline is v0.3.3 / `59f81ee`, with 45 beta exports and 118 tests. This design adds six beta exports (51 total), source version 0.3.4 and a separate resolved-result schema 1 while retaining metadata/environment schemas 2/1.
+**Status: A–E approved and integrated through PR #20 as `e3a477b`.** The user approved implementation in [issue #6, comment 6919012067](https://github.com/Zilvereyes/wow-addon-sdk/issues/6#issuecomment-6919012067). The starting baseline was v0.3.3 / `59f81ee`, with 45 beta exports and 118 tests. This design added six beta exports (51 total at integration), source version 0.3.4 and a separate resolved-result schema 1 while retaining metadata/environment schemas 2/1. All 142 tests and supported final-head/main CI jobs passed; see [#7](https://github.com/Zilvereyes/wow-addon-sdk/issues/7). Later pre-freeze surface review is tracked separately.
 
 ## Outcome
 

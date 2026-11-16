@@ -79,6 +79,19 @@ export interface TocSelectionResult {
  */
 export declare function selectTocVariant(environment: ClientEnvironment, logicalAddonId: string, addonBaseName: string, candidates: readonly TocSelectionCandidate[], policy: TocSelectionPolicy): TocSelectionResult;
 /**
+ * One reusable caller rule. Provider identity, field, operation and comparison
+ * retain the same structure previously inlined in ConditionEvaluationPolicy.
+ *
+ * @beta
+ */
+export interface ConditionEvaluationRule {
+    readonly providerId: string;
+    readonly name: string;
+    readonly field: 'gameType' | 'textLocale' | 'gameMode';
+    readonly operator: 'include' | 'exclude';
+    readonly valueComparison: 'exact' | 'ascii-insensitive';
+}
+/**
  * Explicit data-only caller semantics, not a built-in WoW condition table.
  * Provider IDs always match exactly; ASCII comparison folds A-Z only.
  * Values are ORed within a rule, with conservative AND across conditions.
@@ -89,13 +102,7 @@ export interface ConditionEvaluationPolicy {
     readonly schemaVersion: 1;
     readonly id: string;
     readonly nameComparison: 'exact' | 'ascii-insensitive';
-    readonly rules: readonly {
-        readonly providerId: string;
-        readonly name: string;
-        readonly field: 'gameType' | 'textLocale' | 'gameMode';
-        readonly operator: 'include' | 'exclude';
-        readonly valueComparison: 'exact' | 'ascii-insensitive';
-    }[];
+    readonly rules: readonly ConditionEvaluationRule[];
 }
 /**
  * Fixed explanation with independent source copies. Context-only issues may

@@ -69,7 +69,8 @@ The v0.3.0 environment/identity decisions A–D were approved in [issue #6](http
 2. Update architecture, migration, examples, changelog and detailed capability table from implemented behavior. Remove stale proposal/approval statements.
 3. Validate locked dependencies, strict API reports, exact tarball listing/licenses and exclusion of assets. Check clean install on Ubuntu/Windows × Node 22/24 on one final SHA.
 4. Re-run corpus after relevant parser/resolver changes and retain honest diagnostics/coverage. Record remaining upstream/unsupported cases as issues with synthetic reproductions.
-5. Create a release-readiness record mapping each #7 checkbox to test/CI evidence. Obtain merge and later tag/publication approval only for a concrete reviewed result. Architectural freeze is not v1 API stability.
+5. Address the user's [pre-freeze review](PRE-FREEZE-REVIEW.md), including the [complete public surface inventory](PUBLIC-SURFACE.md), named rule, union compatibility, evaluator placement and every remaining corpus error. The user selected solo-owner PR protection with four required checks and chat sign-off. Routine green integration retains the recorded authorization; final freeze sign-off and later tag/publication must be concrete. Architectural freeze is not v1 API stability.
+6. Create a release-readiness record mapping each #7 checkbox to test/CI evidence. Keep actual second-provider evidence and the full three-parser project goal explicitly open; all exports stay beta.
 
 ## 8. After freeze: actual Lua and XML parsing
 

@@ -37,13 +37,7 @@ export interface ConditionEvaluationPolicy {
     // (undocumented)
     readonly nameComparison: 'exact' | 'ascii-insensitive';
     // (undocumented)
-    readonly rules: readonly {
-        readonly providerId: string;
-        readonly name: string;
-        readonly field: 'gameType' | 'textLocale' | 'gameMode';
-        readonly operator: 'include' | 'exclude';
-        readonly valueComparison: 'exact' | 'ascii-insensitive';
-    }[];
+    readonly rules: readonly ConditionEvaluationRule[];
     // (undocumented)
     readonly schemaVersion: 1;
 }
@@ -56,6 +50,20 @@ export interface ConditionEvaluationResult {
     readonly issues: readonly ConditionEvaluationIssue[];
     // (undocumented)
     readonly reason: 'unconditional' | 'conditions-satisfied' | 'condition-mismatch' | 'missing-provenance' | 'unknown' | 'invalid-input';
+}
+
+// @beta
+export interface ConditionEvaluationRule {
+    // (undocumented)
+    readonly field: 'gameType' | 'textLocale' | 'gameMode';
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly operator: 'include' | 'exclude';
+    // (undocumented)
+    readonly providerId: string;
+    // (undocumented)
+    readonly valueComparison: 'exact' | 'ascii-insensitive';
 }
 
 // @beta
