@@ -6,7 +6,7 @@ The [v0.3.5 milestone epic](https://github.com/Zilvereyes/wow-addon-sdk/issues/7
 
 **Verified prerequisite:** PR #5 was merged into main on 2026-11-16 as `44b138d5152bb2e43ae43afa793e3613d11b6de5`. Its reviewed head was `7fe976a`; all eight push/PR matrix jobs passed. This is infrastructure completion, not a v0.3.x release.
 
-**Current increment:** v0.3.0 is in design review. See [environment and identity proposal](DESIGN-v0.3.0.md); its four decisions are proposed, not approved or implemented.
+**Current increment:** the four v0.3.0 [environment and identity decisions](DESIGN-v0.3.0.md) are approved and implemented on the contracts-and-corpus branch, pending PR integration. See the [detailed execution plan](EXECUTION-v0.3.5.md), [migration notes](MIGRATION-v0.2-to-v0.3.md), [repository review](REVIEW-2026-11-16.md) and [measured local corpus baseline](LOCAL-CORPUS-TESTING.md). Lua/XML are inventoried, not yet parsed.
 
 | Version | Independently reviewed delivery |
 | --- | --- |
@@ -20,4 +20,4 @@ The [v0.3.5 milestone epic](https://github.com/Zilvereyes/wow-addon-sdk/issues/7
 
 **Invariants:** Keep the five existing package boundaries and no dependencies on VS Code/LuaLS/Continue in core. Select TOC variants before evaluating conditions. Preserve static declaration provenance, and derive environment availability without changing source records. The `@beta` public surface is not SemVer consumer stability; that remains a separate v1.0 decision.
 
-**Fixtures:** CI uses synthetic test data. A local read-only Classic Era check may use `C:\Games\World of Warcraft\_classic_era_\Interface\AddOns\`; never commit Blizzard client extracts or third-party AddOn files without rights.
+**Fixtures:** CI uses synthetic test data. An opt-in local read-only Classic Era check accepts the caller's AddOns directory; never commit Blizzard client extracts, installation paths or third-party AddOn files without rights.

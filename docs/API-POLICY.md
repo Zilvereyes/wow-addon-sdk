@@ -2,7 +2,7 @@
 
 ## Before 1.0
 
-The SDK is in active development. Public TypeScript APIs can change. All 30 intentional exports in the five current packages use `@beta`. `@public` is reserved for an explicit consumer-stability decision, normally v1.0. API changes require reviewed declaration snapshots in `api/baselines`, reviewed reports in `packages/*/etc/*.api.md` and migration notes for compatibility changes.
+The SDK is in active development. Public TypeScript APIs can change. All 34 intentional exports in the five current packages use `@beta` (30 preserved plus four approved v0.3.0 additions). `@public` is reserved for an explicit consumer-stability decision, normally v1.0. API changes require reviewed declaration snapshots in `api/baselines`, reviewed reports in `packages/*/etc/*.api.md` and migration notes for compatibility changes.
 
 ## 0.3.5 — Architectural Freeze
 
@@ -18,6 +18,6 @@ From 1.0.0 the project intends to follow SemVer: breaking public API changes req
 - `npm run check:deps` runs dependency-cruiser.
 - `npm run check:api` checks compiled declaration snapshots.
 - Strict `npm run api:extractor` validates five committed reports as a mandatory CI gate. Only run `npm run api:extractor:local` for deliberate report regeneration and review.
-- `npm pack --dry-run --workspaces --ignore-scripts` runs in CI; the public-export audit enforces identical MIT LICENSE files in every workspace.
+- `npm run check:packages` asserts npm's dry-run listing contains exactly the five workspaces and four approved files each; the public-export audit separately enforces identical MIT LICENSE files.
 
 Versioned serialized metadata (`METADATA_SCHEMA_VERSION`) is separate from the npm package SemVer version.

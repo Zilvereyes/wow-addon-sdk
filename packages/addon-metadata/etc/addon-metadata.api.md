@@ -17,6 +17,12 @@ export interface AddOnFileReference {
     source: SourceReference;
 }
 
+// @beta
+export interface AddOnIdentity {
+    // (undocumented)
+    readonly logicalAddonId: string;
+}
+
 // @beta (undocumented)
 export interface AddOnMetadata {
     client: WoWClient;
@@ -55,6 +61,25 @@ export interface AddOnMetadata {
     tocPath: string;
     // (undocumented)
     tocSuffix: string | null;
+}
+
+// @beta
+export const CLIENT_ENVIRONMENT_SCHEMA_VERSION: 1;
+
+// @beta
+export interface ClientEnvironment {
+    // (undocumented)
+    readonly client: WoWClient;
+    // (undocumented)
+    readonly clientFamily: WoWClientFamily;
+    // (undocumented)
+    readonly gameMode?: WoWGameMode;
+    // (undocumented)
+    readonly gameType?: string;
+    // (undocumented)
+    readonly schemaVersion: typeof CLIENT_ENVIRONMENT_SCHEMA_VERSION;
+    // (undocumented)
+    readonly textLocale?: string;
 }
 
 // @beta (undocumented)
@@ -126,6 +151,18 @@ export interface TocParseResult {
     entries: TocEntry[];
     // (undocumented)
     metadata: AddOnMetadata;
+}
+
+// @beta
+export interface TocVariantIdentity extends AddOnIdentity {
+    // (undocumented)
+    readonly source: SourceReference;
+    // (undocumented)
+    readonly tocPath: string;
+    // (undocumented)
+    readonly tocSuffix: string | null;
+    // (undocumented)
+    readonly tocVariantId: string;
 }
 
 // @beta (undocumented)

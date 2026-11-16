@@ -1,7 +1,7 @@
 # v0.3.0 environment and identity proposal
 
-**Status: PROPOSED — awaiting explicit approval in design issue #6.**
-This document starts [issue #8](https://github.com/Zilvereyes/wow-addon-sdk/issues/8) after merged PR #5. It changes no runtime code, exported declarations, parser behavior, serialized metadata, or npm version. The eventual implementation needs a separate reviewed change after the decisions below are approved.
+**Status: APPROVED — decisions A–D approved on 2026-11-16 in [design issue #6](https://github.com/Zilvereyes/wow-addon-sdk/issues/6#issuecomment-6913838520).**
+This document records the approved design for [issue #8](https://github.com/Zilvereyes/wow-addon-sdk/issues/8) after merged PR #5. Its additive implementation and tests are on the contracts-and-corpus branch. See [migration notes](MIGRATION-v0.2-to-v0.3.md) for implemented behavior and [execution plan](EXECUTION-v0.3.5.md) for subsequent steps. The original proposal remains below as design history; its approval requests are now satisfied for A–D only.
 
 ## Decision A — explicit, independently versioned environment
 

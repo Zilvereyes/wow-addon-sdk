@@ -133,3 +133,53 @@ export interface TocParseResult {
   entries: TocEntry[];
   diagnostics: Diagnostic[];
 }
+
+/**
+ * Version of the separate client-environment input; metadata remains schema 2.
+ *
+ * @beta
+ */
+export const CLIENT_ENVIRONMENT_SCHEMA_VERSION = 1 as const;
+
+/**
+ * Explicit caller-supplied environment. Omitted optional fields mean unknown.
+ * Unsupported values never imply activation. A contradictory known client/family
+ * must be diagnosed by a selector rather than silently repaired.
+ * Readonly fields are a TypeScript contract, not runtime validation or freezing.
+ *
+ * @beta
+ */
+export interface ClientEnvironment {
+  readonly schemaVersion: typeof CLIENT_ENVIRONMENT_SCHEMA_VERSION;
+  readonly client: WoWClient;
+  readonly clientFamily: WoWClientFamily;
+  readonly gameMode?: WoWGameMode;
+  readonly gameType?: string;
+  readonly textLocale?: string;
+}
+
+/**
+ * Caller-owned identity scoped to an installation or workspace. The caller
+ * supplies a non-empty opaque ID shared by all variants of one logical AddOn.
+ * No path, case or Unicode normalization is implied; validation is caller-owned.
+ *
+ * @beta
+ */
+export interface AddOnIdentity {
+  readonly logicalAddonId: string;
+}
+
+/**
+ * Exact source identity, separate from logical identity and active selection.
+ * Set tocVariantId to JSON.stringify([logicalAddonId, tocPath]). Preserve the
+ * original path, supplied suffix and UTF-16 source reference without normalization.
+ * Readonly is shallow: the existing SourceReference shape remains unchanged.
+ *
+ * @beta
+ */
+export interface TocVariantIdentity extends AddOnIdentity {
+  readonly tocVariantId: string;
+  readonly tocPath: string;
+  readonly tocSuffix: string | null;
+  readonly source: SourceReference;
+}

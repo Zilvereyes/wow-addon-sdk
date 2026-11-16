@@ -1,7 +1,7 @@
 {
   "name": "wow-addon-sdk",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "workspaces": [
     "packages/*"
@@ -17,7 +17,9 @@
     "check:all": "npm run build && node scripts/run-tests.mjs && npm run check:architecture && npm run check:deps && npm run check:api && npm run check:exports",
     "api:extractor": "node scripts/run-api-extractor.mjs",
     "api:extractor:local": "node scripts/run-api-extractor.mjs --local",
-    "check:exports": "node scripts/check-public-exports.mjs"
+    "check:exports": "node scripts/check-public-exports.mjs",
+    "check:packages": "node scripts/check-package-contents.mjs",
+    "test:corpus": "npm run build && node scripts/inspect-addon-corpus.mjs"
   },
   "engines": {
     "node": ">=22"

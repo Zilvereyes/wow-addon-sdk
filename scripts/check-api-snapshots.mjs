@@ -16,4 +16,4 @@ for (const name of packages) {
 if (errors.length) {
   for (const error of errors) console.error(`API ERROR: ${error}`);
   process.exitCode = 1;
-} else console.log(`API snapshot PASS: ${packages.length} public declaration surfaces match reviewed v0.2.0 baseline`);
+} else console.log(`API snapshot PASS: ${packages.length} public declaration surfaces match reviewed baselines`);
