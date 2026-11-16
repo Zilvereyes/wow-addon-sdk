@@ -152,3 +152,19 @@ The bounded private triage ledger retains only filenames/hashes/ranges/statuses,
 All **434 TOCs**, 51,501 TOC reference visits, 19 errors / 12 warnings and zero skipped links remain. Composed TOC resolution still reports 100 groups / 227 candidates / 98 selected / two no-matches / 160 selected active names, with no scope issues. Lua's resolvedProviderParticipation=false explicitly separates these counts: the filesystem graph has not associated Lua with selected TOCs. XML remains 1,199 inventoried / zero parsed. The whole run exits **1**, status incomplete, fullParsing=false; #10/#11 and the overall goal remain open.
 
 After PR #22's inherited-condition, lexer-state and loop-header scope fixes, the entire read-only corpus run was repeated. All aggregate counts above match, including zero worker/read/backend failures and exit 1. Seven authored review regressions demonstrate the corrected cases; unchanged real-corpus totals are not presented as additional coverage.
+
+## Approved v0.4.1 corpus-files profile
+
+The user approved [Lua corpus-profile A–E](DESIGN-LUA-CORPUS-PROFILE.md). The standard run above remains the bounded baseline. The expanded run is explicit:
+
+```powershell
+node scripts/inspect-addon-corpus.mjs '<AddOns-directory>' --lua-analysis --lua-input-profile corpus-files --max-file-bytes 33554432 --condition-profile examples/classic-era-condition-profile.json --resolution-profile examples/classic-era-resolution-profile.json
+```
+
+The complete run on source snapshot `57b52a3` considered/submitted/completed **all 5,242 Lua files** and obtained **5,242 syntax verdicts: 5,241 accepted / one rejected**. All 136 previous encoding/input/byte/node/depth/stack blocks are gone under this opt-in profile: zero skipped oversized Lua, encoding, resource, worker, read or backend failures. This does not change the standard profile or claim every input has valid syntax.
+
+Transport counts are **5,238 strict UTF-8 / four explicitly byte-preserving**. Read input bytes total 485,315,420. There are 6,636 declaration occurrences: 1,830 static unconditional, zero inherited conditional and 4,806 unknown. Dynamic environment/code access leaves **1,531** lexical projections incomplete, with LUA0004 ×6,352; the remaining syntax diagnostic is LUA0002 ×1. Lua source-reference visits total 12,989. Byte transport does not assert intended Unicode or an editor's guessed columns.
+
+The run still has all 434 TOCs, 51,501 TOC source-reference visits, 347 adapter declarations, zero actual condition descriptors, 19 TOC0001 errors and 12 TOC0004 warnings. Composed resolution stays TOC-only: 100 groups / 227 candidates / 98 selected / two no-matches / 160 active names, no resolution issues. Lua graph participation remains false; XML remains 1,199 inventoried / zero SDK-parsed. Exit remains **1**, status failed, fullParsing=false. The single syntax rejection is being privately reconciled against the previous blocked/loader subset rather than waived.
+
+A subsequent corpus-only lifecycle fix makes replacement await failed-child close before starting a successor. A deterministic process-boundary regression failed with two launches before close and passes after the fix; native worker/heap/deadline checks are separate evidence. The full run above had zero worker failures and describes the earlier exact source snapshot. Post-fix affected-input reconciliation and final supported CI/review are recorded in #11 and the implementation PR before integration.

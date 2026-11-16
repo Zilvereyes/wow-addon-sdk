@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { EventEmitter } from 'node:events';
+import { PassThrough, Writable } from 'node:stream';
 import { createLuaParserThread } from '../scripts/lua-parser-thread-client.mjs';
 
 let module;
@@ -117,4 +119,41 @@ test('corpus supervisor deadlines and crashes stay explicit under the larger pre
   await fixture('process.exit(7);', { profile: 'corpus' }, async client => {
     await assert.rejects(client.analyze(request('not executed')), /lua-worker-exit/);
   });
+});
+
+test('corpus replacement waits for the failed child close event before starting its successor', async () => {
+  // Model delayed OS close deterministically; native worker/heap/deadline tests
+  // above separately exercise real processes. No timer or orphan grandchild.
+  const launches = [];
+  let releaseFirst = () => {};
+  const spawnProcess = () => {
+    const child = new EventEmitter();
+    const first = launches.length === 0;
+    child.exitCode = null; child.signalCode = null;
+    child.stdout = new PassThrough(); child.stderr = new PassThrough();
+    child.stdin = new Writable({ write(chunk, encoding, callback) {
+      const request = JSON.parse(chunk.toString());
+      child.stdout.write(first ? 'invalid-json\n' : JSON.stringify({ id: request.id,
+        result: { schemaVersion: 1, complete: true, declarations: [], diagnostics: [] } }) + '\n');
+      callback();
+    } });
+    child.kill = () => {
+      child.signalCode = 'SIGKILL';
+      if (!first) child.emit('close');
+    };
+    if (first) releaseFirst = () => child.emit('close');
+    launches.push(child);
+    return child;
+  };
+  const client = create({ profile: 'corpus', spawnProcess });
+  try {
+    await assert.rejects(client.analyze(request('first')), /lua-worker-protocol/);
+    const next = client.analyze(request('second'));
+    next.catch(() => {});
+    assert.equal(launches.length, 1);
+    await assert.rejects(client.analyze(request('overlapping restart')), /lua-worker-busy/);
+    releaseFirst();
+    assert.equal((await next).complete, true);
+    assert.equal(launches.length, 2);
+  } finally { releaseFirst(); await client.close(); }
 });

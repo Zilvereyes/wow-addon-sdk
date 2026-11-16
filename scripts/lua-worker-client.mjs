@@ -6,13 +6,14 @@ import { fileURLToPath } from 'node:url';
 // deadline or heap overrides from source data or profiles.
 export function createLuaWorker({ profile = 'bounded', timeoutMs = profile === 'corpus' ? 60000 : 10000,
   maxOutputBytes = (profile === 'corpus' ? 128 : 32) * 1024 * 1024,
+  spawnProcess = spawn,
   workerPath = fileURLToPath(new URL(profile === 'corpus' ? './lua-corpus-worker.mjs' : './lua-analysis-worker.mjs', import.meta.url)) } = {}) {
   if (!['bounded', 'corpus'].includes(profile) ||
       !Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > (profile === 'corpus' ? 60000 : 10000) ||
       !Number.isSafeInteger(maxOutputBytes) || maxOutputBytes <= 0 || maxOutputBytes > (profile === 'corpus' ? 128 : 32) * 1024 * 1024) {
     throw new RangeError('Invalid Lua worker limits');
   }
-  let active = null, closed = false, sequence = 0;
+  let active = null, closed = false, sequence = 0, restarting = false;
   const children = new Set();
   const error = code => new Error(code);
   function invalidate(state, code) {
@@ -28,7 +29,7 @@ export function createLuaWorker({ profile = 'bounded', timeoutMs = profile === '
     delete env.NODE_TEST_CONTEXT;
     delete env.NODE_V8_COVERAGE;
     const flags = profile === 'corpus' ? ['--max-old-space-size=2048'] : ['--max-old-space-size=128', '--stack_size=1024'];
-    const child = spawn(process.execPath, [...flags, workerPath], {
+    const child = spawnProcess(process.execPath, [...flags, workerPath], {
       stdio: ['pipe', 'pipe', 'pipe'], shell: false, windowsHide: true, env,
     });
     const state = { child, pending: null, buffer: '', bytes: 0, done: null };
@@ -61,9 +62,18 @@ export function createLuaWorker({ profile = 'bounded', timeoutMs = profile === '
     return state;
   }
   return {
-    analyze(request) {
+    analyze: function analyze(request) {
       if (closed) return Promise.reject(error('lua-worker-closed'));
-      if (active?.pending) return Promise.reject(error('lua-worker-busy'));
+      if (restarting || active?.pending) return Promise.reject(error('lua-worker-busy'));
+      if (profile === 'corpus' && !active && children.size) {
+        // A kill request is not a close/reap acknowledgement. Do not overlap
+        // large parser isolates while a failed child is still retiring.
+        restarting = true;
+        return Promise.all([...children].map(state => state.done)).then(() => {
+          restarting = false;
+          return analyze(request);
+        });
+      }
       try { active ??= start(); }
       catch { return Promise.reject(error('lua-worker-start')); }
       const state = active;
