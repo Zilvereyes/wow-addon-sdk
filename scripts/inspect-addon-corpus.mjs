@@ -70,9 +70,20 @@ function checkParse(content, filename) {
 
 function walk(folder, depth = 0) {
   if (depth > 64) { fail('depth-limit', true); return; }
-  let entries;
-  try { entries = fs.readdirSync(folder, { withFileTypes: true }); }
-  catch { fail('directory-read', true); return; }
+  const remaining = limits['--max-entries'] - report.entriesVisited;
+  if (remaining <= 0) { fail('entry-limit', true); return; }
+  const entries = [];
+  try {
+    const directory = fs.opendirSync(folder, { bufferSize: 1 });
+    try {
+      let entry;
+      while ((entry = directory.readSync()) !== null) {
+        // Detect overflow with one extra read; do not process an unordered subset.
+        if (entries.length >= remaining) { fail('entry-limit', true); return; }
+        entries.push(entry);
+      }
+    } finally { directory.closeSync(); }
+  } catch { fail('directory-read', true); return; }
   entries.sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
   for (const entry of entries) {
     if (report.entriesVisited >= limits['--max-entries']) { fail('entry-limit', true); return; }
