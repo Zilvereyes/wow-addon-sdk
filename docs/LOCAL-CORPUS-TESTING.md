@@ -66,3 +66,19 @@ The next isolated patch recognizes empty hash-only separators as comments and pe
 The changed source-reference count reflects removed error diagnostics for comments and the newly retained custom directive; the runner traverses references in both entries and diagnostics, so this count is not a unique-source total. All range/JSON invariants still passed. Lua/XML inventory and unimplemented parser status remain unchanged.
 
 The 19 remaining errors concern nonempty human headings. Primary upstream TOCs show this practice in [Skillet](https://github.com/b-morgan/Skillet/blob/master/Skillet.toc) and [MobInfo3](https://github.com/solocommand/MobInfo3/blob/master/MobInfo2.toc). These source examples establish real author usage; they do not independently prove every client loader rule. Broader comment recovery needs a separate explicit policy and regressions preserving malformed-SavedVariables safety. This focused patch does not claim full TOC conformance.
+
+## Optional v0.3.1 selection profile
+
+```powershell
+npm run test:corpus -- '<local-AddOns-directory>' --selection-profile examples/classic-era-selection-profile.json
+```
+
+The example is an explicitly supplied caller policy, not a verified built-in WoW-loader table. A profile contains `environment` and `policy` records accepted by `selectTocVariant`. Profile files are limited to 1 MiB. Malformed/unresolved profiles fail before corpus traversal; repeated profile arguments are rejected. The default run omits selection entirely.
+
+The tooling groups only immediate `<AddOns>/<folder>/*.toc` candidates by the exact folder basename and supplies scoped logical IDs. Embedded/nested library manifests stay in the complete TOC parse inventory but are not treated as independent loader AddOns. Unknown filenames are not automatically promoted to unsuffixed fallback. A valid run with no immediate-folder groups fails explicitly; per-group no-match is a normal result.
+
+Only counts of groups/candidates/statuses and issue codes are added to the report. Selected paths/IDs, profile values and source text remain private. The runner asserts candidate JSON is unchanged after selection. Selection never waives existing parse errors or asserts resolved global availability.
+
+On the same measured local corpus, the authored example profile processed **100 groups / 227 immediate-folder candidates**: **98 selected, 2 no-match, 0 unresolved/ambiguous/invalid**. All 434 TOCs were still parsed, including nested manifests, with the existing 19 errors and 12 warnings. Exit remained **1**. These are outcomes under the explicit example policy, not observations of the game loader. Lua/XML remain unparsed.
+
+Directory enumeration checks remaining budget before opening a directory and reads incrementally. An over-budget directory is rejected before processing an unordered subset; incomplete coverage cannot become a successful run.

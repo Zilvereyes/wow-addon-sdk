@@ -4,6 +4,13 @@ Changes are recorded by release. This project is in pre-1.0 development.
 
 ## [Unreleased]
 
+### v0.3.1 explicit-policy selection (source version; not published)
+
+- Add the approved pure `selectTocVariant` seam and four beta contracts in `toc-metadata-adapter` (39 exports total). Apply caller-supplied versioned priorities and exact optional applicability constraints without inventing a built-in game-loader policy.
+- Validate identity/source projections, exact unsuffixed fallback, unknown environments, invalid records and duplicate IDs; report canonical ambiguity/unresolved issues without mutating inputs or static registry behavior.
+- Add type contracts and behavior regressions for permutation invariance, case/Unicode/paths, malformed policies/sources, sparse lists, exact constraints and copied issue provenance. Metadata remains schema 2; environment remains schema 1.
+- Add opt-in aggregate corpus selection profiles for immediate-folder TOCs, with configuration limits and source-read gating. The example policy selects 98 of 100 local groups without hiding existing TOC diagnostics or claiming game-loader conformance.
+
 ### Client selection evidence tooling
 
 - Add a staging-only generator for eight synthetic TOC-selection/comment scenarios with distinct local Lua markers, MIT licenses and a final hashed manifest. Refuse existing outputs and resolved AddOns paths; installation and runtime observations remain separate user actions.
