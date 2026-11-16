@@ -6,7 +6,7 @@ The [v0.3.5 milestone epic](https://github.com/Zilvereyes/wow-addon-sdk/issues/7
 
 **Verified prerequisite:** PR #5 was merged into main on 2026-11-16 as `44b138d5152bb2e43ae43afa793e3613d11b6de5`. Its reviewed head was `7fe976a`; all eight push/PR matrix jobs passed. This is infrastructure completion, not a v0.3.x release.
 
-**Current increment:** the four v0.3.0 [environment and identity decisions](DESIGN-v0.3.0.md) are approved and implemented on the contracts-and-corpus branch, pending PR integration. See the [detailed execution plan](EXECUTION-v0.3.5.md), [migration notes](MIGRATION-v0.2-to-v0.3.md), [repository review](REVIEW-2026-11-16.md) and [measured local corpus baseline](LOCAL-CORPUS-TESTING.md). Lua/XML are inventoried, not yet parsed.
+**Current increment:** v0.3.0 contracts, focused corpus fixes and staging-only client probes are integrated into main through PR #12 and PR #15; supported post-merge CI passed. The user approved the v0.3.1 [explicit-policy selector](DESIGN-v0.3.1.md), now implemented on its feature branch pending final-head matrix verification and integration. A built-in WoW loader policy remains a separate verified-data task. See the [detailed execution plan](EXECUTION-v0.3.5.md), [migration notes](MIGRATION-v0.2-to-v0.3.md), [repository review](REVIEW-2026-11-16.md) and [measured local corpus baseline](LOCAL-CORPUS-TESTING.md). Lua/XML are inventoried, not yet parsed.
 
 | Version | Independently reviewed delivery |
 | --- | --- |

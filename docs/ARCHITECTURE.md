@@ -1,4 +1,4 @@
-# Arkitektur – WoW AddOn SDK v0.3.0
+# Arkitektur – WoW AddOn SDK v0.3.1
 
 ## Afhængighedsregler
 
@@ -26,6 +26,8 @@ Arkitekturen beskyttes af:
 v0.3.0 tilføjer fire beta-kontrakter i `addon-metadata`: separat environment-schema 1, klientmiljø samt logisk og præcis TOC-variantidentitet. Metadata-schema 2 og parser/registry-adfærd bevares. Se [migration](MIGRATION-v0.2-to-v0.3.md).
 
 Den valgfrie `scripts/inspect-addon-corpus.mjs` er lokal tooling uden for core. Den læser TOC-filer, kontrollerer kildepositioner og viser aggregerede diagnostics; Lua/XML optælles som endnu ikke implementerede parsere. Den tilføjer ingen filesystem-afhængighed til SDK-pakkerne.
+
+v0.3.1 placerer den rene `selectTocVariant` og fire tilhørende kontrakter i `toc-metadata-adapter`, som allerede er den godkendte semantiske bro. Den bruger eksplicit caller-politik og returnerer et variant-ID med afledte issues; den ændrer ikke statisk metadata eller registry. Ingen ekstra pakker, loader-tabeller, filesystem-adgang eller reverse imports tilføjes. Se [det godkendte design](DESIGN-v0.3.1.md).
 
 ## Syntaks, semantik, registry
 

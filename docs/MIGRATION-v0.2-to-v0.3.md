@@ -51,3 +51,31 @@ Source positions remain zero-based UTF-16, end-exclusive. Existing duplicate, pa
 ## Later increments
 
 TOC selection, condition descriptors, tri-state evaluation and resolved registry views have separate design decisions and tests in [the execution plan](EXECUTION-v0.3.5.md). Their implementation must update this migration record. Lua/XML parsing follows the v0.3.5 core freeze and is not delivered by these types.
+
+## v0.3.1: explicit selection policy
+
+The [approved selection design](DESIGN-v0.3.1.md) adds five beta exports in `toc-metadata-adapter`, bringing the total to 39. All five workspaces target source version 0.3.1. Metadata schema remains 2, environment schema remains 1 and old static callers keep their behavior.
+
+```ts
+import { selectTocVariant, type TocSelectionPolicy } from '@wow-addon/toc-metadata-adapter';
+
+// Authored policy supplied by this caller; not a built-in WoW loader table.
+const policy: TocSelectionPolicy = {
+  schemaVersion: 1, id: 'workspace/explicit-era-policy',
+  client: WoWClient.ClassicEra, clientFamily: 'classic',
+  suffixPrecedence: ['Vanilla', 'Classic', null],
+};
+const selection = selectTocVariant(
+  environment, logicalAddonId, 'Example',
+  [{ identity: variant, metadata: parsed.metadata }], policy,
+);
+if (selection.status === 'selected') {
+  console.log(selection.selectedVariantId);
+}
+```
+
+The priority list is caller-owned. Required optional constraints are exact and never defaulted; an unknown client/family or mismatched applicability returns unresolved. Non-empty opaque IDs remain significant without trimming. Provide the exact base filename stem separately from logical identity, so an unknown suffixed TOC cannot be mistaken for fallback.
+
+All source records remain inspectable. The selector returns a variant ID rather than changing the static registry, evaluating conditions or exposing a resolved global list. Handle all five result statuses. `TocSelectionIssue.sources` may be empty for environment-only errors; do not fabricate a source to coerce it into shared `Diagnostic`. Result source ranges are copied, so editing them cannot affect the input.
+
+No built-in loader policy, condition semantics or metadata schema migration is introduced. See the design for validation boundaries, filename matching and future provider/resolver integration.
