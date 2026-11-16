@@ -3,6 +3,9 @@ import type { GlobalDeclaration, GlobalRegistry } from '@wow-addon/global-regist
 import { buildGlobalRegistry } from '@wow-addon/global-registry';
 
 /** Convert TOC metadata to provider-neutral globals; do not evaluate conditions here. */
+/**
+ * @beta
+ */
 export function toGlobalDeclarations(addons: readonly AddOnMetadata[]): GlobalDeclaration[] {
   const output: GlobalDeclaration[] = [];
   for (const addon of addons) {
@@ -23,6 +26,9 @@ export function toGlobalDeclarations(addons: readonly AddOnMetadata[]): GlobalDe
 }
 
 /** Convenience function; the registry itself never imports metadata or TOC. */
+/**
+ * @beta
+ */
 export function buildTocGlobalRegistry(addons: readonly AddOnMetadata[]): GlobalRegistry {
   return buildGlobalRegistry(toGlobalDeclarations(addons));
 }

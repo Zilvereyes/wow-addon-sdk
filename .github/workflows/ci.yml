@@ -45,3 +45,7 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Build, tests, architecture and public exports
         run: npm run check:all
+      - name: API Extractor (public API contract gate)
+        run: npm run api:extractor
+      - name: Verify package contents
+        run: npm pack --dry-run --workspaces --ignore-scripts
