@@ -33,17 +33,17 @@ The v0.3.0 environment/identity decisions A–D were approved in [issue #6](http
 ## 3. v0.3.1: deterministic TOC selection
 
 1. Inventory observed suffixes and same-AddOn combinations without uploading names or files. Separate exact game type, family, mode and unsuffixed fallback.
-2. Prepare an explicit precedence table with primary evidence. Candidate order is concrete game type → compatible family → unsuffixed, but this is a proposal pending verification/approval. Unknown/future suffixes do not silently become fallback TOCs.
-3. Define a pure input containing environment plus caller-owned variant identities and metadata. Define selected/no-match/ambiguous/invalid-environment outcomes with source-bearing diagnostics. Obtain the public-contract/precedence decision in #6 before implementation.
+2. The user approved an explicit caller-policy seam in [issue #6](https://github.com/Zilvereyes/wow-addon-sdk/issues/6#issuecomment-6916678035). Honor the supplied priority list, including unsuffixed placement. A built-in game precedence table is deferred until verified evidence exists. Unknown/future suffixes do not silently become fallback TOCs.
+3. [PR #16](https://github.com/Zilvereyes/wow-addon-sdk/pull/16) implements five approved exports with selected/no-match/unresolved/ambiguous/invalid outcomes and source-bearing issues. Its final head `bd87481` passed 84 local tests and all four supported PR CI jobs. It was merged after explicit user approval as `fdb8d69`; all four post-merge main CI jobs passed. Subsequent condition contracts retain their recorded decisions.
 4. Validate schema, non-empty identity, consistent source keys and contradictory known client/family combinations at the semantic boundary. Do not normalize original provenance or silently repair inputs.
 5. Test Vanilla vs Classic vs unsuffixed; Standard vs Mainline; expansion clients; absent candidates; unknown environment/suffix; contradictory fields; duplicates and input permutations. Equal priority stays ambiguous rather than filesystem-order selection.
-6. Show that losing variants remain inspectable but contribute no resolved globals. Assert repeated and concurrent resolutions do not mutate input.
+6. Show that losing variants remain inspectable and repeated selections do not mutate input. The proof that non-selected variants contribute no resolved globals belongs to the v0.3.4 composition step; selecting an ID alone does not change static registry visibility.
 7. Update snapshots, migration and diagnostics after approved API additions; run all gates and the local TOC corpus.
 
 ## 4. v0.3.2: provider-neutral condition provenance
 
 1. Trace each condition from parser directive/file/SavedVariable to the current adapter loss point. Preserve raw spelling/value, order and complete UTF-16 source reference.
-2. Propose a provider-neutral descriptor without registry imports from TOC or metadata. Decide optional fields/wire compatibility explicitly in #6. Do not turn parsing types into registry dependencies.
+2. Implement the [approved v0.3.2 design](DESIGN-v0.3.2.md): one provider-neutral descriptor, optional declaration field, independent adapter copies and explicit absence/wire compatibility. The user approved A–D in [issue #6, comment 6917507563](https://github.com/Zilvereyes/wow-addon-sdk/issues/6#issuecomment-6917507563). Do not turn parsing types into registry dependencies or request the same approval again.
 3. Author synthetic TOC and future Lua/XML provider records for one symbol. Test duplicates, multiple conditions, casing, malformed/unknown descriptors and JSON roundtrip.
 4. Retain old static `activationState` and `listGlobals` behavior. Add provenance without assuming truth. Review report/baseline changes and verify architecture.
 

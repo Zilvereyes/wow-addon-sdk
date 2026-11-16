@@ -1,6 +1,6 @@
 # WoW AddOn SDK — minimum v0.3.5 goal
 
-Deliver at least **v0.3.5 Architectural Freeze**: an editor-neutral SDK that selects the correct TOC for an explicit client environment, preserves every declaration's source provenance, evaluates supported conditions conservatively, and resolves globals without contributions from non-selected variants. The current baseline is v0.2.0; repository hardening PR #5 is merged at `44b138d5152bb2e43ae43afa793e3613d11b6de5`. A version number alone does not satisfy this goal.
+Deliver at least **v0.3.5 Architectural Freeze**: an editor-neutral SDK that selects the correct TOC for an explicit client environment, preserves every declaration's source provenance, evaluates supported conditions conservatively, and resolves globals without contributions from non-selected variants. The starting baseline was v0.2.0; repository hardening PR #5 is merged at `44b138d5152bb2e43ae43afa793e3613d11b6de5`. Check issue #7 for the current integrated baseline and delivery evidence. A version number alone does not satisfy this goal.
 
 Use [roadmap issue #7](https://github.com/Zilvereyes/wow-addon-sdk/issues/7), [design issue #6](https://github.com/Zilvereyes/wow-addon-sdk/issues/6), and [docs/ROADMAP-v0.3.5.md](ROADMAP-v0.3.5.md) as the verified entry points. Recheck repository instructions, current heads, approvals and CI before acting; discover the relevant code and supported tools rather than assuming a local Windows checkout is available.
 

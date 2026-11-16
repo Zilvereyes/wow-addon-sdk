@@ -14,11 +14,26 @@ export type ActivationState = 'unconditional' | 'conditional' | 'unknown';
 export function buildGlobalRegistry(declarations: readonly GlobalDeclaration[]): GlobalRegistry;
 
 // @beta
+export interface ConditionDescriptor {
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly providerId: string;
+    // (undocumented)
+    readonly raw: string;
+    // (undocumented)
+    readonly source: SourceReference;
+    // (undocumented)
+    readonly values: readonly string[];
+}
+
+// @beta
 export interface GlobalDeclaration {
     // (undocumented)
     activationState: ActivationState;
     // (undocumented)
     addonId: string;
+    readonly conditions?: readonly ConditionDescriptor[];
     // (undocumented)
     kind: GlobalKind;
     // (undocumented)

@@ -4,6 +4,13 @@ Changes are recorded by release. This project is in pre-1.0 development.
 
 ## [Unreleased]
 
+### v0.3.2 condition provenance (source version; not published)
+
+- Add the approved provider-neutral `ConditionDescriptor` beta export and optional readonly `GlobalDeclaration.conditions` field (40 exports total). Keep metadata schema 2, environment schema 1 and the existing five dependency boundaries.
+- Preserve TOC condition provider identity, name/value order, raw spelling and exact UTF-16 source spans in independent adapter copies. Empty lists omit the new property; legacy declarations without provenance remain accepted.
+- Keep static activation/listing, TOC-path identity, registry reference retention and SV0001 behavior unchanged. Missing/empty provenance never establishes condition truth.
+- Add type, range, duplicate, mutation-isolation, opaque-provider and malformed-header regressions. The read-only corpus runner verifies adapter-copy/JSON invariants and reports only aggregate declaration/descriptor counts.
+
 ### v0.3.1 explicit-policy selection (source version; not published)
 
 - Add the approved pure `selectTocVariant` seam and four beta contracts in `toc-metadata-adapter` (39 exports total). Apply caller-supplied versioned priorities and exact optional applicability constraints without inventing a built-in game-loader policy.

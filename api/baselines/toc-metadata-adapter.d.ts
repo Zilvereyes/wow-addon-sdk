@@ -2,7 +2,9 @@ import { WoWClient, WoWGameMode, type AddOnMetadata, type ClientEnvironment, typ
 import type { SourceReference } from '@wow-addon/diagnostics';
 import type { GlobalDeclaration, GlobalRegistry } from '@wow-addon/global-registry';
 /**
- * Convert TOC metadata to provider-neutral globals; do not evaluate conditions here.
+ * Convert TOC metadata to provider-neutral globals without evaluating conditions.
+ * Nonempty condition lists are copied independently per declaration; empty lists
+ * omit the optional field. Existing declaration source references stay shared.
  *
  * @beta
  */

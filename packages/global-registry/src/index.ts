@@ -14,6 +14,21 @@ export type GlobalKind = 'saved-variable' | 'frame' | 'lua-global';
 export type GlobalScope = 'account' | 'character';
 
 /**
+ * Opaque condition provenance supplied by an adapter/provider. The registry
+ * retains these fields without interpreting grammar, validity or truth.
+ * Readonly is shallow; SourceReference retains its existing mutable shape.
+ *
+ * @beta
+ */
+export interface ConditionDescriptor {
+  readonly providerId: string;
+  readonly name: string;
+  readonly values: readonly string[];
+  readonly raw: string;
+  readonly source: SourceReference;
+}
+
+/**
  * Provider-neutral global symbol; origin-specific metadata belongs to the adapter, not the registry.
  *
  * @beta
@@ -25,6 +40,8 @@ export interface GlobalDeclaration {
   scope?: GlobalScope;
   activationState: ActivationState;
   source: SourceReference;
+  /** Missing/empty provenance never overrides activationState or implies truth. */
+  readonly conditions?: readonly ConditionDescriptor[];
 }
 
 /**

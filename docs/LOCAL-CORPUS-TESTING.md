@@ -17,6 +17,7 @@ npm run test:corpus -- '<local-Classic-Era-AddOns-directory>' --require-all-pars
 2. Read regular `.toc` files only, case-insensitive extension matching. Do not follow paths referenced inside TOCs.
 3. Parse via the public `parseToc()` API, retain every variant and count diagnostics by code/severity.
 4. Assert metadata schema 2, exact TOC identity, JSON roundtrip and bounds/order of all source references, including conditions and related diagnostics.
+   The v0.3.2 adapter check also verifies derived declaration JSON, absence of empty provenance, exact descriptor fields and independent copies of condition values/ranges; it leaves the parser-reference visit counter unchanged.
 5. Emit aggregate JSON only: no absolute/relative paths, AddOn names, source text, variable names or diagnostic messages.
 6. Distinguish a passing TOC smoke test from full parsing. `parsed.lua` and `parsed.xml` remain zero and `fullParsing` remains false.
 
@@ -64,6 +65,14 @@ The next isolated patch recognizes empty hash-only separators as comments and pe
 | Exit/status | 1 / failed | 1 / failed |
 
 The changed source-reference count reflects removed error diagnostics for comments and the newly retained custom directive; the runner traverses references in both entries and diagnostics, so this count is not a unique-source total. All range/JSON invariants still passed. Lua/XML inventory and unimplemented parser status remain unchanged.
+
+## v0.3.2 adapter-provenance check: 2026-11-16
+
+The same read-only corpus run processed all 434 TOCs and 347 valid adapter declarations. **Zero SavedVariable condition descriptors** occurred in this installed corpus. Therefore the real corpus checks legacy/unconditional compatibility and aggregate copy invariants, while the authored synthetic tests provide the actual nonempty-condition/copy coverage. File/directive conditions are a separate parser capability and are not projected into SavedVariable declarations merely to increase this count.
+
+The 51,501 parser-reference visits, 19 TOC0001 errors, 12 TOC0004 warnings and zero skipped links/oversized TOCs remain unchanged. The optional caller profile still reports 100 groups / 227 candidates: 98 selected, two no-match and zero invalid/unresolved/ambiguous groups. Exit 1 remains for the TOC diagnostics. Lua/XML inventory remains 5,242 / 1,199, with zero parsed in either language.
+
+New `adapterDeclarations` and `conditionDescriptors` counters contain aggregate counts only. The checks do not establish condition truth, in-game loader conformance, Lua/XML parsing or resolved global visibility.
 
 The 19 remaining errors concern nonempty human headings. Primary upstream TOCs show this practice in [Skillet](https://github.com/b-morgan/Skillet/blob/master/Skillet.toc) and [MobInfo3](https://github.com/solocommand/MobInfo3/blob/master/MobInfo2.toc). These source examples establish real author usage; they do not independently prove every client loader rule. Broader comment recovery needs a separate explicit policy and regressions preserving malformed-SavedVariables safety. This focused patch does not claim full TOC conformance.
 
