@@ -48,3 +48,21 @@ The local installed Classic Era corpus contained 101 top-level AddOn directories
 No parser crash, JSON or range assertion failed. Of the 194 malformed-directive diagnostics, 193 concern bare `##` lines or human section headings without colons; one concerns a dotted custom directive name. These are **compatibility candidates**, not proof that the installed AddOns are broken. Investigate them with independent synthetic examples and documented syntax before changing parser behavior. Do not waive errors or rewrite third-party manifests to make the run green.
 
 Only aggregate counts are suitable for the public issue/PR. Keep the installation path and any detailed local source inspection private. The follow-up plan separates TOC fidelity, Lua syntax, XML syntax, reference traversal and loader/runtime behavior.
+
+## Focused TOC fidelity follow-up: 2026-11-16
+
+The next isolated patch recognizes empty hash-only separators as comments and permits dotted names in the custom `X-` namespace. It retains strict errors for nonempty double-hash annotations, malformed conditions and dotted ordinary directive names. The local library's producer/consumer pair independently demonstrated use of a dotted custom metadata key; the tests use newly authored `X-Fixture-2.7` examples rather than copied library content.
+
+| Measurement | Original baseline | Focused fix |
+| --- | --- | --- |
+| TOCs processed | 434 | 434 |
+| Source references checked | 51,673 | 51,501 |
+| SavedVariable declarations | 347 | 347 |
+| TOC0001 errors | 194 | 19 |
+| TOC0004 warnings | 12 | 12 |
+| Skipped links / oversized TOCs | 0 / 0 | 0 / 0 |
+| Exit/status | 1 / failed | 1 / failed |
+
+The changed source-reference count reflects removed error diagnostics for comments and the newly retained custom directive; the runner traverses references in both entries and diagnostics, so this count is not a unique-source total. All range/JSON invariants still passed. Lua/XML inventory and unimplemented parser status remain unchanged.
+
+The 19 remaining errors concern nonempty human headings. Primary upstream TOCs show this practice in [Skillet](https://github.com/b-morgan/Skillet/blob/master/Skillet.toc) and [MobInfo3](https://github.com/solocommand/MobInfo3/blob/master/MobInfo2.toc). These source examples establish real author usage; they do not independently prove every client loader rule. Broader comment recovery needs a separate explicit policy and regressions preserving malformed-SavedVariables safety. This focused patch does not claim full TOC conformance.

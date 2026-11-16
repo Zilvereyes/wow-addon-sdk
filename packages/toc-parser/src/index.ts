@@ -163,8 +163,10 @@ export function parseToc(content: string, tocPath: string, options: TocParseOpti
       entries.push({ kind, raw: original, source: whole, ...props });
     };
     if (line.trim().length === 0) { kindEntry('blank'); continue; }
+    // Empty hash separators contain neither a directive nor an annotation.
+    if (/^#{2,}\s*$/.test(line)) { kindEntry('comment'); continue; }
     if (line.startsWith('##')) {
-      const match = /^##\s*([A-Za-z_][A-Za-z0-9_-]*)(\s*(?:\[[^\]]+\]\s*)*):(.*)$/.exec(line);
+      const match = /^##\s*([Xx]-[A-Za-z0-9_][A-Za-z0-9_.-]*|[A-Za-z_][A-Za-z0-9_-]*)(\s*(?:\[[^\]]+\]\s*)*):(.*)$/.exec(line);
       if (!match) {
         addDiagnostic('error', 'TOC0001', 'Expected ## Directive: Value', whole);
         kindEntry('invalid');
