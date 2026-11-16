@@ -1,6 +1,6 @@
 # v0.3.3: conservative condition evaluation
 
-**Status: A–E approved and implemented on the feature branch; final verification in progress.** The user explicitly approved implementation in [issue #6, comment 6918223915](https://github.com/Zilvereyes/wow-addon-sdk/issues/6#issuecomment-6918223915). The starting baseline is `df2c2df` (v0.3.2, 40 beta exports and 95 tests). This design adds five beta exports and advances source/workspace versions to 0.3.3 while retaining metadata schema 2 and environment schema 1.
+**Status: approved and integrated through PR #19**, merge `59f81ee` from reviewed head `0836fb4`. All 118 local tests, strict API/architecture/package gates and all four supported final-head/main CI jobs passed. Copilot's completed review reports no active issues (formal COMMENTED). The user explicitly approved A–E in [issue #6, comment 6918223915](https://github.com/Zilvereyes/wow-addon-sdk/issues/6#issuecomment-6918223915). This design adds five beta exports (45 total) and advances source/workspace versions to 0.3.3 while retaining metadata schema 2 and environment schema 1.
 
 ## Intended outcome and evidence boundary
 

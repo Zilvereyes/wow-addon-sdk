@@ -57,7 +57,7 @@ The v0.3.0 environment/identity decisions A–D were approved in [issue #6](http
 
 ## 6. v0.3.4: resolved globals
 
-1. Approve an explicit resolver API composing selection → condition evaluation → registry view. Keep static registry callers working as before.
+1. Review the [concrete v0.3.4 proposal](DESIGN-v0.3.4.md) and record its A–E decision in #6 before implementation. It composes selection → condition evaluation → a derived activeGlobals/entry view while keeping declaration-time activation and existing static callers unchanged.
 2. Use logical AddOn identity for selected coexisting declarations; retain exact per-variant source IDs as provenance. Non-selected TOCs contribute nothing.
 3. Test scope conflicts in one active AddOn, mutually exclusive variants, symbols with TOC/Lua/XML origins, source ordering, conditional exclusions and unknown diagnostics.
 4. Resolve the same immutable inputs for Retail and Classic independently. Assert no mutation, no cached environment leakage and deterministic ordering.
