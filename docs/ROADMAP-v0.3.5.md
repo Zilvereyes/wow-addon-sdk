@@ -8,6 +8,8 @@ The [v0.3.5 milestone epic](https://github.com/Zilvereyes/wow-addon-sdk/issues/7
 
 **Current increment:** v0.3.4 [resolved-global composition](DESIGN-v0.3.4.md) is integrated through PR #20 / `e3a477b`: explicit selection/evaluation, logical identity, provider provenance, known active names and active-only scope conflicts. All 142 tests and four supported PR/main CI jobs passed; delivery evidence is maintained in issue #7. The [pre-freeze review](PRE-FREEZE-REVIEW.md) now addresses branch protection, all exports, named rules, union compatibility, placement and each remaining TOC error before v0.3.5 sign-off. A built-in WoW loader policy remains separate verified-data work. See the [detailed execution plan](EXECUTION-v0.3.5.md), [migration notes](MIGRATION-v0.2-to-v0.3.md), [repository review](REVIEW-2026-11-16.md) and [measured local corpus baseline](LOCAL-CORPUS-TESTING.md). Lua/XML remain unparsed by the SDK; the authored [syntax catalog and candidate evidence](../tests/fixtures/README.md) prepare their later acceptance tests.
 
+**Freeze candidate:** [PR #21](https://github.com/Zilvereyes/wow-addon-sdk/pull/21) contains the named rule and source version 0.3.5, plus the [requirement-to-evidence acceptance record](RELEASE-READINESS-v0.3.5.md). Final-head CI/review/main integration are tracked there and in #7. Tag/publication remains a separate decision; the overall goal continues through actual Lua/XML parsing.
+
 | Version | Independently reviewed delivery |
 | --- | --- |
 | v0.2.x | PR #5 complete: reproducible CI, committed API reports, MIT license in every npm tarball. |

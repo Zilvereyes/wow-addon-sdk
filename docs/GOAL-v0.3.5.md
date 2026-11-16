@@ -10,7 +10,7 @@ Preserve five acyclic package boundaries, the existing 30 exports and their beta
 
 Verify through three distinct passes: focused requirement/regression tests; integrated build, architecture, dependency and strict API checks; final Ubuntu/Windows × Node 22/24 CI and actual package-content assertions for all five workspaces. Include LICENSE and exclude game assets. Resolve findings and rerun affected checks.
 
-Deliver focused PRs, reviewed API reports, migration guidance, diagnostic documentation and an evidence-backed release-readiness record linked from issue #7. Apply the session authorization update below to routine reviewed green integration. Final freeze sign-off, tagging and npm publication remain explicit decisions. No scheduler or unattended execution is created by this document.
+Deliver focused PRs, reviewed API reports, migration guidance, diagnostic documentation and an evidence-backed release-readiness record linked from issue #7. Apply the session authorization update below to routine reviewed green integration and verification of the requested core milestone. Tagging and npm publication remain explicit decisions. No scheduler or unattended execution is created by this document.
 
 Delivering the minimum v0.3.5-ready SDK is your /goal; continue autonomously within these recorded approvals until the acceptance criteria pass or a specific decision or unavailable capability blocks progress.
 

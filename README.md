@@ -6,7 +6,7 @@
 
 WoW AddOn SDK provides reusable libraries for parsing AddOn `.toc` files, modeling AddOn metadata, tracking global declarations, and producing source-aware diagnostics. Syntax parsing, semantic models, symbol registries and external tooling adapters are deliberately separated.
 
-> **Status:** Pre-1.0 development preview (`v0.3.4`). Public APIs may change. This is not a published npm release and is not affiliated with Blizzard Entertainment.
+> **Status:** Pre-1.0 development preview (`v0.3.5`). Public APIs may change. This is not a published npm release and is not affiliated with Blizzard Entertainment.
 
 ## Packages
 
@@ -71,7 +71,9 @@ GitHub Actions validates Node 22 and 24 on both Ubuntu 24.04 and Windows. The re
 
 v0.3.0 adds separate environment schema 1 and caller-owned logical/variant identity contracts. v0.3.1–0.3.3 provide explicit-policy selection, provenance and conservative evaluation. v0.3.4 composes them into a resolved view: known active names, selected declaration origins and active-only scope conflicts. Static APIs retain their behavior. Metadata remains schema 2; the original 30 beta exports are preserved (52 total including the named condition-rule type), and no built-in WoW-loader policy is inferred. See [migration](docs/MIGRATION-v0.2-to-v0.3.md), [selection](docs/DESIGN-v0.3.1.md), [provenance](docs/DESIGN-v0.3.2.md), [evaluation](docs/DESIGN-v0.3.3.md) and [resolution design](docs/DESIGN-v0.3.4.md). For optional read-only installed-AddOn checks, see [local corpus testing](docs/LOCAL-CORPUS-TESTING.md). The [pre-freeze review](docs/PRE-FREEZE-REVIEW.md) and [public surface inventory](docs/PUBLIC-SURFACE.md) record remaining acceptance before v0.3.5. The [detailed plan](docs/EXECUTION-v0.3.5.md) covers core freeze and subsequent actual Lua/XML parsing.
 
-## Non-goals (v0.3.4)
+The [v0.3.5 acceptance record](docs/RELEASE-READINESS-v0.3.5.md) maps the five-package core freeze to implementation, review and CI gates. This source milestone retains beta APIs and does not complete the broader three-parser project goal.
+
+## Non-goals (v0.3.5)
 
 This release does **not**:
 

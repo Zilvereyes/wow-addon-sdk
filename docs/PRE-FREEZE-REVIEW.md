@@ -22,7 +22,7 @@ The user chose this model explicitly in chat. GitHub does not allow the PR autho
 - main requires an up-to-date branch and all four exact checks from GitHub Actions app ID 15368: `verify (ubuntu-24.04, 22, bash)`, `verify (ubuntu-24.04, 24, bash)`, `verify (windows-latest, 22, pwsh)`, `verify (windows-latest, 24, pwsh)`.
 - Administrator enforcement is enabled; force pushes and deletion are disabled. No bypass actors are configured. Existing merge commits remain permitted.
 - GitHub enforces PR/check requirements. Chat sign-off is a recorded project workflow, not a GitHub-enforced approval. Protection is mutable repository configuration, so re-read it before final sign-off rather than relying solely on this document.
-- Use the existing project authorization for routine reviewed green integration. A new material contract decision, final freeze sign-off, tag or npm publication must be concrete and explicit. Do not repeatedly request already-recorded A–E decisions.
+- Use the existing project authorization for routine reviewed green integration and verification of the requested core milestone. New material contract decisions and tag/npm release approval must be concrete and explicit. Do not repeatedly request already-recorded A–E decisions.
 
 ## Per-occurrence TOC triage
 
@@ -45,12 +45,14 @@ All 19 remain TOC0001 errors. Issue #10 tracks any future recovery choice; no so
 1. Review the named-rule declaration/API report diff; retain schemas 2/1/1, all current union values, original activation/listing/provenance behavior and third-party lock records.
 2. Verify focused contracts and existing evaluator/resolver regressions, then locked install, complete tests, architecture/dependency/export/API checks, strict Extractor and exact package/license assertions.
 3. Publish the focused pre-freeze PR and verify its exact final head on Ubuntu/Windows × Node 22/24. Inspect external review findings and required-check protection before integration. Do not infer a human review from Copilot's COMMENTED state.
-4. Finish the v0.3.5 readiness record mapping #7's architecture/API/migration/diagnostic/distribution criteria to actual evidence. Advance source versions/internal ranges together only in that release candidate. Re-read protection and verify final-head CI. Obtain final freeze sign-off; tags/npm remain separate.
-5. Before adding a parser dependency or package, propose #11's concrete grammar/encoding/BOM/recovery/resource/ownership/provider contract and licensing choice in #6. Verify Classic Era extensions rather than guessing from Lua 5.1.
+4. Finish the v0.3.5 readiness record mapping #7's architecture/API/migration/diagnostic/distribution criteria to actual evidence. Advance source versions/internal ranges together only in that release candidate. Re-read protection and verify final-head CI before recording core acceptance; tags/npm release sign-off remains separate.
+5. Implement #11's concrete Lua grammar/encoding/BOM/recovery/resource/ownership/provider boundary, [approved A–E in #6](https://github.com/Zilvereyes/wow-addon-sdk/issues/6#issuecomment-6920213019), in a separate increment after core verification. Do not request that approval again. Verify Classic Era extensions rather than guessing from Lua 5.1; XML remains a later distinct contract.
 6. Implement syntax and the minimal real Lua provider, then XML syntax/provider and bounded reference graph, in independently tested slices. Compare actual provider outputs with the existing neutral contracts before promising durable boundary stability for those new packages.
 7. Run actual TOC/Lua/XML parsers over the opt-in local corpus; require parsed = eligible discovered counts, explicit skips/failures, source-range invariants and explained diagnostics. Keep the overall goal active until this is real. The current SDK still parses zero Lua/XML files.
 
 This checkpoint deliberately does not declare v0.3.5 freeze complete, alter the five-package graph, select a third-party parser dependency or claim clean installed-corpus parsing.
+
+The subsequent source-version candidate and requirement mapping are in [RELEASE-READINESS-v0.3.5.md](RELEASE-READINESS-v0.3.5.md), within the same focused PR #21. Its final-head evidence is separate from the initial checkpoint results below.
 
 ## Local verification for this checkpoint
 

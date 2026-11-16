@@ -4,6 +4,12 @@ Changes are recorded by release. This project is in pre-1.0 development.
 
 ## [Unreleased]
 
+### v0.3.5 core architectural-freeze candidate (source version; not published)
+
+- Advance all five workspaces/internal ranges and root/lock records to 0.3.5 without changing any of the 81 third-party dependency records.
+- Map every core milestone criterion to reviewed source/contracts, regression tests, supported-platform gates and distribution evidence in the release-readiness record. Retain the five acyclic core boundaries and 52 beta exports.
+- Keep actual Lua/XML parsing/providers/reference graph, built-in client policy verification and remaining strict-heading recovery explicit follow-ups. No tag, npm publication, consumer stability or clean full-corpus result is claimed.
+
 ### Pre-freeze review checkpoint
 
 - Name and export the existing policy rule as beta `ConditionEvaluationRule` at the user's request (52 total exports); preserve structural fields, readonly restrictions, policy JSON and runtime behavior.

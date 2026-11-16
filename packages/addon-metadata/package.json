@@ -1,6 +1,6 @@
 {
   "name": "@wow-addon/addon-metadata",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,7 +14,7 @@
     "dist"
   ],
   "dependencies": {
-    "@wow-addon/diagnostics": "0.3.4"
+    "@wow-addon/diagnostics": "0.3.5"
   },
   "license": "MIT"
 }
