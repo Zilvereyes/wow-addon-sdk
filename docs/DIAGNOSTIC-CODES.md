@@ -53,3 +53,15 @@ Root/group failures use `GlobalResolutionIssue`; source selections retain TOCSEL
 | `RESOLVE0003` | Invalid provider association, batch shape or selected provider projection |
 
 These fixed messages do not echo policy/argument values. Root issue sources and optional logical IDs preserve available provenance without fabrication. `complete=false` can retain independently known active names; unknown/unselected sources never contribute active globals. A known no-match is a normal empty selection. Result completeness concerns consumed projections/availability rather than parser diagnostic cleanliness.
+
+## v0.4.0 Lua analysis
+
+| Code | Severity | Meaning |
+| --- | --- | --- |
+| `LUA0001` | error | Invalid caller text/path/options/inherited-condition projection |
+| `LUA0002` | error | Rejected by the explicit Lua 5.1/ASCII/BOM profile |
+| `LUA0003` | error | Input/node/depth or parser stack resource limit |
+| `LUA0004` | warning | Dynamic environment/code access outside the supported lexical projection |
+| `LUA0005` | error | Backend failure or unavailable validated AST projection |
+
+All error results contain zero declarations, including an otherwise valid prefix before a syntax failure. Dynamic-environment warnings retain supported occurrences with static unknown activation and complete=false. Supported flow/function assignments can independently be unknown without a warning; analysis completeness is not runtime availability. Messages are fixed and do not echo raw source/backend errors. Original UTF-16 source points/ranges are retained; invalid API arguments without a usable path retain an empty file string rather than a fabricated filename. Tooling encoding/worker/read/input preflight failures have separate aggregate reasons and are not counted as completed syntax verdicts.

@@ -5,6 +5,7 @@ const permitted = {
   'toc-parser': ['toc-parser', 'diagnostics', 'addon-metadata'],
   'global-registry': ['global-registry', 'diagnostics'],
   'toc-metadata-adapter': ['toc-metadata-adapter', 'diagnostics','addon-metadata','global-registry'],
+  'lua-analysis': ['lua-analysis', 'diagnostics', 'global-registry'],
 };
 module.exports = {
   forbidden: [

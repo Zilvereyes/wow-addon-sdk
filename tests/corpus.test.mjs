@@ -15,6 +15,87 @@ function inspect(root, ...args) {
   return { ...result, report: result.stdout ? JSON.parse(result.stdout) : undefined };
 }
 
+test('Lua corpus opt-in parses real SDK syntax/providers with BOM/ranges and aggregate privacy', () => fixture(root => {
+  fs.writeFileSync(path.join(root, 'Seed.toc'), '## SavedVariables: DB');
+  const text = '\uFEFF-- 🧪\r\nPrivateGlobal = {}; local Hidden = {}; if flag then PrivateMaybe = 1 end';
+  const file = path.join(root, 'PrivateFile.lua'); fs.writeFileSync(file, text);
+  const result = inspect(root, '--lua-analysis');
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.report.parsed.lua, 1);
+  assert.deepEqual(result.report.unimplementedParsers, ['xml']);
+  assert.deepEqual(result.report.disabledParsers, []);
+  assert.equal(result.report.luaAnalysis.syntaxAccepted, 1);
+  assert.equal(result.report.luaAnalysis.declarations, 2);
+  assert.deepEqual(result.report.luaAnalysis.activation, { unconditional: 1, conditional: 0, unknown: 1 });
+  assert.equal(result.report.luaAnalysis.checkedSourceReferences, 2);
+  assert.equal(result.report.luaAnalysis.resolvedProviderParticipation, false);
+  assert.equal(result.stdout, inspect(root, '--lua-analysis').stdout);
+  assert.doesNotMatch(result.stdout + result.stderr, /PrivateGlobal|PrivateMaybe|PrivateFile|Hidden|🧪/);
+  assert.equal(fs.readFileSync(file, 'utf8'), text);
+  assert.equal(result.report.fullParsing, false);
+}));
+
+test('Lua corpus syntax rejection and dynamic environment uncertainty stay failed and explained', () => fixture(root => {
+  fs.writeFileSync(path.join(root, 'Seed.toc'), '#');
+  fs.writeFileSync(path.join(root, 'Invalid.lua'), 'Prefix = 1; Broken =');
+  fs.writeFileSync(path.join(root, 'Dynamic.lua'), 'DB = 1; _G[name] = 2');
+  const result = inspect(root, '--lua-analysis');
+  assert.equal(result.status, 1);
+  assert.equal(result.report.parsed.lua, 2);
+  assert.equal(result.report.luaAnalysis.syntaxAccepted, 1);
+  assert.equal(result.report.luaAnalysis.syntaxRejected, 1);
+  assert.equal(result.report.luaAnalysis.incompleteFiles, 1);
+  assert.deepEqual(result.report.luaAnalysis.diagnosticsByCode, { LUA0002: 1, LUA0004: 1 });
+  assert.ok(result.report.failures.includes('lua-syntax-errors'));
+  assert.ok(result.report.failures.includes('lua-analysis-incomplete'));
+  assert.equal(result.report.luaAnalysis.declarations, 1);
+}));
+
+test('Lua corpus rejects invalid UTF-8 and input limits without counting them as parsed', () => fixture(root => {
+  fs.writeFileSync(path.join(root, 'Seed.toc'), '#');
+  fs.writeFileSync(path.join(root, 'Invalid.lua'), Buffer.from([0xC3, 0x28]));
+  fs.writeFileSync(path.join(root, 'Large.lua'), ' '.repeat(1024 * 1024 + 1));
+  const result = inspect(root, '--lua-analysis');
+  assert.equal(result.status, 1);
+  assert.equal(result.report.luaAnalysis.attempted, 2);
+  assert.equal(result.report.luaAnalysis.submitted, 0);
+  assert.equal(result.report.parsed.lua, 0);
+  assert.equal(result.report.luaAnalysis.encodingRejected, 1);
+  assert.equal(result.report.luaAnalysis.inputLimitRejected, 1);
+  assert.ok(result.report.failures.includes('lua-invalid-utf8'));
+  assert.ok(result.report.failures.includes('lua-input-limit'));
+}));
+
+test('Lua corpus byte bounds and malformed profiles fail before unbounded reading/analysis', () => fixture(root => fixture(config => {
+  fs.writeFileSync(path.join(root, 'Seed.toc'), '#');
+  fs.writeFileSync(path.join(root, 'Large.lua'), 'DB = 10000');
+  const bounded = inspect(root, '--lua-analysis', '--max-file-bytes', '5');
+  assert.equal(bounded.status, 1);
+  assert.equal(bounded.report.skippedOversizedLua, 1);
+  assert.equal(bounded.report.luaAnalysis.submitted, 0);
+  const profile = path.join(config, 'bad.json'); fs.writeFileSync(profile, '{}');
+  const invalid = inspect(root, '--lua-analysis', '--resolution-profile', profile);
+  assert.equal(invalid.status, 1);
+  assert.equal(invalid.report.entriesVisited, 0);
+  assert.equal(invalid.report.luaAnalysis.attempted, 0);
+})));
+
+test('Lua corpus opt-in is explicit and cannot waive the unavailable XML parser', () => fixture(root => {
+  fs.writeFileSync(path.join(root, 'Seed.toc'), '#');
+  fs.writeFileSync(path.join(root, 'Code.lua'), 'DB = 1');
+  const normal = inspect(root);
+  assert.equal(normal.status, 0);
+  assert.equal(normal.report.parsed.lua, 0);
+  assert.deepEqual(normal.report.disabledParsers, ['lua']);
+  assert.deepEqual(normal.report.unimplementedParsers, ['xml']);
+  assert.equal(Object.hasOwn(normal.report, 'luaAnalysis'), false);
+  assert.equal(inspect(root, '--lua-analysis', '--lua-analysis').status, 2);
+  const required = inspect(root, '--lua-analysis', '--require-all-parsers');
+  assert.equal(required.status, 1);
+  assert.equal(required.report.parsed.lua, 1);
+  assert.ok(required.report.failures.includes('unimplemented-parsers'));
+}));
+
 test('opt-in composed corpus resolution excludes non-selected/nested sources and includes true conditionals', () => fixture(root => fixture(config => {
   fs.mkdirSync(path.join(root, 'PrivateAddon', 'embedded'), { recursive: true });
   fs.mkdirSync(path.join(root, 'Other'));
@@ -134,7 +215,7 @@ test('condition profile remains opt-in and rejects missing or repeated flag argu
   assert.equal(result.report.conditionEvaluation.availability.active, 1);
 })));
 
-test('corpus parses every TOC variant read-only and inventories Lua/XML without claiming parsing', () => fixture(root => {
+test('default corpus mode parses every TOC and explicitly leaves optional Lua disabled', () => fixture(root => {
   fs.mkdirSync(path.join(root, 'Å'));
   const contents = {
     'Å/Å_Vanilla.toc': '\uFEFF## Title: 🧪\r\n## SavedVariables: DB\rCore.lua\nFrame.xml',
@@ -149,7 +230,8 @@ test('corpus parses every TOC variant read-only and inventories Lua/XML without 
   assert.deepEqual(result.report.parsed, { toc: 2, lua: 0, xml: 0 });
   assert.equal(result.report.status, 'passed');
   assert.equal(result.report.fullParsing, false);
-  assert.deepEqual(result.report.unimplementedParsers, ['lua', 'xml']);
+  assert.deepEqual(result.report.unimplementedParsers, ['xml']);
+  assert.deepEqual(result.report.disabledParsers, ['lua']);
   assert.equal(result.report.checkedSourceReferences > 0, true);
   assert.equal(result.report.savedVariableDeclarations, 2);
   assert.doesNotMatch(result.stdout + result.stderr, /RetailDB|Core\.lua|Å|must never execute/);
@@ -157,7 +239,7 @@ test('corpus parses every TOC variant read-only and inventories Lua/XML without 
   for (const [name, value] of Object.entries(contents)) assert.equal(fs.readFileSync(path.join(root, name), 'utf8'), value);
 }));
 
-test('full-parser gate fails explicitly while Lua/XML parsers are absent', () => fixture(root => {
+test('full-parser gate fails explicitly while XML is absent and Lua is disabled', () => fixture(root => {
   fs.writeFileSync(path.join(root, 'A.toc'), '');
   const result = inspect(root, '--require-all-parsers');
   assert.equal(result.status, 1);

@@ -1,5 +1,7 @@
 # v0.3.5 core architectural-freeze acceptance
 
+**Integrated evidence:** PR #21 merged reviewed head `654e0db` as `0cee5c9`; all four final-head PR and [post-merge main CI jobs](https://github.com/Zilvereyes/wow-addon-sdk/actions/runs/43894396040) passed. This remains the verified v0.3.5 core cut even as later approved extensions advance main. No release tag/publication is implied.
+
 Scope: five existing editor-neutral packages, their approved dependency graph, documented beta contracts and verification/distribution gates. Source version 0.3.5 is an unpublished development milestone. This record does not authorize a Git tag/npm release or declare consumer API stability. Final exact-head matrix/review/integration results are maintained in [PR #21](https://github.com/Zilvereyes/wow-addon-sdk/pull/21) and [epic #7](https://github.com/Zilvereyes/wow-addon-sdk/issues/7); pending evidence must remain pending there.
 
 ## Requirement-to-evidence mapping

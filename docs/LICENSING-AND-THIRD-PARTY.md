@@ -13,3 +13,7 @@ Small synthetic `.toc` fixtures written for tests are preferred. Support for TOC
 WoW AddOns themselves may be subject to Blizzard's interface/AddOn policies; an independent developer toolkit is not automatically identical to an in-game AddOn. Do not imply Blizzard endorsement.
 
 When a dependency is added, document its upstream license and ensure compliance; the MIT license on this repository does not replace third-party licenses.
+
+## Approved optional Lua runtime dependency
+
+The five original core packages retain no third-party runtime dependency. The separately approved lua-analysis package imports exactly luaparse 0.3.1 (MIT), without vendoring or bundling its source. Its installed dependency retains the original Oskar Schöldström notice. Actual tarball/source/license hashes, lack of runtime subdependencies and lifecycle review are recorded in [the Lua design](DESIGN-LUA-ANALYSIS.md); the repository gate verifies the installed source/license bytes. The SDK's own MIT notice does not replace that dependency notice. The new package's six-file payload includes its private syntax implementation pair; core payloads stay four files each. No installed game sources or assets enter these distributions.

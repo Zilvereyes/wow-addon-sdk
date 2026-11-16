@@ -1,11 +1,12 @@
 # Local AddOn corpus testing
 
-The runner reads an explicitly supplied local directory. It discovers every TOC variant, including library/test manifests; it does not infer which are loaded by the client. Lua/XML files are inventoried but are **not parsed**. Nothing is executed, written back, copied or uploaded from that directory.
+The runner reads an explicitly supplied local directory. It discovers every TOC variant, including library/test manifests; it does not infer which are loaded by the client. Default mode inventories Lua/XML. The explicit `--lua-analysis` flag invokes the actual Lua SDK parser/provider in a bounded worker; XML remains unimplemented. No input code is executed, written back, copied or uploaded from that directory.
 
 ```powershell
 npm ci --ignore-scripts --no-audit --no-fund
 npm run test:corpus -- '<local-Classic-Era-AddOns-directory>'
-# Full-parser acceptance must fail until Lua and XML parsers exist:
+npm run test:corpus -- '<local-Classic-Era-AddOns-directory>' --lua-analysis
+# Full-parser acceptance must still fail while XML is unimplemented:
 npm run test:corpus -- '<local-Classic-Era-AddOns-directory>' --require-all-parsers
 ```
 
@@ -123,3 +124,29 @@ All 434 TOCs, 51,501 parser-reference visits, 19 errors / 12 warnings and zero s
 ## Per-error pre-freeze triage
 
 All 19 current TOC0001 errors were inspected individually in deterministic discovery order. Each is a nonempty double-hash section heading without a colon or SavedVariables header: seven decorated captions, one short plain caption, one decorated prose caption and ten multiword plain captions. They are classified as unsupported heading/recovery syntax; this does not establish defective third-party input or verified client-loader behavior. The [occurrence table](PRE-FREEZE-REVIEW.md#per-occurrence-toc-triage) accounts for all 19; a private host-local ledger retains source positions and file hashes without committing installed content. Authored strict-heading regressions retain rejection and no declaration leakage. Issue #10 remains open, and exit 1 is unchanged.
+
+## Actual v0.4.0 Lua parsing/provider run
+
+The opt-in flag uses the approved [Lua profile](DESIGN-LUA-ANALYSIS.md): strict UTF-8 with BOM retained, at most 1 Mi UTF-16 input units, 50,000 nodes and accepted AST depth 256, plus 128 MiB worker heap, ten-second request deadline and bounded protocol output. The five original core boundaries do not change. No Lua source is executed.
+
+On the same 12,714-entry corpus, every one of **5,242 Lua files** was considered:
+
+| Outcome | Files |
+| --- | ---: |
+| Syntax accepted by the actual SDK | 5,105 |
+| Syntax rejected by explicit profile | 1 |
+| Invalid UTF-8 | 4 |
+| Input-unit/derived pre-read limit | 71 |
+| Generic file byte limit | 7 |
+| SDK node/depth/stack resource limit | 54 |
+| Worker/read/backend failure | 0 |
+
+There are 5,160 submitted/completed requests and **5,106 completed syntax verdicts**. The 136 encoding/budget-blocked files are not counted as parsed. Resource rejection totals 132 = 71 input-profile + seven oversized + 54 SDK resource failures. This is incomplete coverage, not a silent change of eligibility.
+
+The accepted syntax contains 1,478 files with unsupported dynamic environment/code access, so their lexical projection remains incomplete. The provider returns **6,601 declaration occurrences**: 1,828 static unconditional, zero inherited-conditional and 4,773 unknown. There are 12,403 checked Lua source-reference visits, 364,114,631 input bytes read and no worker timeout/crash. Diagnostics are LUA0002 ×1, LUA0003 ×54 and LUA0004 ×5,747. These are not counts of unique active names or real inherited load restrictions; this pass supplies no graph-derived conditions.
+
+The initial implementation rejected 90 syntax cases. Private per-file triage identified 88 manifestations of a pinned-backend `break;` defect and one multiline literal-call defect, both valid under Lua 5.1 primary grammar/source. Authored positive/negative tests now cover them; a lexer-based, equal-width parse copy corrects the defects without changing installed dependency bytes or original ranges. All 89 false syntax rejections disappear: 88 become accepted and one subsequently reaches the real resource cap. The sole remaining syntax rejection is the explicitly unsupported shebang profile; it is not classified as defective third-party game code.
+
+The bounded private triage ledger retains only filenames/hashes/ranges/statuses, never input text, outside the repository. Its initial 225 blocked/rejected records reconcile with the first aggregate run. New authored cases are independently written; no installed snippets enter tests or GitHub. Both SDK and characterization use the same backend and are not independent native Lua/Classic Era oracles.
+
+All **434 TOCs**, 51,501 TOC reference visits, 19 errors / 12 warnings and zero skipped links remain. Composed TOC resolution still reports 100 groups / 227 candidates / 98 selected / two no-matches / 160 selected active names, with no scope issues. Lua's resolvedProviderParticipation=false explicitly separates these counts: the filesystem graph has not associated Lua with selected TOCs. XML remains 1,199 inventoried / zero parsed. The whole run exits **1**, status incomplete, fullParsing=false; #10/#11 and the overall goal remain open.

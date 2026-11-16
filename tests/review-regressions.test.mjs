@@ -35,9 +35,10 @@ test('whitespace-only CSV cell reports the position after whitespace', () => {
     start: { line:0, column:25 }, end: { line:0, column:25 },
   });
 });
-// Execute the actual audit on a synthetic five-package workspace.
-const packages = ['diagnostics','addon-metadata','toc-parser','global-registry','toc-metadata-adapter'];
-function auditWithSource(packageName, contents) {
+// Execute the actual audit on a synthetic workspace, including the approved
+// optional Lua extension without changing the five core dependency boundaries.
+const packages = ['diagnostics','addon-metadata','toc-parser','global-registry','toc-metadata-adapter','lua-analysis'];
+function auditWithSource(packageName, contents, dependencies) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wow-sdk-audit-'));
   try {
     const scripts = path.join(root,'scripts');
@@ -51,7 +52,8 @@ function auditWithSource(packageName, contents) {
     for (const name of packages) {
       const folder = path.join(root,'packages',name);
       fs.mkdirSync(path.join(folder,'src'),{recursive:true});
-      fs.writeFileSync(path.join(folder,'package.json'),JSON.stringify({name:'@wow-addon/'+name}));
+      fs.writeFileSync(path.join(folder,'package.json'),JSON.stringify({name:'@wow-addon/'+name,
+        dependencies: name === packageName && dependencies !== undefined ? dependencies : name === 'lua-analysis' ? { luaparse: '0.3.1' } : {} }));
       fs.writeFileSync(path.join(folder,'tsconfig.json'),JSON.stringify({references:[]}));
       fs.writeFileSync(path.join(folder,'src','index.ts'),name === packageName ? contents : 'export {};');
     }
@@ -79,6 +81,27 @@ test('dependency-free package passes architecture audit', () => {
   const result=auditWithSource('diagnostics','export const pi = 3;');
   assert.equal(result.status,0,result.stderr);
   assert.match(result.stdout,/Architecture PASS/);
+});
+
+test('only the approved Lua extension may import its exact pinned backend', () => {
+  assert.equal(auditWithSource('lua-analysis', "import parser from 'luaparse';").status, 0);
+  const forbidden = auditWithSource('toc-parser', "import parser from 'luaparse';");
+  assert.notEqual(forbidden.status, 0);
+  assert.match(forbidden.stderr, /forbidden external module/);
+});
+
+test('core runtime dependency declarations cannot bypass the boundary without imports', () => {
+  const result = auditWithSource('toc-parser', 'export {};', { luaparse: '0.3.1' });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /forbidden declared external dependency/);
+});
+
+test('Lua backend version ranges and undeclared backends fail closed', () => {
+  for (const dependencies of [{ luaparse: '^0.3.1' }, {}, { luaparse: '0.3.1', unexpected: '1.0.0' }]) {
+    const result = auditWithSource('lua-analysis', 'export {};', dependencies);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /exact version|forbidden declared external dependency/);
+  }
 });
 
 // Copilot follow-up: both ends must map to original offsets across stripped annotations.

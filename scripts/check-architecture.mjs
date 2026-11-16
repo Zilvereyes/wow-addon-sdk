@@ -13,7 +13,9 @@ const allowed = new Map([
   ['toc-parser', ['diagnostics','addon-metadata']],
   ['global-registry', ['diagnostics']],
   ['toc-metadata-adapter', ['diagnostics','addon-metadata','global-registry']],
+  ['lua-analysis', ['diagnostics','global-registry']],
 ]);
+const external = new Map([['lua-analysis', { luaparse: '0.3.1' }]]);
 const errors = [];
 const pkgNames = [...allowed.keys()];
 const packagePrefix = '@wow-addon/';
@@ -32,6 +34,15 @@ for (const [name, permitted] of allowed) {
   const pkg = JSON.parse(fs.readFileSync(path.join(folder,'package.json'),'utf8'));
   const tsconfig = JSON.parse(fs.readFileSync(path.join(folder,'tsconfig.json'),'utf8'));
   const declared = Object.keys(pkg.dependencies ?? {}).filter(dep => dep.startsWith(packagePrefix)).map(dep => dep.slice(packagePrefix.length));
+  const approvedExternal = external.get(name) ?? {};
+  for (const dep of Object.keys(pkg.dependencies ?? {})) {
+    if (!dep.startsWith(packagePrefix) && !Object.hasOwn(approvedExternal, dep)) {
+      errors.push(`${name}: forbidden declared external dependency ${dep}`);
+    }
+  }
+  for (const [dep, version] of Object.entries(approvedExternal)) {
+    if (pkg.dependencies?.[dep] !== version) errors.push(`${name}: ${dep} requires exact version ${version}`);
+  }
   const referenced = (tsconfig.references ?? []).map(ref => path.basename(ref.path));
   for (const dep of [...declared, ...referenced]) {
     if (!permitted.includes(dep)) errors.push(`${name}: forbidden declared dependency ${dep}`);
@@ -90,7 +101,7 @@ for (const [name, permitted] of allowed) {
         const resolved = path.resolve(path.dirname(file), spec);
         const here = path.resolve(folder) + path.sep;
         if (!resolved.startsWith(here)) errors.push(`${name} imports outside its package: ${spec}`);
-      } else {
+      } else if (!Object.hasOwn(external.get(name) ?? {}, spec)) {
         errors.push(`${name} imports forbidden external module: ${spec}`);
       }
     }
