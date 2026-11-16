@@ -3,13 +3,7 @@ import type { Diagnostic, SourceReference } from '@wow-addon/diagnostics';
 /**
  * @beta
  */
-/**
- * @beta
- */
 export type ActivationState = 'unconditional' | 'conditional' | 'unknown';
-/**
- * @beta
- */
 /**
  * @beta
  */
@@ -17,15 +11,8 @@ export type GlobalKind = 'saved-variable' | 'frame' | 'lua-global';
 /**
  * @beta
  */
-/**
- * @beta
- */
 export type GlobalScope = 'account' | 'character';
 
-/** Provider-neutral global symbol; origin-specific metadata belongs to the adapter, not the registry. */
-/**
- * @beta
- */
 /**
  * Provider-neutral global symbol; origin-specific metadata belongs to the adapter, not the registry.
  *
@@ -43,28 +30,12 @@ export interface GlobalDeclaration {
 /**
  * @beta
  */
-/**
- * @beta
- */
-/**
- * @beta
- */
-/**
- * Preserve first-seen order and all provenance; warn on incompatible scopes within one addon.
- *
- * @beta
- */
 export interface GlobalRegistryEntry {
   name: string;
   declarations: GlobalDeclaration[];
 }
 
 /**
- * @beta
- */
-/**
- * Preserve first-seen order and all provenance; warn on incompatible scopes within one addon.
- *
  * @beta
  */
 export interface GlobalRegistry {
@@ -75,21 +46,14 @@ export interface GlobalRegistry {
 /**
  * @beta
  */
-/**
- * Only unconditionally available symbols are returned unless explicitly requested.
- *
- * @beta
- */
 export interface ListGlobalsOptions {
   includeConditional?: boolean;
   includeUnknown?: boolean;
 }
 
-/** Preserve first-seen order and all provenance; warn on incompatible scopes within one addon. */
 /**
- * @beta
- */
-/**
+ * Preserve first-seen order and all provenance; warn on incompatible scopes within one addon.
+ *
  * @beta
  */
 export function buildGlobalRegistry(declarations: readonly GlobalDeclaration[]): GlobalRegistry {
@@ -122,11 +86,9 @@ export function buildGlobalRegistry(declarations: readonly GlobalDeclaration[]):
   return { entries: [...entries.values()], diagnostics };
 }
 
-/** Only unconditionally available symbols are returned unless explicitly requested. */
 /**
- * @beta
- */
-/**
+ * Only unconditionally available symbols are returned unless explicitly requested.
+ *
  * @beta
  */
 export function listGlobals(registry: GlobalRegistry, options: ListGlobalsOptions = {}): string[] {

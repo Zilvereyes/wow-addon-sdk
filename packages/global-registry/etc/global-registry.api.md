@@ -10,7 +10,7 @@ import type { SourceReference } from '@wow-addon/diagnostics';
 // @beta (undocumented)
 export type ActivationState = 'unconditional' | 'conditional' | 'unknown';
 
-// @beta (undocumented)
+// @beta
 export function buildGlobalRegistry(declarations: readonly GlobalDeclaration[]): GlobalRegistry;
 
 // @beta
@@ -32,7 +32,7 @@ export interface GlobalDeclaration {
 // @beta (undocumented)
 export type GlobalKind = 'saved-variable' | 'frame' | 'lua-global';
 
-// @beta
+// @beta (undocumented)
 export interface GlobalRegistry {
     // (undocumented)
     diagnostics: Diagnostic[];
@@ -40,7 +40,7 @@ export interface GlobalRegistry {
     entries: GlobalRegistryEntry[];
 }
 
-// @beta
+// @beta (undocumented)
 export interface GlobalRegistryEntry {
     // (undocumented)
     declarations: GlobalDeclaration[];
@@ -51,10 +51,10 @@ export interface GlobalRegistryEntry {
 // @beta (undocumented)
 export type GlobalScope = 'account' | 'character';
 
-// @beta (undocumented)
+// @beta
 export function listGlobals(registry: GlobalRegistry, options?: ListGlobalsOptions): string[];
 
-// @beta
+// @beta (undocumented)
 export interface ListGlobalsOptions {
     // (undocumented)
     includeConditional?: boolean;

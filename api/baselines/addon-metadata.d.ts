@@ -1,16 +1,9 @@
-/** Independent, JSON-serializable contracts. VS Code/LuaLS/Continue are intentionally absent. */
-/**
- * @beta
- */
 /**
  * Independent, JSON-serializable contracts. VS Code/LuaLS/Continue are intentionally absent.
  *
  * @beta
  */
 export declare const METADATA_SCHEMA_VERSION: 2;
-/**
- * @beta
- */
 /**
  * @beta
  */
@@ -23,10 +16,6 @@ export declare enum WoWClient {
     CataclysmClassic = "cataclysm-classic",
     MistsClassic = "mists-classic"
 }
-/** Hardcore and Season of Discovery are game modes, not unique WOW_PROJECT_ID values. */
-/**
- * @beta
- */
 /**
  * Hardcore and Season of Discovery are game modes, not unique WOW_PROJECT_ID values.
  *
@@ -41,21 +30,12 @@ export declare enum WoWGameMode {
 /**
  * @beta
  */
-/**
- * @beta
- */
 export type WoWClientFamily = 'unknown' | 'classic' | 'mainline';
 import type { Diagnostic, SourceReference } from '@wow-addon/diagnostics';
 /**
  * @beta
  */
-/**
- * @beta
- */
 export type SavedVariableScope = 'account' | 'character';
-/**
- * @beta
- */
 /**
  * @beta
  */
@@ -66,9 +46,6 @@ export interface InlineCondition {
     raw: string;
     source: SourceReference;
 }
-/**
- * @beta
- */
 /**
  * @beta
  */
@@ -83,17 +60,11 @@ export interface MetadataDirective {
 /**
  * @beta
  */
-/**
- * @beta
- */
 export interface AddOnFileReference {
     path: string;
     source: SourceReference;
     conditions: InlineCondition[];
 }
-/**
- * @beta
- */
 /**
  * @beta
  */
@@ -104,9 +75,6 @@ export interface SavedVariableDeclaration {
     source: SourceReference;
     conditions: InlineCondition[];
 }
-/**
- * @beta
- */
 /**
  * @beta
  */
@@ -139,9 +107,6 @@ export interface AddOnMetadata {
 /**
  * @beta
  */
-/**
- * @beta
- */
 export interface TocEntry {
     kind: 'blank' | 'comment' | 'directive' | 'file' | 'invalid';
     raw: string;
@@ -149,9 +114,6 @@ export interface TocEntry {
     directive?: MetadataDirective;
     fileEntry?: AddOnFileReference;
 }
-/**
- * @beta
- */
 /**
  * @beta
  */
