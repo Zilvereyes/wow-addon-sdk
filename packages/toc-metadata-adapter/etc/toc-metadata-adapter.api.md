@@ -8,6 +8,7 @@ import { AddOnMetadata } from '@wow-addon/addon-metadata';
 import { ClientEnvironment } from '@wow-addon/addon-metadata';
 import type { GlobalDeclaration } from '@wow-addon/global-registry';
 import type { GlobalRegistry } from '@wow-addon/global-registry';
+import type { ResolvedAvailability } from '@wow-addon/global-registry';
 import type { SourceReference } from '@wow-addon/diagnostics';
 import { TocVariantIdentity } from '@wow-addon/addon-metadata';
 import { WoWClient } from '@wow-addon/addon-metadata';
@@ -16,6 +17,47 @@ import { WoWGameMode } from '@wow-addon/addon-metadata';
 
 // @beta
 export function buildTocGlobalRegistry(addons: readonly AddOnMetadata[]): GlobalRegistry;
+
+// @beta
+export interface ConditionEvaluationIssue {
+    // (undocumented)
+    readonly code: 'CONDEVAL0001' | 'CONDEVAL0002' | 'CONDEVAL0003' | 'CONDEVAL0004' | 'CONDEVAL0005' | 'CONDEVAL0006';
+    // (undocumented)
+    readonly message: string;
+    // (undocumented)
+    readonly sources: readonly SourceReference[];
+}
+
+// @beta
+export interface ConditionEvaluationPolicy {
+    // (undocumented)
+    readonly id: string;
+    // (undocumented)
+    readonly nameComparison: 'exact' | 'ascii-insensitive';
+    // (undocumented)
+    readonly rules: readonly {
+        readonly providerId: string;
+        readonly name: string;
+        readonly field: 'gameType' | 'textLocale' | 'gameMode';
+        readonly operator: 'include' | 'exclude';
+        readonly valueComparison: 'exact' | 'ascii-insensitive';
+    }[];
+    // (undocumented)
+    readonly schemaVersion: 1;
+}
+
+// @beta
+export interface ConditionEvaluationResult {
+    // (undocumented)
+    readonly availability: ResolvedAvailability;
+    // (undocumented)
+    readonly issues: readonly ConditionEvaluationIssue[];
+    // (undocumented)
+    readonly reason: 'unconditional' | 'conditions-satisfied' | 'condition-mismatch' | 'missing-provenance' | 'unknown' | 'invalid-input';
+}
+
+// @beta
+export function evaluateGlobalConditions(declaration: GlobalDeclaration, environment: ClientEnvironment, policy: ConditionEvaluationPolicy): ConditionEvaluationResult;
 
 // @beta
 export function selectTocVariant(environment: ClientEnvironment, logicalAddonId: string, addonBaseName: string, candidates: readonly TocSelectionCandidate[], policy: TocSelectionPolicy): TocSelectionResult;

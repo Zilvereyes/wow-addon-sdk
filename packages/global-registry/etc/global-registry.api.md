@@ -77,6 +77,9 @@ export interface ListGlobalsOptions {
     includeUnknown?: boolean;
 }
 
+// @beta
+export type ResolvedAvailability = 'active' | 'inactive' | 'unknown';
+
 // (No @packageDocumentation comment for this package)
 
 ```

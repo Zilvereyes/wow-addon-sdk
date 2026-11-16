@@ -49,8 +49,8 @@ The v0.3.0 environment/identity decisions A–D were approved in [issue #6](http
 
 ## 5. v0.3.3: conservative condition evaluation
 
-1. Document supported condition names/argument cardinality/case rules and environment requirements using verified behavior. Define game types and locales independently from project IDs and game modes.
-2. Approve the truth table and diagnostic contract in #6. Unknown/unsupported data yields unknown, never active. Define how multiple conditions combine before coding.
+1. Implement the [approved explicit-policy evaluator](DESIGN-v0.3.3.md), with provider/name/field/include-exclude/casing rules declared by the caller. A built-in WoW condition table remains pending verified behavior. Define opaque game types/locales independently from project IDs and known game modes.
+2. The user approved A–E, including the conservative AND truth table, unknown/malformed behavior, diagnostic/source contract and five additive exports in [issue #6, comment 6918223915](https://github.com/Zilvereyes/wow-addon-sdk/issues/6#issuecomment-6918223915). Do not request the same decision again.
 3. Implement a pure evaluator after the failing truth-table tests. Return active/inactive/unknown with source and reason; perform no filesystem/network/runtime calls.
 4. Test true/false/unknown, empty and malformed arguments, unsupported modes, multiple conditions, contradictory environments and two simultaneous evaluations of frozen input.
 5. Keep source records immutable through resolution; update API/migration/diagnostic docs and all gates.

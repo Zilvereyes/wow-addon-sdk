@@ -26,3 +26,18 @@ These codes are emitted in `TocSelectionIssue`, which has a source array and per
 | `TOCSEL0004` | unresolved | Environment knowledge or policy applicability cannot be established |
 
 `no-match` is a normal result with no issue. `selected` returns one exact variant ID. Source lists and issue ordering are deterministic; result references do not alias the input.
+
+## v0.3.3 condition-evaluation issues
+
+`ConditionEvaluationIssue` retains a source array and fixed messages without changing shared Diagnostic or parser codes. Availability is derived under an explicit caller policy and is distinct from static ActivationState.
+
+| Code | Meaning |
+| --- | --- |
+| `CONDEVAL0001` | Invalid environment/policy shape, schema or rule configuration |
+| `CONDEVAL0002` | Invalid/contradictory declaration/descriptor projection or unavailable static provenance |
+| `CONDEVAL0003` | Unsupported provider/name under the explicit policy |
+| `CONDEVAL0004` | Missing/empty arguments for a supported rule |
+| `CONDEVAL0005` | Unknown client context or missing/unsupported required environment field |
+| `CONDEVAL0006` | A supported condition excludes the declaration under the explicit policy |
+
+A structurally valid false condition can make the overall conservative AND inactive while retaining issues for other unknown conditions. Invalid projections and unresolved static activation remain unknown. Neither raw annotation spelling nor an unsupported provider/name supplies implicit truth. Returned provenance is copied and canonical; no policy/argument values are echoed into messages.

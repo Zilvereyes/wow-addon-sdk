@@ -4,6 +4,13 @@ Changes are recorded by release. This project is in pre-1.0 development.
 
 ## [Unreleased]
 
+### v0.3.3 conservative condition evaluation (source version; not published)
+
+- Add the approved neutral ResolvedAvailability type and four adapter exports for explicit-policy condition evaluation (45 beta exports total). Preserve five package boundaries and metadata/environment schemas 2/1.
+- Match provider/name pairs and caller-defined include/exclude comparisons, OR arguments within each rule and combine valid conditional outcomes with conservative AND. Unknown/empty/malformed provenance never activates; structural invalidity and unknown static activation take precedence.
+- Return fixed issue codes/reasons and independent canonical source copies without mutating static registry records or interpreting raw syntax. No built-in WoW condition table is introduced.
+- Add type/truth-table/validation/mutation/provider-isolation regressions and optional bounded condition-profile corpus checks. Unknown outcomes remain visible and fail that opt-in check; counts do not establish resolved visibility.
+
 ### v0.3.2 condition provenance (source version; not published)
 
 - Add the approved provider-neutral `ConditionDescriptor` beta export and optional readonly `GlobalDeclaration.conditions` field (40 exports total). Keep metadata schema 2, environment schema 1 and the existing five dependency boundaries.

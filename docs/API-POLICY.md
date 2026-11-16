@@ -2,7 +2,7 @@
 
 ## Before 1.0
 
-The SDK is in active development. Public TypeScript APIs can change. All 40 intentional exports in the five current packages use `@beta` (30 preserved plus four approved v0.3.0, five approved v0.3.1 and one approved v0.3.2 addition). `@public` is reserved for an explicit consumer-stability decision, normally v1.0. API changes require reviewed declaration snapshots in `api/baselines`, reviewed reports in `packages/*/etc/*.api.md` and migration notes for compatibility changes.
+The SDK is in active development. Public TypeScript APIs can change. All 45 intentional exports in the five current packages use `@beta` (30 preserved plus four approved v0.3.0, five approved v0.3.1, one approved v0.3.2 and five approved v0.3.3 additions). `@public` is reserved for an explicit consumer-stability decision, normally v1.0. API changes require reviewed declaration snapshots in `api/baselines`, reviewed reports in `packages/*/etc/*.api.md` and migration notes for compatibility changes.
 
 ## 0.3.5 — Architectural Freeze
 

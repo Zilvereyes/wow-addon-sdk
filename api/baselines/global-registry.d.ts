@@ -4,6 +4,12 @@ import type { Diagnostic, SourceReference } from '@wow-addon/diagnostics';
  */
 export type ActivationState = 'unconditional' | 'conditional' | 'unknown';
 /**
+ * Derived availability only; static declarations retain ActivationState.
+ *
+ * @beta
+ */
+export type ResolvedAvailability = 'active' | 'inactive' | 'unknown';
+/**
  * @beta
  */
 export type GlobalKind = 'saved-variable' | 'frame' | 'lua-global';

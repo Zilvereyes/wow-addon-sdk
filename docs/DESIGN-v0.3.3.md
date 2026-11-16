@@ -1,6 +1,6 @@
-# v0.3.3 proposal: conservative condition evaluation
+# v0.3.3: conservative condition evaluation
 
-**Status: concrete design proposal; semantic decision pending in issue #6.** v0.3.2 is integrated through PR #17 and the authored parser fixtures through PR #18. The current baseline is `df2c2df`, source version 0.3.2, 40 beta exports and 95 tests. This document adds no runtime implementation or metadata-schema change.
+**Status: A–E approved and implemented on the feature branch; final verification in progress.** The user explicitly approved implementation in [issue #6, comment 6918223915](https://github.com/Zilvereyes/wow-addon-sdk/issues/6#issuecomment-6918223915). The starting baseline is `df2c2df` (v0.3.2, 40 beta exports and 95 tests). This design adds five beta exports and advances source/workspace versions to 0.3.3 while retaining metadata schema 2 and environment schema 1.
 
 ## Intended outcome and evidence boundary
 
@@ -46,7 +46,7 @@ Policy schema 1 contains a nonempty opaque `id`, required `nameComparison` (`exa
 | `operator` | `include` or `exclude` |
 | `valueComparison` | `exact` or `ascii-insensitive` |
 
-Rules are data, never functions or executable expressions. ASCII-insensitive comparison folds A–Z only, preserving every original string. No trimming, Unicode normalization, locale registry, client-to-gameType inference or project-ID conversion occurs. Duplicate semantic `(providerId, name)` keys under the chosen name comparison invalidate the policy, even if a declaration would not use them. An empty rule list is a valid explicit policy that supports no conditions. Sparse arrays, missing/unknown rule fields and malformed policy shape are invalid.
+Rules are data, never functions or executable expressions. ASCII-insensitive comparison folds A–Z only, preserving every original string. No trimming, Unicode normalization, locale registry, client-to-gameType inference or project-ID conversion occurs. Duplicate semantic `(providerId, name)` keys under the chosen name comparison invalidate the policy, even if a declaration would not use them. An empty rule list is a valid explicit policy that supports no conditions. Sparse arrays, missing fields, unknown field/operator/comparison values and malformed policy shape are invalid. Unconsumed extra fields are ignored.
 
 For a supported rule and known environment field, `include` is true when any nonempty supplied argument matches that field; `exclude` is true when none matches. Argument duplicates remain representable and do not change membership truth. An empty argument list or empty argument string is unknown; exclusion of an empty list must never become vacuously active. Unknown provider/name pairs remain unknown, regardless of a familiar-looking name from another provider.
 
@@ -71,7 +71,7 @@ Truth table for two condition outcomes (and its repeated fold for larger nonempt
 | false | false | false | false |
 | unknown | unknown | false | unknown |
 
-This AND is an approved caller-policy operation if the proposal is accepted; it is not inferred game-loader behavior. Structural invalidity and unresolved static activation take precedence over that fold.
+This AND is the explicitly approved caller-policy operation; it is not inferred game-loader behavior. Structural invalidity and unresolved static activation take precedence over that fold.
 
 ## D — Issues and deterministic provenance
 
@@ -104,4 +104,6 @@ Messages use fixed explanations rather than echoing private values. Environment/
 | Actual corpus | Read-only aggregate checks retain current TOC diagnostic failures and explicit Lua/XML absence; zero nonempty SavedVariable conditions must remain an honest coverage limitation |
 | Final delivery | Locked install, focused/integrated tests, strict Extractor, supported Ubuntu/Windows × Node 22/24 final-head and main CI, followed by evidence updates in #6/#7 |
 
-After the decision: author the missing-export/truth-table regressions, implement the narrow pure seam, verify malformed/unknown paths and ownership, deliberately update API/version/migration/diagnostic records, run integrated/local corpus checks, and publish the focused implementation for review and green integration under the user's session authorization. v0.3.4 then composes selection and evaluation into a resolved registry view and proves that non-selected sources cannot contribute globals. Real Lua/XML parsing remains a separate full acceptance requirement in #11.
+Execution order: author the missing-export/truth-table regressions, implement the narrow pure seam, verify malformed/unknown paths and ownership, deliberately update API/version/migration/diagnostic records, run integrated/local corpus checks, and publish the focused implementation for review and green integration under the user's session authorization. v0.3.4 then composes selection and evaluation into a resolved registry view and proves that non-selected sources cannot contribute globals. Real Lua/XML parsing remains a separate full acceptance requirement in #11.
+
+The opt-in `--condition-profile` corpus mode loads a bounded JSON environment/policy before source traversal, evaluates every valid adapter declaration without mutation and reports aggregate counts/codes only. Unknown results retain failed status. Selection and evaluation reports are independent inspections of all input variants, not a composed resolved-global view. The example policy defines caller semantics; it is not a built-in game policy.

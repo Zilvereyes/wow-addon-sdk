@@ -100,3 +100,19 @@ For unconditional TOC output, the new property is omitted, preserving its old JS
 Legacy conditional declarations without descriptors remain accepted. Missing or empty provenance cannot override `activationState` or establish truth. Static `listGlobals` options, addonId = tocPath and SV0001 behavior are unchanged; selected-variant/environment resolution remains a later step.
 
 The adapter independently copies each new conditions array, descriptor, values array and source/range/position object per declaration and invocation. Editing one output's condition provenance cannot modify input or sibling output. Existing declaration `source` aliasing and the registry's retention of supplied declaration objects remain unchanged. Readonly is a TypeScript contract; no runtime freezing or full registry ownership isolation is added.
+
+## v0.3.3: explicit-policy condition evaluation
+
+Five approved beta additions bring the surface to 45 exports: `ResolvedAvailability` in global-registry, plus `ConditionEvaluationPolicy`, `ConditionEvaluationIssue`, `ConditionEvaluationResult` and `evaluateGlobalConditions` in the adapter. Workspace source versions/internal ranges become 0.3.3; metadata/environment schemas remain 2/1. Static declaration-time ActivationState is unchanged.
+
+```ts
+const result = evaluateGlobalConditions(declaration, environment, callerPolicy);
+// result.availability: active | inactive | unknown
+// result.reason and result.issues retain explanations and copied source ranges.
+```
+
+Pass an explicit data-only policy, such as the authored [example](../examples/classic-era-condition-profile.json). It defines exact provider/name matching, field selection, include/exclude membership and casing choices. No default table or client-to-gameType inference is installed. Select the TOC before deriving resolved visibility; evaluating arbitrary declarations does not select their source.
+
+Arguments use OR within a rule and conservative AND across structurally valid conditions: false dominates unknown, unknown dominates true. Unsupported providers/names, missing fields and empty arguments remain unknown and cannot produce active. Legacy conditional records without descriptors remain unknown. Structural invalidity or unresolved static activation takes precedence over the fold; nonempty descriptors on an unconditional record are contradictory.
+
+Handle unknown and all fixed issue codes deliberately. Returned sources are canonical independent copies, and messages do not echo policy/argument values. Validation covers the consumed environment/policy/declaration/descriptor projection rather than every legacy symbol field or original source-content bound. Native object getters remain caller code. Static registry/listing/conflict behavior and serialized declaration records are unchanged by evaluation.

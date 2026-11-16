@@ -6,7 +6,7 @@
 
 WoW AddOn SDK provides reusable libraries for parsing AddOn `.toc` files, modeling AddOn metadata, tracking global declarations, and producing source-aware diagnostics. Syntax parsing, semantic models, symbol registries and external tooling adapters are deliberately separated.
 
-> **Status:** Pre-1.0 development preview (`v0.3.2`). Public APIs may change. This is not a published npm release and is not affiliated with Blizzard Entertainment.
+> **Status:** Pre-1.0 development preview (`v0.3.3`). Public APIs may change. This is not a published npm release and is not affiliated with Blizzard Entertainment.
 
 ## Packages
 
@@ -69,15 +69,15 @@ npm run check:packages
 
 GitHub Actions validates Node 22 and 24 on both Ubuntu 24.04 and Windows. The repository includes GitHub Actions verification, TypeScript project references, a custom import-boundary audit, dependency-cruiser rules, versioned declaration snapshots and API Extractor configurations. **Strict API Extractor and actual npm dry-run file-list assertions are mandatory CI gates.** Use `npm run api:extractor:local` only to intentionally regenerate reviewed reports, then run strict `npm run api:extractor`.
 
-v0.3.0 adds separate environment schema 1 and caller-owned logical/variant identity contracts. v0.3.1 adds pure selection from an explicit caller policy; no built-in WoW-loader priority is inferred. v0.3.2 preserves provider-neutral condition provenance through the TOC adapter without evaluating it. Metadata remains schema 2 and the original 30 beta exports are preserved (40 total). See [migration](docs/MIGRATION-v0.2-to-v0.3.md), [selection design](docs/DESIGN-v0.3.1.md) and [condition design](docs/DESIGN-v0.3.2.md). For optional read-only installed-AddOn checks, see [local corpus testing](docs/LOCAL-CORPUS-TESTING.md). The [detailed plan](docs/EXECUTION-v0.3.5.md) covers core freeze and subsequent actual Lua/XML parsing.
+v0.3.0 adds separate environment schema 1 and caller-owned logical/variant identity contracts. v0.3.1 adds explicit-policy selection, v0.3.2 preserves condition provenance and v0.3.3 evaluates conditions conservatively under caller-supplied rules. No built-in WoW-loader policy is inferred. Metadata remains schema 2 and the original 30 beta exports are preserved (45 total). See [migration](docs/MIGRATION-v0.2-to-v0.3.md), [selection design](docs/DESIGN-v0.3.1.md), [provenance design](docs/DESIGN-v0.3.2.md) and [evaluation design](docs/DESIGN-v0.3.3.md). For optional read-only installed-AddOn checks, see [local corpus testing](docs/LOCAL-CORPUS-TESTING.md). The [detailed plan](docs/EXECUTION-v0.3.5.md) covers core freeze and subsequent actual Lua/XML parsing.
 
-## Non-goals (v0.3.2)
+## Non-goals (v0.3.3)
 
 This release does **not**:
 
 - Parse Lua source code, XML or Blizzard FrameXML.
 - Resolve `$parent` frame names or infer saved-variable types.
-- Evaluate client/game-mode condition expressions or infer an automatic WoW-loader TOC policy. v0.3.1 selection requires explicit caller policy and source identities.
+- Infer an automatic WoW-loader TOC/condition policy. Selection and condition evaluation require explicit caller policies; a composed resolved-global view follows in v0.3.4.
 - Depend on VS Code, Lua Language Server or AI tooling.
 - Modify a user's `.vscode/settings.json` or generate runtime Lua initialization.
 - Bundle or redistribute Blizzard-owned source files or game assets.
