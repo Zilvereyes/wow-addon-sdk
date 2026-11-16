@@ -2,11 +2,11 @@
 
 ## Before 1.0
 
-The SDK is in active development. Public TypeScript APIs can change. Each change to public interfaces must include a migration note and an intentional review of the versioned declaration snapshots in `api/baselines`.
+The SDK is in active development. Public TypeScript APIs can change. All 30 intentional exports in the five current packages use `@beta`. `@public` is reserved for an explicit consumer-stability decision, normally v1.0. API changes require reviewed declaration snapshots in `api/baselines`, reviewed reports in `packages/*/etc/*.api.md` and migration notes for compatibility changes.
 
 ## 0.3.5 — Architectural Freeze
 
-An architectural freeze establishes stable dependency rules, documented exports, reviewed API snapshots, a migration record and CI gates. It does **not** constitute a public API compatibility guarantee or a SemVer 1.0 release.
+An architectural freeze establishes stable dependency rules, documented exports, client-aware resolver regression coverage, reviewed API snapshots, a migration record, license-complete npm packages and CI gates. It does **not** constitute a public API compatibility guarantee or a SemVer 1.0 release. See [v0.3.5 roadmap #7](https://github.com/Zilvereyes/wow-addon-sdk/issues/7) and [design issue #6](https://github.com/Zilvereyes/wow-addon-sdk/issues/6).
 
 ## 1.0.0 — Consumer Stability
 
@@ -17,6 +17,7 @@ From 1.0.0 the project intends to follow SemVer: breaking public API changes req
 - `npm run check:architecture` checks import boundaries, package declarations, references and cycles.
 - `npm run check:deps` runs dependency-cruiser.
 - `npm run check:api` checks compiled declaration snapshots.
-- API Extractor configurations exist, but audited/committed reports must be bootstrapped before its validation can become a mandatory gate.
+- Strict `npm run api:extractor` validates five committed reports as a mandatory CI gate. Only run `npm run api:extractor:local` for deliberate report regeneration and review.
+- `npm pack --dry-run --workspaces --ignore-scripts` runs in CI; the public-export audit enforces identical MIT LICENSE files in every workspace.
 
 Versioned serialized metadata (`METADATA_SCHEMA_VERSION`) is separate from the npm package SemVer version.

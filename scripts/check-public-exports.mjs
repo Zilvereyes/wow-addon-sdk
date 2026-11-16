@@ -7,6 +7,7 @@ import url from 'node:url';
 const root = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 const expected = ['diagnostics','addon-metadata','toc-parser','global-registry','toc-metadata-adapter'];
 const errors = [];
+const expectedLicense = fs.readFileSync(path.join(root, 'LICENSE'));
 for (const name of expected) {
   const p = path.join(root,'packages',name,'package.json');
   const pkg = JSON.parse(fs.readFileSync(p,'utf8'));
@@ -16,6 +17,9 @@ for (const name of expected) {
   if (pkg.exports?.['.']?.default !== './dist/index.js') errors.push(`${name}: wrong runtime entry point`);
   if (JSON.stringify(pkg.files) !== JSON.stringify(['dist'])) errors.push(`${name}: publish only dist files`);
   if (pkg.license !== 'MIT') errors.push(`${name}: missing MIT license manifest`);
+  const licensePath = path.join(root, 'packages', name, 'LICENSE');
+  if (!fs.existsSync(licensePath)) errors.push(`${name}: missing publishable MIT LICENSE file`);
+  else if (!fs.readFileSync(licensePath).equals(expectedLicense)) errors.push(`${name}: workspace LICENSE differs from repository LICENSE`);
 }
 if (errors.length) { errors.forEach(x=>console.error(`PUBLIC EXPORT ERROR: ${x}`)); process.exitCode=1; }
 else console.log(`Public exports PASS: ${expected.length} packages have explicit root entry points`);

@@ -2,7 +2,7 @@
 
 ## SDK code
 
-The original SDK source in this repository is licensed under the MIT License. Preserve the copyright and license notice when copying or redistributing substantial portions. Each independently publishable `packages/*/package.json` declares MIT; the root package is `private: true` only to block accidental publishing of the workspace root.
+The original SDK source in this repository is licensed under the MIT License. Preserve the copyright and license notice when copying or redistributing substantial portions. Each independently publishable `packages/*/package.json` declares MIT, and every workspace contains a byte-identical `LICENSE` copied from the repository root. npm includes this license in each workspace tarball and the export audit rejects missing or different notices. The root package is `private: true` only to block accidental publishing of the workspace root.
 
 ## Blizzard and other third-party materials
 

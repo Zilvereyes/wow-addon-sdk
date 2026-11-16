@@ -25,7 +25,7 @@ The core contains **no dependencies on VS Code, LuaLS or Continue**. Dependency 
 Requires Node.js 22+ and npm. On Windows, PowerShell 7 is recommended.
 
 ```powershell
-npm install
+npm ci --ignore-scripts --no-audit --no-fund
 npm run check:all
 node ./examples/inspect-toc.mjs ./examples/ZilverUI/ZilverUI_Mainline.toc
 ```
@@ -63,9 +63,11 @@ npm run check:architecture
 npm run check:deps
 npm run check:api
 npm run check:all
+npm run api:extractor
+npm pack --dry-run --workspaces --ignore-scripts
 ```
 
-GitHub Actions validates Node 22 and 24 on both Ubuntu 24.04 and Windows. The repository includes GitHub Actions verification, TypeScript project references, a custom import-boundary audit, dependency-cruiser rules, versioned declaration snapshots and API Extractor configurations. **API Extractor reports require a separate online bootstrap and review before becoming a mandatory CI check.**
+GitHub Actions validates Node 22 and 24 on both Ubuntu 24.04 and Windows. The repository includes GitHub Actions verification, TypeScript project references, a custom import-boundary audit, dependency-cruiser rules, versioned declaration snapshots and API Extractor configurations. **Strict API Extractor reports and `npm pack --dry-run --workspaces --ignore-scripts` are now mandatory CI gates.** Use `npm run api:extractor:local` only to intentionally regenerate reviewed reports, then run strict `npm run api:extractor`.
 
 ## Non-goals (v0.2.0)
 
@@ -85,18 +87,19 @@ Those capabilities belong to separately versioned future adapters and analysis p
 | Version | Target |
 | --- | --- |
 | `0.2.x` | Five packages, diagnostics, registry, adapter, architecture checks |
-| `0.3.0` | Condition normalization, client/TOC resolution |
-| `0.3.5` | **Architectural Freeze**: reviewed public API snapshots, dependency audit, migration docs |
+| `0.3.0` | Versioned client environment and logical AddOn identity contracts |
+| `0.3.1–0.3.4` | Active TOC selection, condition provenance, tri-state evaluation and resolved global views |
+| `0.3.5` | **Architectural Freeze**: API snapshots, environment regression coverage, migration docs, licensing and packaging gates |
 | `0.4.x` | LuaLS adapter |
 | `0.5.x` | XML and Lua parsers, reference graph |
 | `1.0.0` | **Consumer API Stability**, SemVer guarantees |
 
-An architectural freeze in `0.3.5` **is not** a promise of stable public APIs. See [API Policy](docs/API-POLICY.md).
+An architectural freeze in `0.3.5` **is not** a promise of stable public APIs. See [API Policy](docs/API-POLICY.md) and [v0.3.5 roadmap](docs/ROADMAP-v0.3.5.md).
 
 ## Contributing and licensing
 
 The repository root is marked `"private": true` in `package.json` **only to prevent accidental npm publication of the monorepo root**. The GitHub repository is public; this field does not control GitHub visibility.
 
-The SDK source code is distributed under the [MIT License](LICENSE). The individual package manifests declare `"license": "MIT"`. Please read [Contributing](CONTRIBUTING.md), [Changelog](CHANGELOG.md), and [Licensing and Third-Party Content](docs/LICENSING-AND-THIRD-PARTY.md).
+The SDK source code is distributed under the [MIT License](LICENSE). Each independently publishable workspace includes an identical MIT `LICENSE` in its npm tarball and declares `"license": "MIT"`. Please read [Contributing](CONTRIBUTING.md), [Changelog](CHANGELOG.md), and [Licensing and Third-Party Content](docs/LICENSING-AND-THIRD-PARTY.md).
 
 *World of Warcraft* and related names are trademarks of Blizzard Entertainment. This independent community project is not affiliated with, endorsed by, or sponsored by Blizzard Entertainment.

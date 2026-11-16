@@ -19,7 +19,8 @@ Arkitekturen beskyttes af:
 1. `scripts/check-architecture.mjs` – scanner TypeScript AST-imports, manifest og tsconfig-references, forhindrer cykler/ulovlige afhængigheder. Kører også offline med installeret TypeScript.
 2. `.dependency-cruiser.cjs` – sekundært graph-audit, kræver installeret dependency-cruiser.
 3. `scripts/check-api-snapshots.mjs` – fail-closed sammenligning af kompileret API-kontrakt mod committed `.d.ts` baselines.
-4. `packages/*/api-extractor.json` – fremtidig API Extractor-review med tracked rapporter; kræver første online-bootstrap.
+4. `packages/*/api-extractor.json` og `packages/*/etc/*.api.md` – obligatorisk strict API Extractor i CI, med versionerede rapporter. Lokal regenerering kræver eksplicit review.
+5. `scripts/check-public-exports.mjs` – kontrollerer package-exports og identiske MIT-licenser i alle fem publishable workspaces.
 
 ## Syntaks, semantik, registry
 
@@ -38,8 +39,12 @@ Registry deduplikerer ved `name` for lookup, men bevarer alle deklarationer med 
 ## Roadmap
 
 - **0.2.0:** diagnostics, global-registry, toc-metadata-adapter, arkitekturgates og API snapshots.
-- **0.3.0:** conditions normalization og evaluation, klient-/TOC resolution.
-- **0.3.5:** Architectural Stability – reviewed API reports, migration docs, dependency- og export-audit.
+- **0.3.0:** client environment og logisk AddOn-identitet.
+- **0.3.1:** aktiv TOC-variantvalg før condition evaluation.
+- **0.3.2:** provider-neutral condition provenance.
+- **0.3.3:** tri-state condition evaluation uden mutation.
+- **0.3.4:** resolved global availability uden læk fra ikke-valgte TOC-varianter.
+- **0.3.5:** Architectural Freeze – reviewed API, migrations, release- og licensing-gates. Se [roadmap](ROADMAP-v0.3.5.md).
 - **0.4.0:** LuaLS adapter efter contract freeze.
 - **0.5.x:** XML/Lua parser, Reference Graph.
 - **1.0.0:** Consumer Stability – eksplicitte kompatibilitetsgarantier; major-version ved breaking changes.
