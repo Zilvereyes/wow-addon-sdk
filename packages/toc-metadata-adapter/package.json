@@ -1,6 +1,6 @@
 {
   "name": "@wow-addon/toc-metadata-adapter",
-  "version": "0.3.5",
+  "version": "0.4.0",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,9 +14,9 @@
     "dist"
   ],
   "dependencies": {
-    "@wow-addon/addon-metadata": "0.3.5",
-    "@wow-addon/global-registry": "0.3.5",
-    "@wow-addon/diagnostics": "0.3.5"
+    "@wow-addon/addon-metadata": "0.4.0",
+    "@wow-addon/global-registry": "0.4.0",
+    "@wow-addon/diagnostics": "0.4.0"
   },
   "license": "MIT"
 }

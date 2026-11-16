@@ -4,9 +4,9 @@
 
 **A modular, editor-agnostic TypeScript SDK for World of Warcraft AddOn development.**
 
-WoW AddOn SDK provides reusable libraries for parsing AddOn `.toc` files, modeling AddOn metadata, tracking global declarations, and producing source-aware diagnostics. Syntax parsing, semantic models, symbol registries and external tooling adapters are deliberately separated.
+WoW AddOn SDK provides reusable libraries for parsing AddOn `.toc` files, analyzing Lua 5.1 syntax and lexical globals, modeling AddOn metadata, and producing source-aware diagnostics. Syntax parsing, semantic models, symbol registries and external tooling adapters are deliberately separated.
 
-> **Status:** Pre-1.0 development preview (`v0.3.5`). Public APIs may change. This is not a published npm release and is not affiliated with Blizzard Entertainment.
+> **Status:** Pre-1.0 development preview (`v0.4.0`). Public APIs may change. This is not a published npm release and is not affiliated with Blizzard Entertainment.
 
 ## Packages
 
@@ -17,8 +17,11 @@ WoW AddOn SDK provides reusable libraries for parsing AddOn `.toc` files, modeli
 | `@wow-addon/toc-parser` | TOC parsing, retained source order and parse diagnostics |
 | `@wow-addon/global-registry` | Provider-neutral global declarations, consolidation and scope conflicts |
 | `@wow-addon/toc-metadata-adapter` | The official AddOn metadata → global declaration translation |
+| `@wow-addon/lua-analysis` | Optional Lua 5.1 syntax and conservative lexical-global analysis, with a pinned MIT backend |
 
 The core contains **no dependencies on VS Code, LuaLS or Continue**. Dependency boundaries are enforced in source and CI.
+
+The five original core packages retain their dependency rules. The separately approved Lua extension depends on registry/diagnostics and exactly `luaparse@0.3.1`; providers need no TOC-adapter import. See [the Lua profile and limits](docs/DESIGN-LUA-ANALYSIS.md).
 
 ## Quick start
 
@@ -69,15 +72,15 @@ npm run check:packages
 
 GitHub Actions validates Node 22 and 24 on both Ubuntu 24.04 and Windows. The repository includes GitHub Actions verification, TypeScript project references, a custom import-boundary audit, dependency-cruiser rules, versioned declaration snapshots and API Extractor configurations. **Strict API Extractor and actual npm dry-run file-list assertions are mandatory CI gates.** Use `npm run api:extractor:local` only to intentionally regenerate reviewed reports, then run strict `npm run api:extractor`.
 
-v0.3.0 adds separate environment schema 1 and caller-owned logical/variant identity contracts. v0.3.1–0.3.3 provide explicit-policy selection, provenance and conservative evaluation. v0.3.4 composes them into a resolved view: known active names, selected declaration origins and active-only scope conflicts. Static APIs retain their behavior. Metadata remains schema 2; the original 30 beta exports are preserved (52 total including the named condition-rule type), and no built-in WoW-loader policy is inferred. See [migration](docs/MIGRATION-v0.2-to-v0.3.md), [selection](docs/DESIGN-v0.3.1.md), [provenance](docs/DESIGN-v0.3.2.md), [evaluation](docs/DESIGN-v0.3.3.md) and [resolution design](docs/DESIGN-v0.3.4.md). For optional read-only installed-AddOn checks, see [local corpus testing](docs/LOCAL-CORPUS-TESTING.md). The [pre-freeze review](docs/PRE-FREEZE-REVIEW.md) and [public surface inventory](docs/PUBLIC-SURFACE.md) record remaining acceptance before v0.3.5. The [detailed plan](docs/EXECUTION-v0.3.5.md) covers core freeze and subsequent actual Lua/XML parsing.
+v0.3.0 adds separate environment schema 1 and caller-owned logical/variant identity contracts. v0.3.1–0.3.3 provide explicit-policy selection, provenance and conservative evaluation. v0.3.4 composes them into a resolved view: known active names, selected declaration origins and active-only scope conflicts. Static APIs retain their behavior. Metadata remains schema 2; the original 30 beta exports are preserved (52 at core freeze, 55 with approved Lua analysis), and no built-in WoW-loader policy is inferred. See [core migration](docs/MIGRATION-v0.2-to-v0.3.md), [Lua migration](docs/MIGRATION-v0.3-to-v0.4.md), [selection](docs/DESIGN-v0.3.1.md), [provenance](docs/DESIGN-v0.3.2.md), [evaluation](docs/DESIGN-v0.3.3.md) and [resolution design](docs/DESIGN-v0.3.4.md). For optional read-only installed-AddOn checks, see [local corpus testing](docs/LOCAL-CORPUS-TESTING.md). The [pre-freeze review](docs/PRE-FREEZE-REVIEW.md), [surface inventory](docs/PUBLIC-SURFACE.md) and [detailed plan](docs/EXECUTION-v0.3.5.md) record acceptance and remaining actual Lua/XML work.
 
-The [v0.3.5 acceptance record](docs/RELEASE-READINESS-v0.3.5.md) maps the five-package core freeze to implementation, review and CI gates. This source milestone retains beta APIs and does not complete the broader three-parser project goal.
+The [v0.3.5 acceptance record](docs/RELEASE-READINESS-v0.3.5.md) maps the integrated five-package core freeze to implementation, review and CI gates. v0.4.0 adds three approved Lua beta exports (55 total), retaining metadata/environment/result schemas. `analyzeLua(text, sourcePath, { addonId })` returns declarations/diagnostics without exposing a backend AST or executing Lua. Direct chunk bindings differ from runtime-unknown flow/function assignments; dynamic environment access stays incomplete. This does not complete the broader three-parser project goal.
 
-## Non-goals (v0.3.5)
+## Non-goals (v0.4.0)
 
 This release does **not**:
 
-- Parse Lua source code, XML or Blizzard FrameXML.
+- Parse XML or Blizzard FrameXML, or prove the Classic Era runtime dialect from a Lua 5.1 grammar profile.
 - Resolve `$parent` frame names or infer saved-variable types.
 - Infer an automatic WoW-loader TOC/condition policy. Selection, condition evaluation and resolved views use explicit caller policies and source associations.
 - Depend on VS Code, Lua Language Server or AI tooling.
@@ -94,8 +97,8 @@ Those capabilities belong to separately versioned future adapters and analysis p
 | `0.3.0` | Versioned client environment and logical AddOn identity contracts |
 | `0.3.1–0.3.4` | Active TOC selection, condition provenance, tri-state evaluation and resolved global views |
 | `0.3.5` | **Architectural Freeze**: API snapshots, environment regression coverage, migration docs, licensing and packaging gates |
-| `0.4.x` | LuaLS adapter |
-| `0.5.x` | XML and Lua parsers, reference graph |
+| `0.4.x` | Approved Lua syntax/provider analysis and actual local corpus tests |
+| Later analysis/adapters | XML parser/provider, reference graph and LuaLS integration |
 | `1.0.0` | **Consumer API Stability**, SemVer guarantees |
 
 An architectural freeze in `0.3.5` **is not** a promise of stable public APIs. See [API Policy](docs/API-POLICY.md) and [v0.3.5 roadmap](docs/ROADMAP-v0.3.5.md).

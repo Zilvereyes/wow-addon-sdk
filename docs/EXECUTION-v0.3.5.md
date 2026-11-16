@@ -4,7 +4,7 @@
 
 Deliver the v0.3.5 core described by [issue #7](https://github.com/Zilvereyes/wow-addon-sdk/issues/7), then deliver actual TOC + Lua + XML parsing against an opt-in local Classic Era corpus. These are two measurable outcomes. v0.3.5 does not itself promise Lua/XML parsers. Package versions are milestones, not evidence of completion or publication.
 
-The v0.3.0 environment/identity decisions A–D were approved in [issue #6](https://github.com/Zilvereyes/wow-addon-sdk/issues/6#issuecomment-6913838520). They authorize this additive implementation. Selection precedence, condition meaning, additional package boundaries, merges, tags and publishing retain their explicit decision gates. Routine fixes/tests/docs proceed within the user's request. No third-party AddOn sources enter GitHub or CI.
+The v0.3.0 environment/identity decisions A–D were approved in [issue #6](https://github.com/Zilvereyes/wow-addon-sdk/issues/6#issuecomment-6913838520). Subsequent recorded approvals cover selection, conditions, resolved views and the optional Lua package. Apply the [goal's session authorization update](GOAL-v0.3.5.md#session-authorization-update-2026-11-16): routine implementation, fixes/tests/docs, GitHub maintenance and reviewed green integration of approved increments proceed without repeated permission requests. Material new contracts, tags, publishing and game changes retain their separate decision gates. No third-party AddOn sources enter GitHub or CI.
 
 ## 1. Recover and establish v0.3.0
 
@@ -76,9 +76,9 @@ The v0.3.0 environment/identity decisions A–D were approved in [issue #6](http
 
 | Step | Deliverable and required tests |
 | --- | --- |
-| 8.1 Parser design | Agree package boundaries, grammar targets, error recovery, range encoding and dependency licenses. Review parsers against Lua 5.1 and WoW dialect samples; do not add dependencies to registry or diagnostics. |
-| 8.2 Lua syntax | Pure parse API with AST/diagnostics and original offsets. Test comments, long strings/bracket levels, BOM/endings/Unicode, locals/functions/scopes, table syntax, malformed/truncated input and large files. Never execute Lua. Separate syntax support from global inference. |
-| 8.3 Lua provider | Extract explicit assignments/function globals while excluding locals, parameters and shadowed names. Treat dynamic `_G` indexing as unresolved; preserve every origin. Test multi-return/nil/table constructs only at the agreed language layer. |
+| 8.1 Parser design | Lua A–E approved in #6 comment 6920213019 and implemented in the separate lua-analysis package. Existing registry/diagnostics/core edges stay unchanged. XML remains a separate grammar/provider/dependency decision. |
+| 8.2 Lua syntax | Actual Lua 5.1 backend/profile with internal AST, public declarations/diagnostics and original offsets; the approved API deliberately does not expose backend AST. All 24 catalog cases, golden spans, scopes, malformed/resource cases and independently authored backend-fidelity regressions run through the SDK. Never execute Lua. Final supported CI and corpus evidence stay explicit. |
+| 8.3 Lua provider | Actual assignments/function declarations with local/parameter/shadow exclusion, copied inherited restrictions, runtime-unknown flow and dynamic-environment incompleteness. Real parser output composes with TOC records through existing neutral contracts in tests. Keep installed-source graph association separate. |
 | 8.4 XML syntax | Pure parse API for XML declaration, namespaces, comments, CDATA, attributes, entity handling and malformed recovery with exact ranges. Disable external entities/network/DTD loading; test entity expansion/resource limits. |
 | 8.5 XML provider | Extract frame names, Script/Include edges and inline Lua spans. Keep `$parent`, virtual templates and inherited names unresolved until reference-graph rules exist. Test source offset mapping across CDATA and entities. |
 | 8.6 Filesystem graph | Separate opt-in adapter resolves references relative to the containing file; explicitly handle separators, case, variables, missing files, root escape, cycles and limits. Preserve original text. Never follow arbitrary paths or load runtime assets. |

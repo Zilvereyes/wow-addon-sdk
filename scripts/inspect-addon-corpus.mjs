@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import { createLuaWorker } from './lua-worker-client.mjs';
 import { parseToc } from '@wow-addon/toc-parser';
 import { selectTocVariant, toGlobalDeclarations, evaluateGlobalConditions, resolveGlobalRegistry } from '@wow-addon/toc-metadata-adapter';
 
@@ -10,6 +11,7 @@ const args = process.argv.slice(2);
 const rootArgument = args.shift();
 const limits = { '--max-entries': 100000, '--max-file-bytes': 8 * 1024 * 1024 };
 let requireAll = false;
+let luaEnabled = false;
 let selectionProfilePath = null;
 let conditionProfilePath = null;
 let resolutionProfilePath = null;
@@ -17,6 +19,11 @@ let valid = Boolean(rootArgument && !rootArgument.startsWith('--'));
 while (args.length && valid) {
   const flag = args.shift();
   if (flag === '--require-all-parsers') { requireAll = true; continue; }
+  if (flag === '--lua-analysis') {
+    if (luaEnabled) { valid = false; break; }
+    luaEnabled = true;
+    continue;
+  }
   if (flag === '--selection-profile') {
     const value = args.shift();
     if (selectionProfilePath !== null || !value || value.startsWith('--')) { valid = false; break; }
@@ -41,22 +48,32 @@ while (args.length && valid) {
   limits[flag] = Number(value);
 }
 if (!valid) {
-  console.error('Usage: node scripts/inspect-addon-corpus.mjs <AddOns-directory> [--max-entries N] [--max-file-bytes N] [--require-all-parsers] [--selection-profile <JSON-file>] [--condition-profile <JSON-file>] [--resolution-profile <JSON-file>]');
+  console.error('Usage: node scripts/inspect-addon-corpus.mjs <AddOns-directory> [--max-entries N] [--max-file-bytes N] [--lua-analysis] [--require-all-parsers] [--selection-profile <JSON-file>] [--condition-profile <JSON-file>] [--resolution-profile <JSON-file>]');
   process.exit(2);
 }
 
 const root = path.resolve(rootArgument);
 const report = {
   schemaVersion: 1, status: 'passed', fullParsing: false,
-  unimplementedParsers: ['lua', 'xml'],
+  unimplementedParsers: ['xml'], disabledParsers: luaEnabled ? [] : ['lua'],
   files: { toc: 0, lua: 0, xml: 0 }, parsed: { toc: 0, lua: 0, xml: 0 },
-  entriesVisited: 0, skippedLinks: 0, skippedOversizedTocs: 0,
+  entriesVisited: 0, skippedLinks: 0, skippedOversizedTocs: 0, skippedOversizedLua: 0,
   checkedSourceReferences: 0, savedVariableDeclarations: 0,
   adapterDeclarations: 0, conditionDescriptors: 0,
   diagnosticsByCode: {}, diagnosticsBySeverity: { error: 0, warning: 0, info: 0 },
   failures: [],
 };
 const failures = new Set();
+const luaFiles = [];
+if (luaEnabled) report.luaAnalysis = {
+  complete: true, attempted: 0, submitted: 0, completed: 0,
+  syntaxAccepted: 0, syntaxRejected: 0, incompleteFiles: 0,
+  encodingRejected: 0, inputLimitRejected: 0, resourceRejected: 0,
+  workerFailures: 0, readFailures: 0, backendFailures: 0,
+  declarations: 0, activation: { unconditional: 0, conditional: 0, unknown: 0 },
+  checkedSourceReferences: 0, inputBytes: 0, diagnosticsByCode: {},
+  resolvedProviderParticipation: false,
+};
 let incomplete = false;
 const fail = (reason, partial = false) => { failures.add(reason); incomplete ||= partial; };
 const selectionGroups = new Map();
@@ -240,6 +257,10 @@ function walk(folder, depth = 0) {
       const extension = path.extname(entry.name).slice(1).toLowerCase();
       if (!Object.hasOwn(report.files, extension)) continue;
       report.files[extension]++;
+      if (extension === 'lua' && luaEnabled) {
+        luaFiles.push({ filename, relative: path.relative(root, filename) });
+        continue;
+      }
       if (extension !== 'toc') continue;
       if (stat.size > limits['--max-file-bytes']) {
         report.skippedOversizedTocs++; fail('oversized-toc', true); continue;
@@ -275,6 +296,117 @@ try {
     else walk(root);
   }
 } catch { fail('unreadable-root'); }
+if (luaEnabled) {
+  const counts = report.luaAnalysis;
+  const worker = createLuaWorker();
+  const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
+  try {
+    for (const { filename, relative } of luaFiles) {
+      counts.attempted++;
+      let content;
+      try {
+        const stat = fs.lstatSync(filename);
+        if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('Changed input');
+        if (stat.size > limits['--max-file-bytes']) {
+          report.skippedOversizedLua++; counts.resourceRejected++; counts.complete = false;
+          fail('oversized-lua', true); continue;
+        }
+        // No valid 1 Mi-code-unit UTF-8 input can need this many bytes. Keep
+        // allocation bounded even if a caller raises the generic file limit.
+        if (stat.size > 4 * 1024 * 1024) {
+          counts.inputLimitRejected++; counts.resourceRejected++; counts.complete = false;
+          fail('lua-input-limit', true); continue;
+        }
+        const fd = fs.openSync(filename, 'r');
+        let bytes;
+        try {
+          const buffer = Buffer.alloc(stat.size + 1);
+          let total = 0;
+          while (total < buffer.length) {
+            const read = fs.readSync(fd, buffer, total, buffer.length - total, total);
+            if (read === 0) break;
+            total += read;
+          }
+          const after = fs.fstatSync(fd);
+          if (total !== stat.size || after.size !== stat.size || after.mtimeMs !== stat.mtimeMs) throw new Error('Changed input');
+          bytes = buffer.subarray(0, total);
+        } finally { fs.closeSync(fd); }
+        counts.inputBytes += bytes.length;
+        try { content = decoder.decode(bytes); }
+        catch {
+          counts.encodingRejected++; counts.complete = false;
+          fail('lua-invalid-utf8', true); continue;
+        }
+        if (content.length > 1024 * 1024) {
+          counts.inputLimitRejected++; counts.resourceRejected++; counts.complete = false;
+          fail('lua-input-limit', true); continue;
+        }
+      } catch {
+        counts.readFailures++; counts.complete = false; fail('lua-read-failure', true); continue;
+      }
+      let result;
+      try {
+        counts.submitted++;
+        result = await worker.analyze({ content, sourcePath: relative,
+          options: { addonId: JSON.stringify(['local-corpus-lua-file', relative]) } });
+        counts.completed++;
+      } catch {
+        counts.workerFailures++; counts.complete = false; fail('lua-worker-failure', true); continue;
+      }
+      try {
+        assert.deepEqual(JSON.parse(JSON.stringify(result)), result);
+        assert.equal(result.complete, result.diagnostics.length === 0);
+        const lengths = content.split(/\r\n|\n|\r/u).map(line => line.length);
+        function visitLua(value) {
+          if (!value || typeof value !== 'object') return;
+          if (Object.hasOwn(value, 'file') && Object.hasOwn(value, 'range')) {
+            assert.equal(value.file, relative);
+            for (const position of [value.range.start, value.range.end]) {
+              assert.ok(Number.isSafeInteger(position.line) && position.line >= 0 && position.line < lengths.length);
+              assert.ok(Number.isSafeInteger(position.column) && position.column >= 0 && position.column <= lengths[position.line]);
+            }
+            assert.ok(value.range.end.line > value.range.start.line ||
+              (value.range.end.line === value.range.start.line && value.range.end.column >= value.range.start.column));
+            counts.checkedSourceReferences++;
+            return;
+          }
+          for (const child of Object.values(value)) visitLua(child);
+        }
+        visitLua(result);
+        const codes = new Set();
+        for (const diagnostic of result.diagnostics) {
+          assert.ok(['LUA0001', 'LUA0002', 'LUA0003', 'LUA0004', 'LUA0005'].includes(diagnostic.code));
+          assert.equal(diagnostic.severity, diagnostic.code === 'LUA0004' ? 'warning' : 'error');
+          codes.add(diagnostic.code);
+          counts.diagnosticsByCode[diagnostic.code] = (counts.diagnosticsByCode[diagnostic.code] ?? 0) + 1;
+        }
+        if (codes.has('LUA0001') || codes.has('LUA0005')) {
+          assert.equal(result.declarations.length, 0);
+          counts.backendFailures++; fail('lua-backend-failure', true);
+        } else if (codes.has('LUA0003')) {
+          assert.equal(result.declarations.length, 0);
+          counts.resourceRejected++; fail('lua-resource-limit', true);
+        } else {
+          report.parsed.lua++;
+          if (codes.has('LUA0002')) {
+            assert.equal(result.declarations.length, 0);
+            counts.syntaxRejected++; fail('lua-syntax-errors');
+          } else counts.syntaxAccepted++;
+          if (codes.has('LUA0004')) { counts.incompleteFiles++; fail('lua-analysis-incomplete'); }
+        }
+        for (const declaration of result.declarations) {
+          assert.equal(declaration.kind, 'lua-global');
+          assert.equal(Object.hasOwn(declaration, 'scope'), false);
+          assert.ok(Object.hasOwn(counts.activation, declaration.activationState));
+          counts.activation[declaration.activationState]++;
+          counts.declarations++;
+        }
+        if (!result.complete) counts.complete = false;
+      } catch { counts.complete = false; fail('lua-invariant-failure', true); }
+    }
+  } finally { await worker.close(); }
+  counts.diagnosticsByCode = Object.fromEntries(Object.entries(counts.diagnosticsByCode).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
+}
 if (selectionProfile !== null && selectionReady) {
   for (const [base, candidates] of selectionGroups) {
     try {

@@ -15,6 +15,9 @@
     },
     {
       "path": "./packages/toc-metadata-adapter"
+    },
+    {
+      "path": "./packages/lua-analysis"
     }
   ]
 }

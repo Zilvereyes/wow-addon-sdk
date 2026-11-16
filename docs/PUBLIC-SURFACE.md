@@ -1,8 +1,8 @@
-# Public surface review before v0.3.5
+# Public surface review: frozen core and approved Lua extension
 
-Review baseline: integrated v0.3.4 at `e3a477b`, plus the user's requested named rule. The five root entry points expose **52 beta declarations**, including type-only exports; this is not 52 runtime functions. The original 30 exports are retained by requirement. Nothing is promoted to public stability or removed merely to reduce a count.
+Core review baseline: v0.3.5 integrated at `0cee5c9`, including the user's named rule. The five core root entry points retain **52 beta declarations**. Approved v0.4.0 Lua A–E adds three, for **55 overall: 13 runtime values/functions and 42 type-only contracts**. The original 30 exports are retained by requirement. Nothing is promoted to public stability or removed merely to reduce a count.
 
-The source AST audit counts 16 metadata, five diagnostics, eleven registry, two parser and eighteen adapter exports, each with exactly one `@beta`: **12 runtime values/functions and 40 type-only contracts**. Compiled declaration snapshots and strict API Extractor verify the reviewed shape. The named rule is the only new export in this increment; it preserves the former inline rule structure and policy JSON. An exact-name comparison confirms all 30 hardening-baseline exports remain and every current export has exactly one row below.
+The source AST audit counts 16 metadata, five diagnostics, eleven registry, two parser, eighteen adapter and three Lua exports, each with exactly one `@beta`. Compiled declaration snapshots and strict API Extractor verify the reviewed shape. The Lua backend AST and internal syntax-module exports do not become root API. Every root export has one consumer-purpose row below.
 
 ## Diagnostics: five shared contracts
 
@@ -81,7 +81,15 @@ The source AST audit counts 16 metadata, five diagnostics, eleven registry, two 
 | `ResolvedGlobalRegistry` | Consume selected entries, partial completeness and active names; retain |
 | `resolveGlobalRegistry` | Compose selection, evaluation and active-only conflict checks; retain |
 
-No internal validation, copying, canonicalization or context helpers become public. No `GlobalSymbol` rename or new package is needed for this increment. Synthetic multi-provider tests exercise these exchange contracts, but do not prove a real Lua/XML provider, language dialect or filesystem graph.
+## Lua extension: three approved exports
+
+| Export | Consumer need / disposition |
+| --- | --- |
+| `LuaAnalysisOptions` | Supply exact caller identity and optional inherited provider restrictions; add |
+| `LuaAnalysisResult` | Inspect syntax/projection completeness, independent declaration origins and diagnostics without backend AST; add |
+| `analyzeLua` | Parse the explicit Lua 5.1 profile and derive conservative lexical globals without execution; add |
+
+No internal validation, copying, canonicalization or context helpers become root API. No GlobalSymbol rename is needed. The new actual Lua provider composes with TOC metadata in tests using the existing neutral registry/selection contracts, without importing the TOC adapter itself. This does not prove Classic Era grammar conformance, an XML provider or filesystem reachability. See [the approved Lua design](DESIGN-LUA-ANALYSIS.md).
 
 ## Compatibility disposition
 

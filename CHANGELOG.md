@@ -4,6 +4,16 @@ Changes are recorded by release. This project is in pre-1.0 development.
 
 ## [Unreleased]
 
+### v0.4.0 actual Lua syntax/provider preview (source version; not published)
+
+- Add the approved optional lua-analysis package with three beta exports (55 overall), internal syntax/provider separation and the exact reviewed MIT luaparse 0.3.1 dependency. Existing five core runtime dependency directions and API shapes remain unchanged.
+- Parse the explicit Lua 5.1/BOM/UTF-16/resource profile without executing input. Extract exact lexical assignments/functions, exclude locals/members, copy inherited restrictions and retain unknown flow/dynamic-environment behavior.
+- Correct two verified backend Lua 5.1 defects using token-based equal-width parse adaptation: optional break semicolons and multiline literal-call chaining. Preserve negative grammar guards, original source positions and unchanged upstream source/license bytes.
+- Validate inherited conditions, initialize lexer token state between inputs and correct backend loop-header scope annotations in a bounded source-order walk. Seven review regression groups cover fresh-process error determinism and lexical scope boundaries.
+- Add API/catalog/scope/resource/ownership/real-provider-composition tests, bounded persistent worker supervision and opt-in private corpus reporting. All 207 integrated tests and strict architecture/API/hash/package gates pass locally; final supported CI is recorded in the implementation PR.
+- Actual corpus: 5,242 Lua files considered, 5,105 syntax accepts / one explicit-profile rejection, 136 encoding/budget blocks and zero worker/read/backend failures. All failures remain visible. XML/reference graph and overall three-parser acceptance remain open.
+- Extend exact distribution assertions to five unchanged four-file core payloads plus the new six-file Lua payload; validate its sole external pin and installed backend source/license hashes. Preserve all existing third-party resolutions while adding the one approved dependency.
+
 ### v0.3.5 core architectural-freeze candidate (source version; not published)
 
 - Advance all five workspaces/internal ranges and root/lock records to 0.3.5 without changing any of the 81 third-party dependency records.

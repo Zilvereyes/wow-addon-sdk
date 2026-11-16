@@ -2,7 +2,7 @@
 
 `lua-xml-syntax.json` is test input for the actual parser work tracked in [issue #11](https://github.com/Zilvereyes/wow-addon-sdk/issues/11). It contains 24 Lua and 27 XML cases. All source strings were independently authored for this project. No installed AddOn source is included.
 
-The catalog does not implement, invoke or prove an SDK Lua/XML parser. It is not yet consumed by the SDK test runner. Future parser tests must read every row, call the real public parser and assert the recorded outcome. They must fail if a language, row or required capability is skipped. Catalog/schema/range checks alone cannot satisfy three-parser acceptance.
+The data catalog itself implements no parser. All 24 Lua rows and both Lua golden spans are now consumed by `tests/lua-analysis.test.mjs`, which calls the actual public SDK API. The 27 XML rows remain preparatory and are not yet consumed by an SDK XML parser test. Future XML tests must read every row and assert each axis without silent skips. Catalog/schema/range checks alone cannot satisfy three-parser acceptance.
 
 ## Meaning of the expectations
 
@@ -39,7 +39,7 @@ All 27 XML cases matched their expected outcomes in both non-executing checks:
 
 The four additional namespace rejections are X10/X11/X24/X25. Both checks reject the three DTD-policy cases before any external resolution; they do not independently establish those documents' unrestricted DTD validity. Five selected raw UTF-16 slices and line/column spans were also checked against the literal source strings. No fixture source was executed.
 
-The Workbench worker matched its published catalog SHA-256 `961f1f6dc4b4f4b24c0c295f6cf847e735715e29184bf8ab842f33c32065da42`. These external checks were run locally on synthetic data; no new SDK or CI dependency is introduced. Native Lua 5.1 oracle execution remains unavailable because lua/luac is not installed. The 24 Lua expectations derive from the specified grammar; candidate characterization below supplements them while SDK parser verification remains pending.
+The Workbench worker matched its published catalog SHA-256 `961f1f6dc4b4f4b24c0c295f6cf847e735715e29184bf8ab842f33c32065da42`. These initial external checks ran locally on synthetic data and introduced no SDK dependency. The separately approved Lua implementation below now runs the 24 Lua expectations through the SDK. Native lua/luac remains unavailable; these tests do not become an independent native/Classic Era oracle merely because the characterized backend is now integrated.
 
 ## Lua candidate characterization: 2026-11-16
 
@@ -47,4 +47,4 @@ Pinned [luaparse 0.3.1 source](https://github.com/fstirlitz/luaparse/blob/fa4ba4
 
 The pinned MIT source/license were retained in a temporary local characterization workspace. Its JS harness and parser/data snapshots were registered and dependency/hash/syntax-gated through Workbench before execution, using read-only Node permissions, bounded heap and a deadline. No dependency or SDK integration was added. [Issue #11 evidence](https://github.com/Zilvereyes/wow-addon-sdk/issues/11#issuecomment-6918576483) records the scope.
 
-This is a backend characterization, not a native Lua/Classic Era oracle or complete grammar/recovery/resource proof. If this backend is later used by the SDK, these checks share its implementation and cannot be presented as an independent implementation oracle. Supported Node 22/24, actual SDK/parser/provider behavior and the installed corpus still require their own acceptance evidence.
+That initial record is backend characterization, not a native Lua/Classic Era oracle or complete grammar/recovery/resource proof. The approved SDK now uses that exact backend, so shared checks are not an independent implementation oracle. SDK syntax/provider/scope/resource/ownership tests and actual local corpus runs are separate evidence in [the Lua design](../../docs/DESIGN-LUA-ANALYSIS.md). Final exact-head Node 22/24 CI is maintained in the implementation PR.

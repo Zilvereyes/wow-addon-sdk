@@ -29,7 +29,8 @@ const packages = [
     'addon-metadata',
     'toc-parser',
     'global-registry',
-    'toc-metadata-adapter'
+    'toc-metadata-adapter',
+    'lua-analysis'
 ];
 
 // Resolve the actual npm package CLI instead of the .cmd wrapper.
@@ -117,4 +118,4 @@ for (const name of packages) {
     }
 }
 
-console.log('\nAPI Extractor completed for all five packages.');
+console.log(`\nAPI Extractor completed for all ${packages.length} packages.`);
