@@ -1,5 +1,7 @@
 # Migration from v0.3 to v0.4
 
+For v0.4.1, the approved [corpus profile](DESIGN-LUA-CORPUS-PROFILE.md) adds LuaAnalysisProfile plus optional readonly profile and allowShebang fields. Existing calls keep the bounded default. Selecting corpus changes fixed budgets, not Lua grammar or activation semantics; selecting allowShebang explicitly permits only the initial loader header. Local byte transport is an independent CLI preset, not automatic SDK string decoding. One new type brings the current surface to 56 beta exports; the v0.4.0 inventory below remains historical.
+
 v0.4.0 is an unpublished preview of the [approved optional Lua analysis package](DESIGN-LUA-ANALYSIS.md). The five core packages retain their source APIs, schemas and dependency directions. All six workspace versions/internal ranges advance together; all existing third-party lock records remain exact. The only new runtime dependency is luaparse 0.3.1 in lua-analysis, with reviewed artifact/license hashes. No dependency is added to diagnostics, registry, metadata, TOC parser or TOC adapter.
 
 Three new beta exports bring the surface to 55. No raw backend AST becomes public:

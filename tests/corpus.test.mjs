@@ -15,6 +15,62 @@ function inspect(root, ...args) {
   return { ...result, report: result.stdout ? JSON.parse(result.stdout) : undefined };
 }
 
+test('corpus-files preset accepts explicit hashbang/byte transport with original bytes preserved', () => fixture(root => {
+  fs.writeFileSync(path.join(root, 'Seed.toc'), '#');
+  const file = path.join(root, 'Legacy.lua');
+  const bytes = Buffer.concat([Buffer.from('#!fixture\r\n-- '), Buffer.from([0xE9]), Buffer.from('\r\nDB = 1')]);
+  fs.writeFileSync(file, bytes);
+  const strict = inspect(root, '--lua-analysis');
+  assert.equal(strict.report.luaAnalysis.encodingRejected, 1);
+  const expanded = inspect(root, '--lua-analysis', '--lua-input-profile', 'corpus-files');
+  assert.equal(expanded.status, 0, expanded.stderr);
+  assert.equal(expanded.report.parsed.lua, 1);
+  assert.equal(expanded.report.luaAnalysis.syntaxAccepted, 1);
+  assert.deepEqual(expanded.report.luaAnalysis.transport, { strictUtf8: 0, bytePreserving: 1 });
+  assert.equal(expanded.report.luaAnalysis.profile, 'corpus-files');
+  assert.deepEqual(fs.readFileSync(file), bytes);
+  assert.doesNotMatch(expanded.stdout + expanded.stderr, /Legacy|fixture|DB/);
+}));
+
+test('byte transport never overrides recognized BOMs or silently expands default input limits', () => fixture(root => {
+  fs.writeFileSync(path.join(root, 'Seed.toc'), '#');
+  fs.writeFileSync(path.join(root, 'BomUtf8.lua'), Buffer.from([0xEF, 0xBB, 0xBF, 0xE9]));
+  fs.writeFileSync(path.join(root, 'BomUtf16.lua'), Buffer.from([0xFF, 0xFE, 0x41, 0]));
+  fs.writeFileSync(path.join(root, 'Large.lua'), ' '.repeat(1024 * 1024) + 'DB=1');
+  const expanded = inspect(root, '--lua-analysis', '--lua-input-profile', 'corpus-files');
+  assert.equal(expanded.report.luaAnalysis.encodingRejected, 2);
+  assert.equal(expanded.report.luaAnalysis.syntaxAccepted, 1);
+  assert.equal(expanded.report.luaAnalysis.transport.strictUtf8, 1);
+  assert.equal(inspect(root, '--lua-analysis').report.luaAnalysis.inputLimitRejected, 1);
+}));
+
+test('byte transport does not waive invalid non-variadic Lua syntax or leak declarations', () => fixture(root => {
+  fs.writeFileSync(path.join(root, 'Seed.toc'), '#');
+  const file = path.join(root, 'PrivateRejected.lua');
+  const bytes = Buffer.concat([Buffer.from('-- '), Buffer.from([0xF8]),
+    Buffer.from('\r\nBefore = 1\r\nfunction Collect(first) return ... end')]);
+  fs.writeFileSync(file, bytes);
+  const result = inspect(root, '--lua-analysis', '--lua-input-profile', 'corpus-files');
+  assert.equal(result.status, 1);
+  assert.equal(result.report.parsed.lua, 1);
+  assert.equal(result.report.luaAnalysis.syntaxRejected, 1);
+  assert.equal(result.report.luaAnalysis.declarations, 0);
+  assert.equal(result.report.luaAnalysis.encodingRejected, 0);
+  assert.deepEqual(result.report.luaAnalysis.transport, { strictUtf8: 0, bytePreserving: 1 });
+  assert.deepEqual(result.report.luaAnalysis.diagnosticsByCode, { LUA0002: 1 });
+  assert.ok(result.report.failures.includes('lua-syntax-errors'));
+  assert.deepEqual(fs.readFileSync(file), bytes);
+  assert.doesNotMatch(result.stdout + result.stderr, /PrivateRejected|Before|Collect/);
+}));
+
+test('Lua input profile arguments reject unknown/repeated/missing or disabled use before traversal', () => fixture(root => {
+  for (const args of [['--lua-input-profile', 'corpus-files'], ['--lua-analysis', '--lua-input-profile'],
+    ['--lua-analysis', '--lua-input-profile', 'unknown'],
+    ['--lua-analysis', '--lua-input-profile', 'corpus-files', '--lua-input-profile', 'corpus-files']]) {
+    assert.equal(inspect(root, ...args).status, 2);
+  }
+}));
+
 test('Lua corpus opt-in parses real SDK syntax/providers with BOM/ranges and aggregate privacy', () => fixture(root => {
   fs.writeFileSync(path.join(root, 'Seed.toc'), '## SavedVariables: DB');
   const text = '\uFEFF-- 🧪\r\nPrivateGlobal = {}; local Hidden = {}; if flag then PrivateMaybe = 1 end';

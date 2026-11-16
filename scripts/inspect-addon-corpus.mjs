@@ -12,6 +12,7 @@ const rootArgument = args.shift();
 const limits = { '--max-entries': 100000, '--max-file-bytes': 8 * 1024 * 1024 };
 let requireAll = false;
 let luaEnabled = false;
+let luaInputProfile = null;
 let selectionProfilePath = null;
 let conditionProfilePath = null;
 let resolutionProfilePath = null;
@@ -22,6 +23,12 @@ while (args.length && valid) {
   if (flag === '--lua-analysis') {
     if (luaEnabled) { valid = false; break; }
     luaEnabled = true;
+    continue;
+  }
+  if (flag === '--lua-input-profile') {
+    const value = args.shift();
+    if (luaInputProfile !== null || value !== 'corpus-files') { valid = false; break; }
+    luaInputProfile = value;
     continue;
   }
   if (flag === '--selection-profile') {
@@ -47,8 +54,8 @@ while (args.length && valid) {
   if (!value || !/^[1-9][0-9]*$/u.test(value) || !Number.isSafeInteger(Number(value))) { valid = false; break; }
   limits[flag] = Number(value);
 }
-if (!valid) {
-  console.error('Usage: node scripts/inspect-addon-corpus.mjs <AddOns-directory> [--max-entries N] [--max-file-bytes N] [--lua-analysis] [--require-all-parsers] [--selection-profile <JSON-file>] [--condition-profile <JSON-file>] [--resolution-profile <JSON-file>]');
+if (!valid || (luaInputProfile !== null && !luaEnabled)) {
+  console.error('Usage: node scripts/inspect-addon-corpus.mjs <AddOns-directory> [--max-entries N] [--max-file-bytes N] [--lua-analysis] [--lua-input-profile corpus-files] [--require-all-parsers] [--selection-profile <JSON-file>] [--condition-profile <JSON-file>] [--resolution-profile <JSON-file>]');
   process.exit(2);
 }
 
@@ -73,6 +80,7 @@ if (luaEnabled) report.luaAnalysis = {
   declarations: 0, activation: { unconditional: 0, conditional: 0, unknown: 0 },
   checkedSourceReferences: 0, inputBytes: 0, diagnosticsByCode: {},
   resolvedProviderParticipation: false,
+  ...(luaInputProfile === 'corpus-files' ? { profile: 'corpus-files', transport: { strictUtf8: 0, bytePreserving: 0 } } : {}),
 };
 let incomplete = false;
 const fail = (reason, partial = false) => { failures.add(reason); incomplete ||= partial; };
@@ -298,7 +306,9 @@ try {
 } catch { fail('unreadable-root'); }
 if (luaEnabled) {
   const counts = report.luaAnalysis;
-  const worker = createLuaWorker();
+  const expanded = luaInputProfile === 'corpus-files';
+  const maximumUnits = (expanded ? 32 : 1) * 1024 * 1024;
+  const worker = createLuaWorker({ profile: expanded ? 'corpus' : 'bounded' });
   const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
   try {
     for (const { filename, relative } of luaFiles) {
@@ -311,9 +321,9 @@ if (luaEnabled) {
           report.skippedOversizedLua++; counts.resourceRejected++; counts.complete = false;
           fail('oversized-lua', true); continue;
         }
-        // No valid 1 Mi-code-unit UTF-8 input can need this many bytes. Keep
-        // allocation bounded even if a caller raises the generic file limit.
-        if (stat.size > 4 * 1024 * 1024) {
+        // Keep allocation bounded by the selected input profile even if a
+        // caller independently raises the generic byte limit.
+        if (stat.size > 4 * maximumUnits) {
           counts.inputLimitRejected++; counts.resourceRejected++; counts.complete = false;
           fail('lua-input-limit', true); continue;
         }
@@ -332,12 +342,20 @@ if (luaEnabled) {
           bytes = buffer.subarray(0, total);
         } finally { fs.closeSync(fd); }
         counts.inputBytes += bytes.length;
-        try { content = decoder.decode(bytes); }
+        try { content = decoder.decode(bytes); if (expanded) counts.transport.strictUtf8++; }
         catch {
-          counts.encodingRejected++; counts.complete = false;
-          fail('lua-invalid-utf8', true); continue;
+          const bom = (bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) ||
+            (bytes[0] === 0xFF && bytes[1] === 0xFE) || (bytes[0] === 0xFE && bytes[1] === 0xFF) ||
+            (bytes[0] === 0 && bytes[1] === 0 && bytes[2] === 0xFE && bytes[3] === 0xFF);
+          if (!expanded || bom) {
+            counts.encodingRejected++; counts.complete = false;
+            fail('lua-invalid-utf8', true); continue;
+          }
+          // Buffer latin1 is a byte-preserving transport, not WHATWG/1252 or
+          // an assertion about intended Unicode/locale. Original bytes stay.
+          content = bytes.toString('latin1'); counts.transport.bytePreserving++;
         }
-        if (content.length > 1024 * 1024) {
+        if (content.length > maximumUnits) {
           counts.inputLimitRejected++; counts.resourceRejected++; counts.complete = false;
           fail('lua-input-limit', true); continue;
         }
@@ -348,7 +366,8 @@ if (luaEnabled) {
       try {
         counts.submitted++;
         result = await worker.analyze({ content, sourcePath: relative,
-          options: { addonId: JSON.stringify(['local-corpus-lua-file', relative]) } });
+          options: { addonId: JSON.stringify(['local-corpus-lua-file', relative]),
+            ...(expanded ? { profile: 'corpus', allowShebang: true } : {}) } });
         counts.completed++;
       } catch {
         counts.workerFailures++; counts.complete = false; fail('lua-worker-failure', true); continue;

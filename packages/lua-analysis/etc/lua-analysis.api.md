@@ -16,8 +16,15 @@ export interface LuaAnalysisOptions {
     // (undocumented)
     readonly addonId: string;
     // (undocumented)
+    readonly allowShebang?: boolean;
+    // (undocumented)
     readonly conditions?: readonly ConditionDescriptor[];
+    // (undocumented)
+    readonly profile?: LuaAnalysisProfile;
 }
+
+// @beta
+export type LuaAnalysisProfile = 'bounded' | 'corpus';
 
 // @beta
 export interface LuaAnalysisResult {

@@ -4,6 +4,13 @@ Changes are recorded by release. This project is in pre-1.0 development.
 
 ## [Unreleased]
 
+### v0.4.1 opt-in Lua corpus profile (source version; not published)
+
+- Add the approved LuaAnalysisProfile beta type and readonly profile/allowShebang options, preserving the bounded default and original five core APIs. Total: 56 beta exports, no new dependency or schema.
+- Add fixed larger input/node/depth limits, explicit equal-width hashbang handling, supervised parser thread with 8 MiB stack and separate corpus deadline/heap/output budgets.
+- Add explicit corpus-files CLI transport with strict UTF-8 first, BOM-guarded byte preservation, decode counters, failed-coverage accounting and unchanged original files. Dynamic uncertainty and absent XML/reference integration remain visible.
+- Add focused input/node/loader/type/default/transport/worker regressions and native small-budget thread heap-exhaustion cleanup. Final corpus/CI evidence is linked from #11 and the implementation PR.
+
 ### v0.4.0 actual Lua syntax/provider preview (source version; not published)
 
 - Add the approved optional lua-analysis package with three beta exports (55 overall), internal syntax/provider separation and the exact reviewed MIT luaparse 0.3.1 dependency. Existing five core runtime dependency directions and API shapes remain unchanged.
