@@ -4,6 +4,17 @@ Changes are recorded by release. This project is in pre-1.0 development.
 
 ## [Unreleased]
 
+### Client selection evidence tooling
+
+- Add a staging-only generator for eight synthetic TOC-selection/comment scenarios with distinct local Lua markers, MIT licenses and a final hashed manifest. Refuse existing outputs and resolved AddOns paths; installation and runtime observations remain separate user actions.
+- Add five integration checks for deterministic generated content, references, input validation and output preservation. No built-in loader policy or runtime conformance is inferred.
+
+### TOC corpus fidelity follow-up
+
+- Recognize empty hash-only separators as comments, preserving original raw text and UTF-16 ranges.
+- Accept dotted custom `X-` metadata names while preserving duplicate spelling/value provenance and condition ranges. Ordinary dotted names and malformed annotations remain errors.
+- Add six focused regression cases. The same local 434-TOC corpus reduces TOC0001 diagnostics from 194 to 19, with 347 SavedVariable declarations unchanged; the run remains failed on outstanding findings and Lua/XML remain inventory-only.
+
 ### v0.3.0 contract foundation (source version; not published)
 
 - Add approved client-environment schema 1, explicit unknown fields, caller-owned logical AddOn identity and exact TOC-variant identity. Preserve metadata schema 2 and the previous 30 beta exports; four additive beta exports bring the total to 34.
