@@ -1,5 +1,11 @@
 /** Independent, JSON-serializable contracts. VS Code/LuaLS/Continue are intentionally absent. */
+/**
+ * @beta
+ */
 export declare const METADATA_SCHEMA_VERSION: 2;
+/**
+ * @beta
+ */
 export declare enum WoWClient {
     Unknown = "unknown",
     Retail = "retail",
@@ -10,15 +16,27 @@ export declare enum WoWClient {
     MistsClassic = "mists-classic"
 }
 /** Hardcore and Season of Discovery are game modes, not unique WOW_PROJECT_ID values. */
+/**
+ * @beta
+ */
 export declare enum WoWGameMode {
     Unknown = "unknown",
     Normal = "normal",
     Hardcore = "hardcore",
     SeasonOfDiscovery = "season-of-discovery"
 }
+/**
+ * @beta
+ */
 export type WoWClientFamily = 'unknown' | 'classic' | 'mainline';
 import type { Diagnostic, SourceReference } from '@wow-addon/diagnostics';
+/**
+ * @beta
+ */
 export type SavedVariableScope = 'account' | 'character';
+/**
+ * @beta
+ */
 export interface InlineCondition {
     /** Original casing is preserved. Interpret the name case-insensitively. */
     name: string;
@@ -26,6 +44,9 @@ export interface InlineCondition {
     raw: string;
     source: SourceReference;
 }
+/**
+ * @beta
+ */
 export interface MetadataDirective {
     name: string;
     normalizedName: string;
@@ -34,11 +55,17 @@ export interface MetadataDirective {
     source: SourceReference;
     conditions: InlineCondition[];
 }
+/**
+ * @beta
+ */
 export interface AddOnFileReference {
     path: string;
     source: SourceReference;
     conditions: InlineCondition[];
 }
+/**
+ * @beta
+ */
 export interface SavedVariableDeclaration {
     name: string;
     scope: SavedVariableScope;
@@ -46,6 +73,9 @@ export interface SavedVariableDeclaration {
     source: SourceReference;
     conditions: InlineCondition[];
 }
+/**
+ * @beta
+ */
 export interface AddOnMetadata {
     schemaVersion: typeof METADATA_SCHEMA_VERSION;
     name: string;
@@ -72,6 +102,9 @@ export interface AddOnMetadata {
     savedVariableDeclarations: SavedVariableDeclaration[];
     sourceReferences: SourceReference[];
 }
+/**
+ * @beta
+ */
 export interface TocEntry {
     kind: 'blank' | 'comment' | 'directive' | 'file' | 'invalid';
     raw: string;
@@ -79,6 +112,9 @@ export interface TocEntry {
     directive?: MetadataDirective;
     fileEntry?: AddOnFileReference;
 }
+/**
+ * @beta
+ */
 export interface TocParseResult {
     metadata: AddOnMetadata;
     entries: TocEntry[];
