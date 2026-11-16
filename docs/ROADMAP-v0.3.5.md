@@ -6,7 +6,7 @@ The [v0.3.5 milestone epic](https://github.com/Zilvereyes/wow-addon-sdk/issues/7
 
 **Verified prerequisite:** PR #5 was merged into main on 2026-11-16 as `44b138d5152bb2e43ae43afa793e3613d11b6de5`. Its reviewed head was `7fe976a`; all eight push/PR matrix jobs passed. This is infrastructure completion, not a v0.3.x release.
 
-**Current increment:** v0.3.1 [explicit-policy selection](DESIGN-v0.3.1.md) is integrated through PR #16 as `fdb8d69`, with supported post-merge CI passed. The user approved v0.3.2 A–D; [condition provenance](DESIGN-v0.3.2.md) is implemented on the feature branch pending final verification/integration. A built-in WoW loader policy remains a separate verified-data task. See the [detailed execution plan](EXECUTION-v0.3.5.md), [migration notes](MIGRATION-v0.2-to-v0.3.md), [repository review](REVIEW-2026-11-16.md) and [measured local corpus baseline](LOCAL-CORPUS-TESTING.md). Lua/XML are inventoried, not yet parsed.
+**Current increment:** v0.3.2 [condition provenance](DESIGN-v0.3.2.md) is integrated through PR #17 as `ff6656e`, following v0.3.1 selection in PR #16. Its 95 local tests and supported final-head CI passed; issue #7 maintains post-merge evidence. Next are conservative condition evaluation and resolved registry composition. A built-in WoW loader policy remains a separate verified-data task. See the [detailed execution plan](EXECUTION-v0.3.5.md), [migration notes](MIGRATION-v0.2-to-v0.3.md), [repository review](REVIEW-2026-11-16.md) and [measured local corpus baseline](LOCAL-CORPUS-TESTING.md). Lua/XML are inventoried, not yet parsed; the authored [syntax fixture catalog](../tests/fixtures/README.md) prepares their later acceptance tests.
 
 | Version | Independently reviewed delivery |
 | --- | --- |

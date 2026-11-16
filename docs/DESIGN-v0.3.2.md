@@ -1,6 +1,6 @@
 # v0.3.2: preserve provider-neutral condition provenance
 
-**Status: A–D approved, implemented on the feature branch, final verification in progress.** The user explicitly approved implementation in [issue #6, comment 6917507563](https://github.com/Zilvereyes/wow-addon-sdk/issues/6#issuecomment-6917507563). The [v0.3.1 selector PR #16](https://github.com/Zilvereyes/wow-addon-sdk/pull/16) is merged into main as `fdb8d69`, with all four supported post-merge CI jobs passed. This document records the approved contract and its acceptance requirements.
+**Status: A–D approved and implemented through PR #17**, merged as `ff6656e` from reviewed head `0b9c712`. All 95 local tests, locked install, API/architecture/dependency/export, strict Extractor and package gates passed; all four supported final-head PR CI jobs passed. The user explicitly approved implementation in [issue #6, comment 6917507563](https://github.com/Zilvereyes/wow-addon-sdk/issues/6#issuecomment-6917507563). The preceding [v0.3.1 selector PR #16](https://github.com/Zilvereyes/wow-addon-sdk/pull/16) is integrated as `fdb8d69`. This document records the approved contract and its acceptance requirements; current post-merge delivery evidence is maintained in issue #7.
 
 ## Observed gap and intended result
 
