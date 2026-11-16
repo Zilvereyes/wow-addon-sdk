@@ -4,6 +4,11 @@ Changes are recorded by release. This project is in pre-1.0 development.
 
 ## [Unreleased]
 
+### Client selection evidence tooling
+
+- Add a staging-only generator for eight synthetic TOC-selection/comment scenarios with distinct local Lua markers, MIT licenses and a final hashed manifest. Refuse existing outputs and resolved AddOns paths; installation and runtime observations remain separate user actions.
+- Add five integration checks for deterministic generated content, references, input validation and output preservation. No built-in loader policy or runtime conformance is inferred.
+
 ### TOC corpus fidelity follow-up
 
 - Recognize empty hash-only separators as comments, preserving original raw text and UTF-16 ranges.
