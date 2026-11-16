@@ -1,4 +1,4 @@
-# Arkitektur – WoW AddOn SDK v0.3.1
+# Arkitektur – WoW AddOn SDK v0.3.x
 
 ## Afhængighedsregler
 
@@ -35,7 +35,7 @@ v0.3.1 placerer den rene `selectTocVariant` og fire tilhørende kontrakter i `to
 
 `toGlobalDeclarations([metadata])` producerer globale SavedVariables med `activationState: 'unconditional' | 'conditional'`. Der forsøges **ikke** klientbetingelsesevaluering. Forbrugere kan selv levere `activationState: 'unknown'` til `buildGlobalRegistry`.
 
-Registry deduplikerer ved `name` for lookup, men bevarer alle deklarationer med `source`, `addonId`, `kind` og `scope`. `addonId` fra TOC-adapteren er TOC-stien, så forskellige klientvarianter ikke fejlagtigt får samme ID før aktiv-TOC-valg er implementeret. Registry advarer `SV0001` ved uforenelige SavedVariables-scopes inden for samme `addonId`.
+Registry deduplikerer ved `name` for lookup, men bevarer alle deklarationer med `source`, `addonId`, `kind` og `scope`. Den statiske TOC-adapter bruger fortsat TOC-stien som `addonId`. Den separate resolver vælger først variant og bruger logisk AddOn-ID på sine deklarationskopier. Registry advarer `SV0001` ved uforenelige SavedVariables-scopes inden for samme `addonId`; resolveren sender kun kendt aktive kopier til denne kontrol.
 
 `listGlobals()` eksponerer kun ubetingede globals. Vælg `includeConditional` eller `includeUnknown` eksplicit, når det er sikkert for forbrugeren.
 
@@ -63,5 +63,7 @@ v0.3.2 adds opaque `ConditionDescriptor` records and an optional declaration fie
 v0.3.3 keeps the neutral `ResolvedAvailability` type in global-registry and the environment-aware evaluator in the existing adapter leaf. It derives availability under explicit caller comparisons without adding environment state to static records, importing metadata into the registry or creating a new package edge. The [evaluation design](DESIGN-v0.3.3.md) defines unknown/failure handling and conservative combination. v0.3.4 composes this with selection before creating a resolved global view.
 
 v0.3.4's [resolver](DESIGN-v0.3.4.md) lives in that same leaf: select exact source variants, consume selected metadata/associated provider projections, copy declarations under caller logical IDs, evaluate them and derive activeGlobals. Static activation/provenance stays distinct from evaluation. Only known-active copied records feed existing registry conflict checks; no reverse import, filesystem dependency or parser package is added. The new result schema 1 is separate from metadata schema 2.
+
+The [pre-freeze review](PRE-FREEZE-REVIEW.md) records why evaluator/orchestration placement is retained for this checkpoint: a provider can produce registry contracts without importing the orchestration leaf. An external caller composes the providers and resolver. Actual Lua/XML integration must test that separation before extending the graph; a neutral orchestration package remains an explicit future design choice. Naming `ConditionEvaluationRule` changes no edge or runtime behavior. Every export remains beta; [the surface inventory](PUBLIC-SURFACE.md) identifies all 52 consumers' contracts.
 
 `addon-metadata` er JSON-serialiserbar, men `SourceRange` JSON-struktur er ændret i v0.2.0. `METADATA_SCHEMA_VERSION = 2` identificerer det nye serialiserede SourceRange-format. Payloads fra v0.1 kræver migration til det nye format.

@@ -61,9 +61,13 @@ test('dotted ordinary directive names and malformed conditions remain errors wit
 });
 
 test('nonempty double-hash annotations retain existing strict diagnostics in this focused fix', () => {
-  for (const line of ['## MissingColon', '## section heading', '## XML']) {
+  for (const line of ['## MissingColon', '## section heading', '## XML',
+    '## Synthetic phase ##', '## Synthetic phase -- ordering note ##', '## synthetic phase files']) {
     const parsed = parseToc(line, 'Synthetic/Strict.toc');
     assert.ok(parsed.diagnostics.some(d => d.code === 'TOC0001'), line);
+    assert.equal(parsed.entries[0].kind, 'invalid');
+    assert.deepEqual(parsed.metadata.directives, []);
+    assert.deepEqual(listGlobals(buildTocGlobalRegistry([parsed.metadata]), { includeConditional: true }), []);
   }
 });
 

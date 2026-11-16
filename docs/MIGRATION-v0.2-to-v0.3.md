@@ -136,3 +136,13 @@ Use `activeGlobals` for resolved names. `entries` retain selected inactive/unkno
 Check `complete` when requiring a whole-project resolved answer. Unknown source selection/availability or consumed-shape errors make it false; independent valid groups can remain as a known-active partial subset. No-match is a normal empty selection. Only active selected records enter SV0001 checks, preserving the existing same-addon scope rule under logical IDs. Invalid selected projections exclude the entire AddOn rather than leaking a partially accepted group.
 
 All returned declared/source/condition data is copied independently from inputs and other calls. Diagnostics may reference copied declaration sources within one result. First-seen selected names and duplicate declaration/provider order are preserved; root issues/sources are canonical. `complete` concerns input projections and availability, not source parse cleanliness or game-loader conformance; parser diagnostics remain the caller's separate gate.
+
+## Pre-freeze checkpoint: named rules and compatibility
+
+The user requested a reusable named rule. `ConditionEvaluationRule` is a beta export from the adapter; `ConditionEvaluationPolicy.rules` now uses `readonly ConditionEvaluationRule[]`. Existing inline object literals remain structurally assignable with exactly the same fields, permitted values and readonly restrictions. Serialized policies and evaluation behavior do not change. The total becomes 52 beta exports; the initial review checkpoint retained 0.3.4, and the subsequent release candidate advances all workspace versions/internal ranges to 0.3.5 without changing third-party records.
+
+Issue-code, reason, status and other literal unions are closed for each installed version. Future members can break exhaustive TypeScript consumers and require reviewed API/migration changes. This checkpoint does not widen unions or promise v1 compatibility. A consumer accepting data from other versions needs an explicit unsupported-data fallback and must not turn unfamiliar availability into active. See [the full surface review](PUBLIC-SURFACE.md) and [pre-freeze acceptance](PRE-FREEZE-REVIEW.md).
+
+## v0.3.5: core boundary acceptance
+
+The [readiness record](RELEASE-READINESS-v0.3.5.md) adds no runtime behavior or further public exports. Source versions/internal ranges become 0.3.5; metadata/environment/result schemas remain 2/1/1, and all 52 exports stay beta. Existing source/API/ownership limitations documented above remain in force. Installing this milestone does not add Lua/XML parsers, a filesystem graph or built-in game semantics. Final-head verification and integration evidence live in PR #21 / issue #7; tag/npm publication remains separate.

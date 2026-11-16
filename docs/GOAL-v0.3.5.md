@@ -10,7 +10,7 @@ Preserve five acyclic package boundaries, the existing 30 exports and their beta
 
 Verify through three distinct passes: focused requirement/regression tests; integrated build, architecture, dependency and strict API checks; final Ubuntu/Windows × Node 22/24 CI and actual package-content assertions for all five workspaces. Include LICENSE and exclude game assets. Resolve findings and rerun affected checks.
 
-Deliver focused PRs, reviewed API reports, migration guidance, diagnostic documentation and an evidence-backed release-readiness record linked from issue #7. Tagging, npm publication, and subsequent PR merges require explicit approval. No scheduler or unattended execution is created by this document.
+Deliver focused PRs, reviewed API reports, migration guidance, diagnostic documentation and an evidence-backed release-readiness record linked from issue #7. Apply the session authorization update below to routine reviewed green integration and verification of the requested core milestone. Tagging and npm publication remain explicit decisions. No scheduler or unattended execution is created by this document.
 
 Delivering the minimum v0.3.5-ready SDK is your /goal; continue autonomously within these recorded approvals until the acceptance criteria pass or a specific decision or unavailable capability blocks progress.
 
@@ -19,3 +19,5 @@ Delivering the minimum v0.3.5-ready SDK is your /goal; continue autonomously wit
 The user clarified: **“[ Fuld adgang ] = Godkendelse af diverse ting.”** They also explicitly approved merge of PR #16 and implementation of v0.3.2 A–D. In this project's scope, that instruction is treated as standing authorization for routine implementation, verification, GitHub maintenance and reviewed green integration of approved increments, without repeated permission requests. PR #17 integration proceeded under that interpretation. This records the user's instruction and its project-scoped application; the app access setting alone is not the source of authority.
 
 Keep material new semantic/dialect/schema decisions explicit in #6. Tagging/publication and changes to the installed game remain separate from routine SDK work. Do not request the already-recorded v0.3.0–v0.3.4 approvals again; v0.3.3 A–E are in comment 6918223915 and v0.3.4 A–E in comment 6919012067.
+
+The user subsequently selected the solo-owner branch-protection model: PRs and all four supported CI checks on an up-to-date branch, enforced for administrators, with chat sign-off rather than a separate GitHub approving reviewer. The [pre-freeze review](PRE-FREEZE-REVIEW.md) records the configured checks and outstanding acceptance. The original minimum milestone does not end the broader goal: actual TOC/Lua/XML parsing/provider/reference tests against the opt-in local corpus must still be delivered, and beta status remains in force.

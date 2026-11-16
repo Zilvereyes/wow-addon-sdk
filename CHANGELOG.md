@@ -4,6 +4,19 @@ Changes are recorded by release. This project is in pre-1.0 development.
 
 ## [Unreleased]
 
+### v0.3.5 core architectural-freeze candidate (source version; not published)
+
+- Advance all five workspaces/internal ranges and root/lock records to 0.3.5 without changing any of the 81 third-party dependency records.
+- Map every core milestone criterion to reviewed source/contracts, regression tests, supported-platform gates and distribution evidence in the release-readiness record. Retain the five acyclic core boundaries and 52 beta exports.
+- Keep actual Lua/XML parsing/providers/reference graph, built-in client policy verification and remaining strict-heading recovery explicit follow-ups. No tag, npm publication, consumer stability or clean full-corpus result is claimed.
+
+### Pre-freeze review checkpoint
+
+- Name and export the existing policy rule as beta `ConditionEvaluationRule` at the user's request (52 total exports); preserve structural fields, readonly restrictions, policy JSON and runtime behavior.
+- Record every export's consumer purpose, exhaustive-union compatibility risks, evaluator placement rationale and remaining real-provider/dialect evidence. Correct stale static-vs-resolved wording.
+- Record the user-selected solo-owner protection: PRs, four up-to-date required GitHub Actions checks and administrator enforcement; chat sign-off is distinct from a GitHub approving review.
+- Classify all 19 remaining corpus errors as unsupported nonempty heading syntax, retain failures and extend authored strict-heading regressions without copying installed sources. No v0.3.5 freeze, source version bump, parser dependency or release publication is claimed by this checkpoint.
+
 ### v0.3.4 composed resolved globals (source version; not published)
 
 - Add the six approved resolver contracts/function in the existing adapter leaf (51 beta exports total), with independent resolved-result schema 1 and unchanged metadata/environment schemas 2/1.
