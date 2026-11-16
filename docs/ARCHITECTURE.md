@@ -58,4 +58,6 @@ Registry deduplikerer ved `name` for lookup, men bevarer alle deklarationer med 
 
 ## JavaScript/TypeScript ABI
 
+v0.3.2 adds opaque `ConditionDescriptor` records and an optional declaration field inside `global-registry`, using its existing diagnostics dependency only. The TOC adapter supplies independent copies of condition arrays/values/source ranges; registry aggregation preserves supplied objects and never interprets provider grammar or condition truth. Static activation/listing and source identities are unchanged. See [condition design](DESIGN-v0.3.2.md) for absence and ownership semantics.
+
 `addon-metadata` er JSON-serialiserbar, men `SourceRange` JSON-struktur er ændret i v0.2.0. `METADATA_SCHEMA_VERSION = 2` identificerer det nye serialiserede SourceRange-format. Payloads fra v0.1 kræver migration til det nye format.

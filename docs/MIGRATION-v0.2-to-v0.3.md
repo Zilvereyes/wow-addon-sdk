@@ -79,3 +79,24 @@ The priority list is caller-owned. Required optional constraints are exact and n
 All source records remain inspectable. The selector returns a variant ID rather than changing the static registry, evaluating conditions or exposing a resolved global list. Handle all five result statuses. `TocSelectionIssue.sources` may be empty for environment-only errors; do not fabricate a source to coerce it into shared `Diagnostic`. Result source ranges are copied, so editing them cannot affect the input.
 
 No built-in loader policy, condition semantics or metadata schema migration is introduced. See the design for validation boundaries, filename matching and future provider/resolver integration.
+
+## v0.3.2: provider-neutral condition provenance
+
+The [approved condition design](DESIGN-v0.3.2.md) adds one beta `ConditionDescriptor` in `global-registry` and an optional readonly `GlobalDeclaration.conditions` array. The reviewed surface becomes 40 exports; all five workspace versions/internal ranges advance to 0.3.2. Metadata remains schema 2 and environment schema remains 1.
+
+The TOC adapter now adds this field for nonempty condition lists:
+
+```ts
+// Derived from ## SavedVariables[AllowLoadGameType vanilla]: DB
+declaration.conditions?.[0];
+// { providerId: '@wow-addon/toc-metadata-adapter', name: 'AllowLoadGameType',
+//   values: ['vanilla'], raw: '[AllowLoadGameType vanilla]', source: ... }
+```
+
+Names, parsed values, raw text and original UTF-16 spans remain exact and ordered. The provider ID identifies the adapter supplying the descriptor; it is not a game-version or grammar assertion. Other providers may retain opaque names and empty values. Registry code does not interpret them.
+
+For unconditional TOC output, the new property is omitted, preserving its old JSON shape. Conditional output gains an additive field: exact JSON snapshots and closed external validators must accept it. `GlobalDeclaration` has no independent wire-schema constant; `METADATA_SCHEMA_VERSION` versions metadata, not serialized registry declarations.
+
+Legacy conditional declarations without descriptors remain accepted. Missing or empty provenance cannot override `activationState` or establish truth. Static `listGlobals` options, addonId = tocPath and SV0001 behavior are unchanged; selected-variant/environment resolution remains a later step.
+
+The adapter independently copies each new conditions array, descriptor, values array and source/range/position object per declaration and invocation. Editing one output's condition provenance cannot modify input or sibling output. Existing declaration `source` aliasing and the registry's retention of supplied declaration objects remain unchanged. Readonly is a TypeScript contract; no runtime freezing or full registry ownership isolation is added.

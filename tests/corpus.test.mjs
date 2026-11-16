@@ -15,6 +15,17 @@ function inspect(root, ...args) {
   return { ...result, report: result.stdout ? JSON.parse(result.stdout) : undefined };
 }
 
+test('corpus verifies condition copies and reports aggregate counts without exposing provenance', () => fixture(root => {
+  fs.writeFileSync(path.join(root, 'private-file.toc'),
+    '## SavedVariables[AllowLoadGameType privatevalue]: A, A [Bootstrap]\n## SavedVariables: B');
+  const result = inspect(root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.report.adapterDeclarations, 3);
+  assert.equal(result.report.conditionDescriptors, 4);
+  assert.doesNotMatch(result.stdout + result.stderr, /private-file|privatevalue|AllowLoadGameType|Bootstrap/);
+  assert.equal(result.stdout, inspect(root).stdout);
+}));
+
 test('corpus parses every TOC variant read-only and inventories Lua/XML without claiming parsing', () => fixture(root => {
   fs.mkdirSync(path.join(root, 'Å'));
   const contents = {

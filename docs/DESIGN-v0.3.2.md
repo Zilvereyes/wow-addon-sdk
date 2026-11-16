@@ -1,14 +1,14 @@
-# v0.3.2 proposal: preserve provider-neutral condition provenance
+# v0.3.2: preserve provider-neutral condition provenance
 
-**Status: proposed, not approved or implemented.** Record the decision in [issue #6](https://github.com/Zilvereyes/wow-addon-sdk/issues/6) before changing the public contract. The [v0.3.1 selector PR #16](https://github.com/Zilvereyes/wow-addon-sdk/pull/16) is independently reviewed and remains a separate integration decision.
+**Status: A–D approved, implemented on the feature branch, final verification in progress.** The user explicitly approved implementation in [issue #6, comment 6917507563](https://github.com/Zilvereyes/wow-addon-sdk/issues/6#issuecomment-6917507563). The [v0.3.1 selector PR #16](https://github.com/Zilvereyes/wow-addon-sdk/pull/16) is merged into main as `fdb8d69`, with all four supported post-merge CI jobs passed. This document records the approved contract and its acceptance requirements.
 
 ## Observed gap and intended result
 
-`parseToc()` retains conditions on directives, file references and SavedVariable declarations. The current TOC adapter checks only `saved.conditions.length` and emits a conditional/unconditional flag; the condition names, values, raw text and source ranges disappear at that boundary. The registry already retains whole declarations, so it does not need to parse or interpret TOC syntax to preserve this data.
+`parseToc()` retains conditions on directives, file references and SavedVariable declarations. Before v0.3.2, the TOC adapter checked only `saved.conditions.length` and emitted a conditional/unconditional flag; condition names, values, raw text and source ranges disappeared at that boundary. The registry already retains whole declarations, so it does not need to parse or interpret TOC syntax to preserve this data.
 
 For each valid SavedVariable, the adapter should retain every supplied condition in original order on its derived declaration. Existing identity, scope, duplicate handling, activation flags, static listings and scope-conflict diagnostics stay unchanged. No condition becomes true or false in this increment.
 
-## Proposed contract (decision A)
+## Approved contract (decision A)
 
 Add exactly one beta export to `@wow-addon/global-registry`, using its existing diagnostics dependency:
 
@@ -68,4 +68,4 @@ Implementation order: demonstrate the missing descriptor/type and adapter-copy b
 
 ## Subsequent decisions
 
-v0.3.3 must separately define supported provider/name semantics, argument validation, case rules, multi-condition composition and active/inactive/unknown outcomes. v0.3.4 must compose selected variant identity with evaluation before resolving globals. This proposal does not authorize those contracts, a built-in loader policy, Lua/XML parser boundaries or release publication.
+v0.3.3 must separately define supported provider/name semantics, argument validation, case rules, multi-condition composition and active/inactive/unknown outcomes. v0.3.4 must compose selected variant identity with evaluation before resolving globals. Approval of A–D does not decide those contracts, a built-in loader policy, Lua/XML parser boundaries or release publication.

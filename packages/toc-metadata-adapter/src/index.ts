@@ -7,7 +7,9 @@ import type { GlobalDeclaration, GlobalRegistry } from '@wow-addon/global-regist
 import { buildGlobalRegistry } from '@wow-addon/global-registry';
 
 /**
- * Convert TOC metadata to provider-neutral globals; do not evaluate conditions here.
+ * Convert TOC metadata to provider-neutral globals without evaluating conditions.
+ * Nonempty condition lists are copied independently per declaration; empty lists
+ * omit the optional field. Existing declaration source references stay shared.
  *
  * @beta
  */
@@ -24,6 +26,14 @@ export function toGlobalDeclarations(addons: readonly AddOnMetadata[]): GlobalDe
         scope: saved.scope,
         activationState: saved.conditions.length ? 'conditional' : 'unconditional',
         source: saved.source,
+        ...(saved.conditions.length ? { conditions: saved.conditions.map(condition => ({
+          providerId: '@wow-addon/toc-metadata-adapter',
+          name: condition.name, values: [...condition.values], raw: condition.raw,
+          source: { file: condition.source.file, range: {
+            start: { line: condition.source.range.start.line, column: condition.source.range.start.column },
+            end: { line: condition.source.range.end.line, column: condition.source.range.end.column },
+          } },
+        })) } : {}),
       });
     }
   }
