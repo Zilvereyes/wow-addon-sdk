@@ -7,7 +7,7 @@
 import type { Diagnostic } from '@wow-addon/diagnostics';
 import type { SourceReference } from '@wow-addon/diagnostics';
 
-// @public (undocumented)
+// @beta (undocumented)
 export interface AddOnFileReference {
     // (undocumented)
     conditions: InlineCondition[];
@@ -17,7 +17,7 @@ export interface AddOnFileReference {
     source: SourceReference;
 }
 
-// @public (undocumented)
+// @beta (undocumented)
 export interface AddOnMetadata {
     client: WoWClient;
     // (undocumented)
@@ -57,7 +57,7 @@ export interface AddOnMetadata {
     tocSuffix: string | null;
 }
 
-// @public (undocumented)
+// @beta (undocumented)
 export interface InlineCondition {
     name: string;
     // (undocumented)
@@ -68,10 +68,10 @@ export interface InlineCondition {
     values: string[];
 }
 
-// @public
+// @beta (undocumented)
 export const METADATA_SCHEMA_VERSION: 2;
 
-// @public (undocumented)
+// @beta (undocumented)
 export interface MetadataDirective {
     // (undocumented)
     conditions: InlineCondition[];
@@ -87,7 +87,7 @@ export interface MetadataDirective {
     value: string;
 }
 
-// @public (undocumented)
+// @beta (undocumented)
 export interface SavedVariableDeclaration {
     // (undocumented)
     conditions: InlineCondition[];
@@ -101,10 +101,10 @@ export interface SavedVariableDeclaration {
     validIdentifier: boolean;
 }
 
-// @public (undocumented)
+// @beta (undocumented)
 export type SavedVariableScope = 'account' | 'character';
 
-// @public (undocumented)
+// @beta (undocumented)
 export interface TocEntry {
     // (undocumented)
     directive?: MetadataDirective;
@@ -118,7 +118,7 @@ export interface TocEntry {
     source: SourceReference;
 }
 
-// @public (undocumented)
+// @beta (undocumented)
 export interface TocParseResult {
     // (undocumented)
     diagnostics: Diagnostic[];
@@ -128,7 +128,7 @@ export interface TocParseResult {
     metadata: AddOnMetadata;
 }
 
-// @public (undocumented)
+// @beta (undocumented)
 export enum WoWClient {
     // (undocumented)
     BurningCrusadeClassic = "tbc-classic",
@@ -146,10 +146,10 @@ export enum WoWClient {
     WrathClassic = "wrath-classic"
 }
 
-// @public (undocumented)
+// @beta (undocumented)
 export type WoWClientFamily = 'unknown' | 'classic' | 'mainline';
 
-// @public
+// @beta (undocumented)
 export enum WoWGameMode {
     // (undocumented)
     Hardcore = "hardcore",
