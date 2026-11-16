@@ -41,3 +41,15 @@ These codes are emitted in `TocSelectionIssue`, which has a source array and per
 | `CONDEVAL0006` | A supported condition excludes the declaration under the explicit policy |
 
 A structurally valid false condition can make the overall conservative AND inactive while retaining issues for other unknown conditions. Invalid projections and unresolved static activation remain unknown. Neither raw annotation spelling nor an unsupported provider/name supplies implicit truth. Returned provenance is copied and canonical; no policy/argument values are echoed into messages.
+
+## v0.3.4 resolution issues
+
+Root/group failures use `GlobalResolutionIssue`; source selections retain TOCSEL issues and selected declaration evaluations retain CONDEVAL issues. SV0001 is computed only from known-active selected declaration copies under logical AddOn IDs.
+
+| Code | Meaning |
+| --- | --- |
+| `RESOLVE0001` | Invalid/unknown root context, condition policy or input-list shape |
+| `RESOLVE0002` | Invalid/duplicate AddOn input or malformed selected metadata projection |
+| `RESOLVE0003` | Invalid provider association, batch shape or selected provider projection |
+
+These fixed messages do not echo policy/argument values. Root issue sources and optional logical IDs preserve available provenance without fabrication. `complete=false` can retain independently known active names; unknown/unselected sources never contribute active globals. A known no-match is a normal empty selection. Result completeness concerns consumed projections/availability rather than parser diagnostic cleanliness.

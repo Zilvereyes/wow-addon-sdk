@@ -4,6 +4,13 @@ Changes are recorded by release. This project is in pre-1.0 development.
 
 ## [Unreleased]
 
+### v0.3.4 composed resolved globals (source version; not published)
+
+- Add the six approved resolver contracts/function in the existing adapter leaf (51 beta exports total), with independent resolved-result schema 1 and unchanged metadata/environment schemas 2/1.
+- Select exact TOC variants before consuming their metadata/provider declarations. Preserve logical/variant/provider/original identity and deep provenance copies; expose known active names separately from unchanged static activation flags.
+- Retain selected inactive/unknown entries and explicit partial completeness. Validate root/association/selected projections, exclude invalid groups and emit SV0001 only for known-active coexisting declarations under logical IDs.
+- Add type/identity/selection/provider/conflict/mutation/invalid-shape regressions and a bounded opt-in composed corpus profile. Retain original TOC errors and Lua/XML parser absence.
+
 ### v0.3.3 conservative condition evaluation (source version; not published)
 
 - Add the approved neutral ResolvedAvailability type and four adapter exports for explicit-policy condition evaluation (45 beta exports total). Preserve five package boundaries and metadata/environment schemas 2/1.

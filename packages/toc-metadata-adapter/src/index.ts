@@ -1,9 +1,9 @@
 import {
   CLIENT_ENVIRONMENT_SCHEMA_VERSION, METADATA_SCHEMA_VERSION, WoWClient, WoWGameMode,
-  type AddOnMetadata, type ClientEnvironment, type TocVariantIdentity, type WoWClientFamily,
+  type AddOnIdentity, type AddOnMetadata, type ClientEnvironment, type TocVariantIdentity, type WoWClientFamily,
 } from '@wow-addon/addon-metadata';
-import type { SourceReference } from '@wow-addon/diagnostics';
-import type { GlobalDeclaration, GlobalRegistry, ResolvedAvailability } from '@wow-addon/global-registry';
+import type { Diagnostic, SourceReference } from '@wow-addon/diagnostics';
+import type { ConditionDescriptor, GlobalDeclaration, GlobalRegistry, ResolvedAvailability } from '@wow-addon/global-registry';
 import { buildGlobalRegistry } from '@wow-addon/global-registry';
 
 /**
@@ -342,20 +342,15 @@ function conditionResult(
     compareSourceLists(a.sources, b.sources)) };
 }
 
-/**
- * Evaluate one caller-supplied declaration without selecting a source,
- * interpreting raw syntax, inferring game semantics or mutating any input.
- * Validate the consumed projection, not every legacy declaration field or
- * source-content bound. Ordinary malformed JSON shapes produce unknown.
- * Native objects/getters remain caller code, not a sandbox boundary.
- *
- * @beta
- */
-export function evaluateGlobalConditions(
-  declaration: GlobalDeclaration,
+interface EvaluationContext {
+  rules: Map<string, ConditionEvaluationPolicy['rules'][number]>;
+  normalizeName: (value: string) => string;
+}
+
+function evaluationContext(
   environment: ClientEnvironment,
   policy: ConditionEvaluationPolicy,
-): ConditionEvaluationResult {
+): EvaluationContext | ConditionEvaluationResult {
   const invalidContext = (): ConditionEvaluationResult => conditionResult('unknown', 'invalid-input', [{
     code: 'CONDEVAL0001', message: 'Invalid environment or condition policy.', sources: [],
   }]);
@@ -379,6 +374,39 @@ export function evaluateGlobalConditions(
     }]);
   }
   if (environment.clientFamily !== familyOf(environment.client)) return invalidContext();
+  return { rules, normalizeName };
+}
+
+function denseArray(value: unknown): value is unknown[] {
+  return Array.isArray(value) && Array.from(value).every((_, index) => Object.hasOwn(value, index));
+}
+
+function validConditionPayload(value: unknown): boolean {
+  return record(value) && nonempty(value.name) && typeof value.raw === 'string' &&
+    denseArray(value.values) && value.values.every(argument => typeof argument === 'string') && validSource(value.source);
+}
+
+function validConditionDescriptor(value: unknown): value is ConditionDescriptor {
+  return record(value) && nonempty(value.providerId) && validConditionPayload(value);
+}
+
+/**
+ * Evaluate one caller-supplied declaration without selecting a source,
+ * interpreting raw syntax, inferring game semantics or mutating any input.
+ * Validate the consumed projection, not every legacy declaration field or
+ * source-content bound. Ordinary malformed JSON shapes produce unknown.
+ * Native objects/getters remain caller code, not a sandbox boundary.
+ *
+ * @beta
+ */
+export function evaluateGlobalConditions(
+  declaration: GlobalDeclaration,
+  environment: ClientEnvironment,
+  policy: ConditionEvaluationPolicy,
+): ConditionEvaluationResult {
+  const context = evaluationContext(environment, policy);
+  if ('availability' in context) return context;
+  const { rules, normalizeName } = context;
   const declarationSources = record(declaration) && validSource(declaration.source) ? [declaration.source] : [];
   const invalidDeclaration = (sources = declarationSources): ConditionEvaluationResult => conditionResult('unknown', 'invalid-input', [{
     code: 'CONDEVAL0002', message: 'Invalid or contradictory declaration projection.', sources,
@@ -388,10 +416,9 @@ export function evaluateGlobalConditions(
       (Object.hasOwn(declaration, 'conditions') && !Array.isArray(declaration.conditions))) return invalidDeclaration();
   const conditions = Array.from(declaration.conditions ?? []);
   const invalidDescriptors: ConditionEvaluationIssue[] = [];
-  for (const descriptor of conditions) {
-    if (!record(descriptor) || !nonempty(descriptor.providerId) || !nonempty(descriptor.name) ||
-        typeof descriptor.raw !== 'string' || !Array.isArray(descriptor.values) ||
-        !Array.from(descriptor.values).every(value => typeof value === 'string') || !validSource(descriptor.source)) {
+  for (const value of conditions) {
+    const descriptor: unknown = value;
+    if (!validConditionDescriptor(descriptor)) {
       invalidDescriptors.push({ code: 'CONDEVAL0002', message: 'Invalid condition descriptor projection.',
         sources: record(descriptor) && validSource(descriptor.source) ? [descriptor.source] : declarationSources });
     }
@@ -440,4 +467,238 @@ export function evaluateGlobalConditions(
   if (inactive) return conditionResult('inactive', 'condition-mismatch', issues);
   if (unknown) return conditionResult('unknown', 'unknown', issues);
   return conditionResult('active', 'conditions-satisfied', []);
+}
+
+/**
+ * Caller-supplied provider batch associated with one exact candidate variant.
+ * Multiple batches for one provider/variant retain order and duplicates.
+ *
+ * @beta
+ */
+export interface ProviderDeclarationSet {
+  readonly providerId: string;
+  readonly tocVariantId: string;
+  readonly declarations: readonly GlobalDeclaration[];
+}
+
+/**
+ * One caller-scoped logical AddOn, its variants and explicit selection policy.
+ * Provider sets supplement automatic SavedVariables from the selected metadata.
+ *
+ * @beta
+ */
+export interface GlobalResolutionInput extends AddOnIdentity {
+  readonly addonBaseName: string;
+  readonly candidates: readonly TocSelectionCandidate[];
+  readonly selectionPolicy: TocSelectionPolicy;
+  readonly providers?: readonly ProviderDeclarationSet[];
+}
+
+/**
+ * Selected declaration with independent copies and explicit derived evaluation.
+ * The copied declaration uses logical identity; originalAddonId stays exact.
+ *
+ * @beta
+ */
+export interface ResolvedGlobalDeclaration {
+  readonly logicalAddonId: string;
+  readonly tocVariantId: string;
+  readonly providerId: string;
+  readonly originalAddonId: string;
+  readonly declaration: GlobalDeclaration;
+  readonly evaluation: ConditionEvaluationResult;
+}
+
+/**
+ * Fixed root/group failure with available canonical copied provenance only.
+ * Selection and evaluation keep their existing issue contracts separately.
+ *
+ * @beta
+ */
+export interface GlobalResolutionIssue {
+  readonly code: 'RESOLVE0001' | 'RESOLVE0002' | 'RESOLVE0003';
+  readonly message: string;
+  readonly logicalAddonId?: string;
+  readonly sources: readonly SourceReference[];
+}
+
+/**
+ * Derived view distinct from static GlobalRegistry. activeGlobals includes
+ * known-true conditional records without rewriting their activation flags.
+ * complete concerns consumed projections/availability, not source parse errors.
+ * Partial results retain the independently known active subset.
+ *
+ * @beta
+ */
+export interface ResolvedGlobalRegistry {
+  readonly schemaVersion: 1;
+  readonly complete: boolean;
+  readonly activeGlobals: readonly string[];
+  readonly entries: readonly { readonly name: string; readonly declarations: readonly ResolvedGlobalDeclaration[] }[];
+  readonly addons: readonly { readonly logicalAddonId: string; readonly selection: TocSelectionResult }[];
+  readonly diagnostics: readonly Diagnostic[];
+  readonly issues: readonly GlobalResolutionIssue[];
+}
+
+function copySource(value: SourceReference): SourceReference {
+  return { file: value.file, range: {
+    start: { line: value.range.start.line, column: value.range.start.column },
+    end: { line: value.range.end.line, column: value.range.end.column },
+  } };
+}
+
+function validGlobalProjection(value: unknown): value is GlobalDeclaration {
+  return record(value) && nonempty(value.name) && nonempty(value.addonId) &&
+    typeof value.kind === 'string' && ['saved-variable', 'frame', 'lua-global'].includes(value.kind) &&
+    (!Object.hasOwn(value, 'scope') || value.scope === 'account' || value.scope === 'character') &&
+    typeof value.activationState === 'string' && ['conditional', 'unconditional', 'unknown'].includes(value.activationState) &&
+    validSource(value.source) && (!Object.hasOwn(value, 'conditions') ||
+      (denseArray(value.conditions) && value.conditions.every(validConditionDescriptor))) &&
+    !(value.activationState === 'unconditional' && Array.isArray(value.conditions) && value.conditions.length > 0);
+}
+
+function validSavedProjection(value: unknown): boolean {
+  return record(value) && denseArray(value.savedVariableDeclarations) && value.savedVariableDeclarations.every(saved =>
+    record(saved) && typeof saved.name === 'string' && typeof saved.validIdentifier === 'boolean' &&
+    (!saved.validIdentifier || nonempty(saved.name)) && (saved.scope === 'account' || saved.scope === 'character') &&
+    validSource(saved.source) && denseArray(saved.conditions) && saved.conditions.every(validConditionPayload));
+}
+
+function copyDeclaration(value: GlobalDeclaration, logicalAddonId: string): GlobalDeclaration {
+  return { name: value.name, addonId: logicalAddonId, kind: value.kind, activationState: value.activationState,
+    source: copySource(value.source), ...(Object.hasOwn(value, 'scope') ? { scope: value.scope! } : {}),
+    ...(Object.hasOwn(value, 'conditions') ? { conditions: value.conditions!.map(condition => ({
+      providerId: condition.providerId, name: condition.name, values: [...condition.values], raw: condition.raw,
+      source: copySource(condition.source),
+    })) } : {}),
+  };
+}
+
+function resolutionSources(value: unknown): SourceReference[] {
+  if (!record(value) || !Array.isArray(value.candidates)) return [];
+  return value.candidates.flatMap(candidate => record(candidate) && record(candidate.identity) &&
+    validSource(candidate.identity.source) ? [candidate.identity.source] : []);
+}
+
+interface AssociatedProvider {
+  providerId: string;
+  tocVariantId: string;
+  declarations: unknown[];
+}
+
+function associatedProvider(value: unknown, variants: ReadonlySet<string>): value is AssociatedProvider {
+  return record(value) && nonempty(value.providerId) && nonempty(value.tocVariantId) &&
+    variants.has(value.tocVariantId) && denseArray(value.declarations);
+}
+
+/**
+ * Compose explicit selection and condition evaluation into a derived view.
+ * Select first; consume only selected metadata/provider declaration contents.
+ * Independent valid groups survive partial failures. Static flags, APIs and
+ * inputs remain unchanged. Core performs no filesystem discovery/execution.
+ * Consumed projection checks do not prove parse correctness or graph reachability;
+ * native object/getter behavior remains caller code.
+ *
+ * @beta
+ */
+export function resolveGlobalRegistry(
+  environment: ClientEnvironment,
+  addons: readonly GlobalResolutionInput[],
+  conditionPolicy: ConditionEvaluationPolicy,
+): ResolvedGlobalRegistry {
+  let complete = true;
+  const issues: GlobalResolutionIssue[] = [];
+  const selections: { logicalAddonId: string; selection: TocSelectionResult }[] = [];
+  const entries = new Map<string, { name: string; declarations: ResolvedGlobalDeclaration[] }>();
+  const finish = (): ResolvedGlobalRegistry => {
+    const ordered = [...entries.values()];
+    const active = ordered.flatMap(entry => entry.declarations.filter(value => value.evaluation.availability === 'active'));
+    return { schemaVersion: 1, complete,
+      activeGlobals: ordered.filter(entry => entry.declarations.some(value => value.evaluation.availability === 'active')).map(entry => entry.name),
+      entries: ordered, addons: selections, diagnostics: buildGlobalRegistry(active.map(value => value.declaration)).diagnostics,
+      issues: issues.map(issue => ({ code: issue.code, message: issue.message,
+        ...(issue.logicalAddonId === undefined ? {} : { logicalAddonId: issue.logicalAddonId }),
+        sources: issue.sources.map(copySource).sort(compareSource),
+      })).sort((a, b) => compareText(a.code, b.code) || compareText(a.logicalAddonId ?? '', b.logicalAddonId ?? '') ||
+        compareText(a.message, b.message) || compareSourceLists(a.sources, b.sources)),
+    };
+  };
+  const context = evaluationContext(environment, conditionPolicy);
+  if ('availability' in context || !Array.isArray(addons)) {
+    complete = false;
+    issues.push({ code: 'RESOLVE0001', message: 'Invalid or unresolved root context, condition policy or input list.', sources: [] });
+    return finish();
+  }
+  const ids = new Map<string, number>();
+  for (const input of Array.from(addons)) {
+    if (record(input) && nonempty(input.logicalAddonId)) ids.set(input.logicalAddonId, (ids.get(input.logicalAddonId) ?? 0) + 1);
+  }
+  for (const raw of Array.from(addons)) {
+    const id = record(raw) && nonempty(raw.logicalAddonId) ? raw.logicalAddonId : undefined;
+    const failGroup = (code: GlobalResolutionIssue['code'], message: string, sources = resolutionSources(raw)): void => {
+      complete = false;
+      issues.push({ code, message, ...(id === undefined ? {} : { logicalAddonId: id }), sources });
+    };
+    if (!record(raw) || id === undefined || !nonempty(raw.addonBaseName) ||
+        raw.addonBaseName === '.' || raw.addonBaseName === '..' || /[\\/:\u0000-\u001f]/.test(raw.addonBaseName) ||
+        !Array.isArray(raw.candidates) || ids.get(id)! > 1) {
+      failGroup('RESOLVE0002', 'Invalid or duplicate logical AddOn input.');
+      continue;
+    }
+    const input = raw as unknown as GlobalResolutionInput;
+    const selection = selectTocVariant(environment, id, input.addonBaseName, input.candidates, input.selectionPolicy);
+    selections.push({ logicalAddonId: id, selection });
+    const variantIds = new Set(input.candidates.flatMap(candidate => record(candidate) && record(candidate.identity) &&
+      nonempty(candidate.identity.tocVariantId) ? [candidate.identity.tocVariantId] : []));
+    let providers: AssociatedProvider[] = [];
+    if (Object.hasOwn(input, 'providers')) {
+      if (!denseArray(input.providers) || !input.providers.every(value => associatedProvider(value, variantIds))) {
+        failGroup('RESOLVE0003', 'Invalid provider association or declaration batch shape.');
+        continue;
+      }
+      providers = input.providers as unknown as AssociatedProvider[];
+    }
+    if (selection.status === 'no-match') continue;
+    if (selection.status !== 'selected') { complete = false; continue; }
+    const selected = input.candidates.find(candidate => candidate.identity.tocVariantId === selection.selectedVariantId);
+    if (!selected || !validSavedProjection(selected.metadata)) {
+      failGroup('RESOLVE0002', 'Invalid selected metadata projection.');
+      continue;
+    }
+    const providerDeclarations: { providerId: string; declaration: GlobalDeclaration }[] = [];
+    let invalidProvider = false;
+    for (const provider of providers) {
+      if (provider.tocVariantId !== selection.selectedVariantId) continue;
+      for (const declaration of provider.declarations) {
+        if (!validGlobalProjection(declaration)) {
+          invalidProvider = true;
+          failGroup('RESOLVE0003', 'Invalid selected provider declaration projection.',
+            record(declaration) && validSource(declaration.source) ? [declaration.source] : resolutionSources(raw));
+        } else providerDeclarations.push({ providerId: provider.providerId, declaration });
+      }
+    }
+    if (invalidProvider) continue;
+    const originals = [
+      ...toGlobalDeclarations([selected.metadata]).map(declaration => ({ providerId: '@wow-addon/toc-metadata-adapter', declaration })),
+      ...providerDeclarations,
+    ];
+    const resolved = originals.map(original => {
+      const declaration = copyDeclaration(original.declaration, id);
+      return { logicalAddonId: id, tocVariantId: selected.identity.tocVariantId, providerId: original.providerId,
+        originalAddonId: original.declaration.addonId, declaration,
+        evaluation: evaluateGlobalConditions(declaration, environment, conditionPolicy),
+      };
+    });
+    if (resolved.some(value => value.evaluation.reason === 'invalid-input')) {
+      failGroup('RESOLVE0003', 'Invalid selected declaration evaluation projection.');
+      continue;
+    }
+    for (const value of resolved) {
+      if (value.evaluation.availability === 'unknown') complete = false;
+      const entry = entries.get(value.declaration.name) ?? { name: value.declaration.name, declarations: [] };
+      entry.declarations.push(value);
+      entries.set(value.declaration.name, entry);
+    }
+  }
+  return finish();
 }

@@ -1,0 +1,48 @@
+{
+  "environment": {
+    "schemaVersion": 1,
+    "client": "classic-era",
+    "clientFamily": "classic",
+    "gameType": "vanilla",
+    "textLocale": "enUS"
+  },
+  "selectionPolicy": {
+    "schemaVersion": 1,
+    "id": "example/caller-era-policy",
+    "client": "classic-era",
+    "clientFamily": "classic",
+    "suffixPrecedence": [
+      "Vanilla",
+      "Classic",
+      null
+    ]
+  },
+  "conditionPolicy": {
+    "schemaVersion": 1,
+    "id": "example/caller-condition-policy",
+    "nameComparison": "ascii-insensitive",
+    "rules": [
+      {
+        "providerId": "@wow-addon/toc-metadata-adapter",
+        "name": "AllowLoadGameType",
+        "field": "gameType",
+        "operator": "include",
+        "valueComparison": "exact"
+      },
+      {
+        "providerId": "@wow-addon/toc-metadata-adapter",
+        "name": "ExcludeLoadGameType",
+        "field": "gameType",
+        "operator": "exclude",
+        "valueComparison": "exact"
+      },
+      {
+        "providerId": "@wow-addon/toc-metadata-adapter",
+        "name": "AllowLoadTextLocale",
+        "field": "textLocale",
+        "operator": "include",
+        "valueComparison": "exact"
+      }
+    ]
+  }
+}

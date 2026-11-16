@@ -1,5 +1,5 @@
-import { WoWClient, WoWGameMode, type AddOnMetadata, type ClientEnvironment, type TocVariantIdentity, type WoWClientFamily } from '@wow-addon/addon-metadata';
-import type { SourceReference } from '@wow-addon/diagnostics';
+import { WoWClient, WoWGameMode, type AddOnIdentity, type AddOnMetadata, type ClientEnvironment, type TocVariantIdentity, type WoWClientFamily } from '@wow-addon/addon-metadata';
+import type { Diagnostic, SourceReference } from '@wow-addon/diagnostics';
 import type { GlobalDeclaration, GlobalRegistry, ResolvedAvailability } from '@wow-addon/global-registry';
 /**
  * Convert TOC metadata to provider-neutral globals without evaluating conditions.
@@ -129,3 +129,86 @@ export interface ConditionEvaluationResult {
  * @beta
  */
 export declare function evaluateGlobalConditions(declaration: GlobalDeclaration, environment: ClientEnvironment, policy: ConditionEvaluationPolicy): ConditionEvaluationResult;
+/**
+ * Caller-supplied provider batch associated with one exact candidate variant.
+ * Multiple batches for one provider/variant retain order and duplicates.
+ *
+ * @beta
+ */
+export interface ProviderDeclarationSet {
+    readonly providerId: string;
+    readonly tocVariantId: string;
+    readonly declarations: readonly GlobalDeclaration[];
+}
+/**
+ * One caller-scoped logical AddOn, its variants and explicit selection policy.
+ * Provider sets supplement automatic SavedVariables from the selected metadata.
+ *
+ * @beta
+ */
+export interface GlobalResolutionInput extends AddOnIdentity {
+    readonly addonBaseName: string;
+    readonly candidates: readonly TocSelectionCandidate[];
+    readonly selectionPolicy: TocSelectionPolicy;
+    readonly providers?: readonly ProviderDeclarationSet[];
+}
+/**
+ * Selected declaration with independent copies and explicit derived evaluation.
+ * The copied declaration uses logical identity; originalAddonId stays exact.
+ *
+ * @beta
+ */
+export interface ResolvedGlobalDeclaration {
+    readonly logicalAddonId: string;
+    readonly tocVariantId: string;
+    readonly providerId: string;
+    readonly originalAddonId: string;
+    readonly declaration: GlobalDeclaration;
+    readonly evaluation: ConditionEvaluationResult;
+}
+/**
+ * Fixed root/group failure with available canonical copied provenance only.
+ * Selection and evaluation keep their existing issue contracts separately.
+ *
+ * @beta
+ */
+export interface GlobalResolutionIssue {
+    readonly code: 'RESOLVE0001' | 'RESOLVE0002' | 'RESOLVE0003';
+    readonly message: string;
+    readonly logicalAddonId?: string;
+    readonly sources: readonly SourceReference[];
+}
+/**
+ * Derived view distinct from static GlobalRegistry. activeGlobals includes
+ * known-true conditional records without rewriting their activation flags.
+ * complete concerns consumed projections/availability, not source parse errors.
+ * Partial results retain the independently known active subset.
+ *
+ * @beta
+ */
+export interface ResolvedGlobalRegistry {
+    readonly schemaVersion: 1;
+    readonly complete: boolean;
+    readonly activeGlobals: readonly string[];
+    readonly entries: readonly {
+        readonly name: string;
+        readonly declarations: readonly ResolvedGlobalDeclaration[];
+    }[];
+    readonly addons: readonly {
+        readonly logicalAddonId: string;
+        readonly selection: TocSelectionResult;
+    }[];
+    readonly diagnostics: readonly Diagnostic[];
+    readonly issues: readonly GlobalResolutionIssue[];
+}
+/**
+ * Compose explicit selection and condition evaluation into a derived view.
+ * Select first; consume only selected metadata/provider declaration contents.
+ * Independent valid groups survive partial failures. Static flags, APIs and
+ * inputs remain unchanged. Core performs no filesystem discovery/execution.
+ * Consumed projection checks do not prove parse correctness or graph reachability;
+ * native object/getter behavior remains caller code.
+ *
+ * @beta
+ */
+export declare function resolveGlobalRegistry(environment: ClientEnvironment, addons: readonly GlobalResolutionInput[], conditionPolicy: ConditionEvaluationPolicy): ResolvedGlobalRegistry;

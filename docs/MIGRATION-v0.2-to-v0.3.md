@@ -116,3 +116,23 @@ Pass an explicit data-only policy, such as the authored [example](../examples/cl
 Arguments use OR within a rule and conservative AND across structurally valid conditions: false dominates unknown, unknown dominates true. Unsupported providers/names, missing fields and empty arguments remain unknown and cannot produce active. Legacy conditional records without descriptors remain unknown. Structural invalidity or unresolved static activation takes precedence over the fold; nonempty descriptors on an unconditional record are contradictory.
 
 Handle unknown and all fixed issue codes deliberately. Returned sources are canonical independent copies, and messages do not echo policy/argument values. Validation covers the consumed environment/policy/declaration/descriptor projection rather than every legacy symbol field or original source-content bound. Native object getters remain caller code. Static registry/listing/conflict behavior and serialized declaration records are unchanged by evaluation.
+
+## v0.3.4: composed resolved-global view
+
+Six approved adapter exports bring the total to 51: ProviderDeclarationSet, GlobalResolutionInput, ResolvedGlobalDeclaration, GlobalResolutionIssue, ResolvedGlobalRegistry and resolveGlobalRegistry. All five workspace versions/internal ranges become 0.3.4. Metadata/environment schemas stay 2/1; the new derived result has its own literal schemaVersion 1.
+
+```ts
+const view = resolveGlobalRegistry(environment, [{
+  logicalAddonId, addonBaseName: 'Example', candidates, selectionPolicy,
+  // providers: optional explicitly associated provider declaration batches
+}], conditionPolicy);
+console.log(view.complete, view.activeGlobals);
+```
+
+Group all source variants of one logical AddOn together. IDs and exact variant keys remain caller-owned; duplicate logical IDs invalidate every colliding group. Select first, then derive SavedVariables from the selected metadata and append matching provider batches. The caller establishes provider/source reachability; the pure resolver does no filesystem work or parsing of Lua/XML.
+
+Use `activeGlobals` for resolved names. `entries` retain selected inactive/unknown records and their provider/variant/originalAddonId/evaluation. Copied declarations use logical addonId for coexistence diagnostics while keeping declaration-time activationState: a known-true conditional stays conditional. Static `listGlobals` remains a separate API; the new result is intentionally a different type.
+
+Check `complete` when requiring a whole-project resolved answer. Unknown source selection/availability or consumed-shape errors make it false; independent valid groups can remain as a known-active partial subset. No-match is a normal empty selection. Only active selected records enter SV0001 checks, preserving the existing same-addon scope rule under logical IDs. Invalid selected projections exclude the entire AddOn rather than leaking a partially accepted group.
+
+All returned declared/source/condition data is copied independently from inputs and other calls. Diagnostics may reference copied declaration sources within one result. First-seen selected names and duplicate declaration/provider order are preserved; root issues/sources are canonical. `complete` concerns input projections and availability, not source parse cleanliness or game-loader conformance; parser diagnostics remain the caller's separate gate.

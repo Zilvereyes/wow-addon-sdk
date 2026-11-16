@@ -105,3 +105,17 @@ The runner evaluates every valid adapter declaration, retains JSON/input/range i
 On the stable local corpus, all 347 adapter declarations are unconditional and report active under the authored profile, with zero inactive/unknown results or condition issues. There are still zero conditional SavedVariables: synthetic fixtures provide true/false/unknown condition coverage. All 434 TOCs, 51,501 parser-reference visits, 19 errors, 12 warnings and zero skips remain unchanged; exit stays 1. Lua/XML remain inventoried only.
 
 Condition evaluation covers all supplied variants. The optional selection report is a separate inspection, even when both flags are supplied. These counts are not a resolved global list and cannot establish visibility of non-selected TOCs. The v0.3.4 resolver must compose the steps explicitly.
+
+## Optional v0.3.4 composed resolution profile
+
+```powershell
+npm run test:corpus -- '<local-AddOns-directory>' --resolution-profile examples/classic-era-resolution-profile.json
+```
+
+The bounded JSON contains one environment plus explicit selectionPolicy and conditionPolicy. Both are validated before traversal. Immediate AddOn-folder candidates are passed through the public `resolveGlobalRegistry` API; nested manifests remain parse inventory. This mode supplies no Lua/XML provider records and does not parse those languages.
+
+The runner verifies unchanged inputs, result schema/JSON, unique active names and every returned source range against the original parsed document lengths. It emits group/candidate/selection, selected declaration/availability, active-name, diagnostic and issue-code counts only. Empty immediate-folder groups and incomplete resolution fail explicitly; original TOC errors still fail even when availability is complete.
+
+On the stable corpus: **100 groups / 227 candidates; 98 selected / two no-match; 160 selected declarations / 160 unique known-active globals**, zero inactive/unknown records, root/evaluation issues or scope warnings. All 160 are unconditional; synthetic tests establish conditional/partial/provider behavior. The earlier 347 count covers all parsed adapter declarations, including non-selected/nested manifests, and is not the active set.
+
+All 434 TOCs, 51,501 parser-reference visits, 19 errors / 12 warnings and zero skips remain unchanged. The overall run retains exit 1 and fullParsing=false. Counts are outcomes under the caller's authored policies, not client-loader observations. SDK Lua/XML parsing and reference-graph reachability remain future acceptance work.

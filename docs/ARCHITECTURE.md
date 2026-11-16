@@ -62,4 +62,6 @@ v0.3.2 adds opaque `ConditionDescriptor` records and an optional declaration fie
 
 v0.3.3 keeps the neutral `ResolvedAvailability` type in global-registry and the environment-aware evaluator in the existing adapter leaf. It derives availability under explicit caller comparisons without adding environment state to static records, importing metadata into the registry or creating a new package edge. The [evaluation design](DESIGN-v0.3.3.md) defines unknown/failure handling and conservative combination. v0.3.4 composes this with selection before creating a resolved global view.
 
+v0.3.4's [resolver](DESIGN-v0.3.4.md) lives in that same leaf: select exact source variants, consume selected metadata/associated provider projections, copy declarations under caller logical IDs, evaluate them and derive activeGlobals. Static activation/provenance stays distinct from evaluation. Only known-active copied records feed existing registry conflict checks; no reverse import, filesystem dependency or parser package is added. The new result schema 1 is separate from metadata schema 2.
+
 `addon-metadata` er JSON-serialiserbar, men `SourceRange` JSON-struktur er ændret i v0.2.0. `METADATA_SCHEMA_VERSION = 2` identificerer det nye serialiserede SourceRange-format. Payloads fra v0.1 kræver migration til det nye format.

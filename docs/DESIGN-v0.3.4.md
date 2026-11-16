@@ -1,6 +1,6 @@
-# v0.3.4 proposal: selection-aware resolved globals
+# v0.3.4: selection-aware resolved globals
 
-**Status: concrete design proposal, decision pending in issue #6.** v0.3.3 is integrated through PR #19 as `59f81ee`: 45 beta exports, 118 tests and unchanged metadata/environment schemas 2/1. This document specifies the remaining core composition contract before implementation.
+**Status: A–E approved, implemented on the feature branch and under final verification.** The user approved implementation in [issue #6, comment 6919012067](https://github.com/Zilvereyes/wow-addon-sdk/issues/6#issuecomment-6919012067). The starting baseline is v0.3.3 / `59f81ee`, with 45 beta exports and 118 tests. This design adds six beta exports (51 total), source version 0.3.4 and a separate resolved-result schema 1 while retaining metadata/environment schemas 2/1.
 
 ## Outcome
 
@@ -99,4 +99,6 @@ Valid available provenance is copied into issue sources; missing/invalid provena
 | Corpus integration | Separate opt-in composed resolution profile, immediate-folder variant grouping, explicit provider limitation, selected declaration/global/conflict counts and retained TOC failures; no claim of Lua/XML parser coverage |
 | Delivery | Locked install, integrated tests, architecture/dependency/export/API/strict Extractor/package gates, supported final-head/main CI and independent review |
 
-After the decision: demonstrate missing-export and cross-variant leakage/conditional visibility gaps; implement group/root validation and pure composition; test generic provider provenance and active-only conflicts; add the bounded opt-in corpus mode; deliberately update API/version/migration/diagnostics and full review evidence; run final-head CI and integrate under the recorded session authorization. v0.3.5 then audits the complete freeze requirements. Actual Lua/XML parsing/provider/reference-graph/corpus acceptance remains required by the overall goal and #11.
+Execution order: demonstrate missing-export and cross-variant leakage/conditional visibility gaps; implement group/root validation and pure composition; test generic provider provenance and active-only conflicts; add the bounded opt-in corpus mode; deliberately update API/version/migration/diagnostics and full review evidence; run final-head CI and integrate under the recorded session authorization. v0.3.5 then audits the complete freeze requirements. Actual Lua/XML parsing/provider/reference-graph/corpus acceptance remains required by the overall goal and #11.
+
+The opt-in `--resolution-profile` JSON contains environment, selectionPolicy and conditionPolicy. The bounded runner groups immediate AddOn-folder candidates and invokes the real resolver, retaining all TOCs in the parse inventory. It verifies JSON/input/range invariants and emits aggregate counts only. No provider sources are parsed by this mode. Empty immediate-folder input or an incomplete resolved result fails explicitly. Source parse diagnostics remain a separate failing gate even when the derived availability result is complete.

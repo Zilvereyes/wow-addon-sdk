@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { parseToc } from '@wow-addon/toc-parser';
-import { selectTocVariant, toGlobalDeclarations, evaluateGlobalConditions } from '@wow-addon/toc-metadata-adapter';
+import { selectTocVariant, toGlobalDeclarations, evaluateGlobalConditions, resolveGlobalRegistry } from '@wow-addon/toc-metadata-adapter';
 
 const args = process.argv.slice(2);
 const rootArgument = args.shift();
@@ -12,6 +12,7 @@ const limits = { '--max-entries': 100000, '--max-file-bytes': 8 * 1024 * 1024 };
 let requireAll = false;
 let selectionProfilePath = null;
 let conditionProfilePath = null;
+let resolutionProfilePath = null;
 let valid = Boolean(rootArgument && !rootArgument.startsWith('--'));
 while (args.length && valid) {
   const flag = args.shift();
@@ -28,13 +29,19 @@ while (args.length && valid) {
     conditionProfilePath = value;
     continue;
   }
+  if (flag === '--resolution-profile') {
+    const value = args.shift();
+    if (resolutionProfilePath !== null || !value || value.startsWith('--')) { valid = false; break; }
+    resolutionProfilePath = value;
+    continue;
+  }
   if (!Object.hasOwn(limits, flag)) { valid = false; break; }
   const value = args.shift();
   if (!value || !/^[1-9][0-9]*$/u.test(value) || !Number.isSafeInteger(Number(value))) { valid = false; break; }
   limits[flag] = Number(value);
 }
 if (!valid) {
-  console.error('Usage: node scripts/inspect-addon-corpus.mjs <AddOns-directory> [--max-entries N] [--max-file-bytes N] [--require-all-parsers] [--selection-profile <JSON-file>] [--condition-profile <JSON-file>]');
+  console.error('Usage: node scripts/inspect-addon-corpus.mjs <AddOns-directory> [--max-entries N] [--max-file-bytes N] [--require-all-parsers] [--selection-profile <JSON-file>] [--condition-profile <JSON-file>] [--resolution-profile <JSON-file>]');
   process.exit(2);
 }
 
@@ -57,6 +64,9 @@ let selectionProfile = null;
 let selectionReady = true;
 let conditionProfile = null;
 let conditionReady = true;
+let resolutionProfile = null;
+let resolutionReady = true;
+const sourceLineLengths = new Map();
 function readProfile(filename) {
   const maximum = 1024 * 1024;
   const initial = fs.statSync(filename);
@@ -105,6 +115,21 @@ if (conditionProfilePath !== null) {
     }
   } catch { fail('condition-profile-invalid'); conditionReady = false; }
 }
+if (resolutionProfilePath !== null) {
+  report.resolution = { groups: 0, candidates: 0, complete: false,
+    selections: { selected: 0, 'no-match': 0, unresolved: 0, ambiguous: 0, invalid: 0 },
+    declarations: 0, availability: { active: 0, inactive: 0, unknown: 0 }, activeGlobals: 0,
+    diagnosticsByCode: {}, issuesByCode: {} };
+  try {
+    resolutionProfile = readProfile(resolutionProfilePath);
+    const root = resolveGlobalRegistry(resolutionProfile.environment, [], resolutionProfile.conditionPolicy);
+    const selection = selectTocVariant(resolutionProfile.environment, 'profile-validation', 'Profile', [], resolutionProfile.selectionPolicy);
+    if (!root.complete || selection.status !== 'no-match') {
+      for (const issue of [...root.issues, ...selection.issues]) report.resolution.issuesByCode[issue.code] = (report.resolution.issuesByCode[issue.code] ?? 0) + 1;
+      fail('resolution-profile-invalid'); resolutionReady = false;
+    }
+  } catch { fail('resolution-profile-invalid'); resolutionReady = false; }
+}
 
 function checkParse(content, filename) {
   const parsed = parseToc(content, filename);
@@ -112,6 +137,7 @@ function checkParse(content, filename) {
   assert.equal(parsed.metadata.schemaVersion, 2);
   assert.deepEqual(JSON.parse(JSON.stringify(parsed)), parsed);
   const lines = content.split(/\r\n|\n|\r/u);
+  if (resolutionProfile !== null) sourceLineLengths.set(filename, lines.map(line => line.length));
   // Walk every diagnostic, condition, declaration and entry source reference.
   function visit(value, count = true) {
     if (!value || typeof value !== 'object') return;
@@ -225,7 +251,7 @@ function walk(folder, depth = 0) {
       const parsed = checkParse(content.toString('utf8'), relative);
       // Only immediate AddOn-folder TOCs participate; embedded library manifests
       // remain part of the parse inventory, not independent loader candidates.
-      if (selectionProfile !== null && depth === 1) {
+      if ((selectionProfile !== null || resolutionProfile !== null) && depth === 1) {
         const base = path.basename(folder);
         const logicalAddonId = JSON.stringify(['local-corpus-group', base]);
         const candidates = selectionGroups.get(base) ?? [];
@@ -243,7 +269,7 @@ function walk(folder, depth = 0) {
 }
 
 try {
-  if (selectionReady && conditionReady) {
+  if (selectionReady && conditionReady && resolutionReady) {
     const rootStat = fs.lstatSync(root);
     if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) fail('invalid-root');
     else walk(root);
@@ -264,6 +290,53 @@ if (selectionProfile !== null && selectionReady) {
   }
   if (report.selection.groups === 0) fail('no-selection-groups');
   report.selection.issuesByCode = Object.fromEntries(Object.entries(report.selection.issuesByCode).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
+}
+if (resolutionProfile !== null && resolutionReady) {
+  try {
+    const inputs = [...selectionGroups].map(([base, candidates]) => ({ logicalAddonId: candidates[0].identity.logicalAddonId,
+      addonBaseName: base, candidates, selectionPolicy: resolutionProfile.selectionPolicy }));
+    const before = JSON.stringify(inputs);
+    const result = resolveGlobalRegistry(resolutionProfile.environment, inputs, resolutionProfile.conditionPolicy);
+    assert.equal(JSON.stringify(inputs), before);
+    assert.deepEqual(JSON.parse(JSON.stringify(result)), result);
+    assert.equal(result.schemaVersion, 1);
+    function verifySources(value) {
+      if (!value || typeof value !== 'object') return;
+      if (Object.hasOwn(value, 'file') && Object.hasOwn(value, 'range')) {
+        const lengths = sourceLineLengths.get(value.file);
+        assert.ok(lengths);
+        for (const position of [value.range.start, value.range.end]) {
+          assert.ok(Number.isSafeInteger(position.line) && position.line >= 0 && position.line < lengths.length);
+          assert.ok(Number.isSafeInteger(position.column) && position.column >= 0 && position.column <= lengths[position.line]);
+        }
+        assert.ok(value.range.end.line > value.range.start.line || (value.range.end.line === value.range.start.line && value.range.end.column >= value.range.start.column));
+        return;
+      }
+      for (const child of Object.values(value)) verifySources(child);
+    }
+    verifySources(result);
+    report.resolution.groups = inputs.length;
+    report.resolution.candidates = inputs.reduce((total, input) => total + input.candidates.length, 0);
+    report.resolution.complete = result.complete && inputs.length > 0;
+    assert.equal(new Set(result.activeGlobals).size, result.activeGlobals.length);
+    report.resolution.activeGlobals = result.activeGlobals.length;
+    const countIssue = issue => { report.resolution.issuesByCode[issue.code] = (report.resolution.issuesByCode[issue.code] ?? 0) + 1; };
+    for (const addon of result.addons) {
+      report.resolution.selections[addon.selection.status]++;
+      addon.selection.issues.forEach(countIssue);
+    }
+    for (const entry of result.entries) for (const declaration of entry.declarations) {
+      report.resolution.declarations++;
+      report.resolution.availability[declaration.evaluation.availability]++;
+      declaration.evaluation.issues.forEach(countIssue);
+    }
+    result.issues.forEach(countIssue);
+    for (const diagnostic of result.diagnostics) report.resolution.diagnosticsByCode[diagnostic.code] = (report.resolution.diagnosticsByCode[diagnostic.code] ?? 0) + 1;
+    if (!result.complete) fail('resolution-incomplete');
+    if (inputs.length === 0) fail('no-resolution-groups');
+  } catch { fail('resolution-invariant-failure', true); }
+  for (const field of ['issuesByCode', 'diagnosticsByCode']) report.resolution[field] = Object.fromEntries(
+    Object.entries(report.resolution[field]).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
 }
 if (report.parsed.toc === 0) fail('no-parsed-tocs');
 if (report.diagnosticsBySeverity.error > 0) fail('toc-parse-errors');
