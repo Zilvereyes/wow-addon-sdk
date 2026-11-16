@@ -4,13 +4,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { parseToc } from '@wow-addon/toc-parser';
-import { selectTocVariant, toGlobalDeclarations } from '@wow-addon/toc-metadata-adapter';
+import { selectTocVariant, toGlobalDeclarations, evaluateGlobalConditions } from '@wow-addon/toc-metadata-adapter';
 
 const args = process.argv.slice(2);
 const rootArgument = args.shift();
 const limits = { '--max-entries': 100000, '--max-file-bytes': 8 * 1024 * 1024 };
 let requireAll = false;
 let selectionProfilePath = null;
+let conditionProfilePath = null;
 let valid = Boolean(rootArgument && !rootArgument.startsWith('--'));
 while (args.length && valid) {
   const flag = args.shift();
@@ -21,13 +22,19 @@ while (args.length && valid) {
     selectionProfilePath = value;
     continue;
   }
+  if (flag === '--condition-profile') {
+    const value = args.shift();
+    if (conditionProfilePath !== null || !value || value.startsWith('--')) { valid = false; break; }
+    conditionProfilePath = value;
+    continue;
+  }
   if (!Object.hasOwn(limits, flag)) { valid = false; break; }
   const value = args.shift();
   if (!value || !/^[1-9][0-9]*$/u.test(value) || !Number.isSafeInteger(Number(value))) { valid = false; break; }
   limits[flag] = Number(value);
 }
 if (!valid) {
-  console.error('Usage: node scripts/inspect-addon-corpus.mjs <AddOns-directory> [--max-entries N] [--max-file-bytes N] [--require-all-parsers] [--selection-profile <JSON-file>]');
+  console.error('Usage: node scripts/inspect-addon-corpus.mjs <AddOns-directory> [--max-entries N] [--max-file-bytes N] [--require-all-parsers] [--selection-profile <JSON-file>] [--condition-profile <JSON-file>]');
   process.exit(2);
 }
 
@@ -48,23 +55,55 @@ const fail = (reason, partial = false) => { failures.add(reason); incomplete ||=
 const selectionGroups = new Map();
 let selectionProfile = null;
 let selectionReady = true;
+let conditionProfile = null;
+let conditionReady = true;
+function readProfile(filename) {
+  const maximum = 1024 * 1024;
+  const initial = fs.statSync(filename);
+  if (!initial.isFile() || initial.size > maximum) throw new Error('Invalid profile');
+  const descriptor = fs.openSync(filename, 'r');
+  try {
+    const stat = fs.fstatSync(descriptor);
+    if (!stat.isFile() || stat.size > maximum) throw new Error('Invalid profile');
+    const bytes = Buffer.alloc(maximum + 1);
+    let size = 0;
+    while (size < bytes.length) {
+      const read = fs.readSync(descriptor, bytes, size, bytes.length - size, null);
+      if (read === 0) break;
+      size += read;
+    }
+    if (size > maximum) throw new Error('Oversized profile');
+    return JSON.parse(bytes.subarray(0, size).toString('utf8'));
+  } finally { fs.closeSync(descriptor); }
+}
 if (selectionProfilePath !== null) {
   report.selection = {
     groups: 0, candidates: 0,
     statuses: { selected: 0, 'no-match': 0, unresolved: 0, ambiguous: 0, invalid: 0 }, issuesByCode: {},
   };
   try {
-    const stat = fs.statSync(selectionProfilePath);
-    if (!stat.isFile() || stat.size > 1024 * 1024) throw new Error('Invalid selection profile');
-    const bytes = fs.readFileSync(selectionProfilePath);
-    if (bytes.length > 1024 * 1024) throw new Error('Oversized selection profile');
-    selectionProfile = JSON.parse(bytes.toString('utf8'));
+    selectionProfile = readProfile(selectionProfilePath);
     const result = selectTocVariant(selectionProfile.environment, 'profile-validation', 'Profile', [], selectionProfile.policy);
     if (result.status !== 'no-match') {
       for (const issue of result.issues) report.selection.issuesByCode[issue.code] = (report.selection.issuesByCode[issue.code] ?? 0) + 1;
       fail('selection-profile-invalid'); selectionReady = false;
     }
   } catch { fail('selection-profile-invalid'); selectionReady = false; }
+}
+if (conditionProfilePath !== null) {
+  report.conditionEvaluation = { declarations: 0, availability: { active: 0, inactive: 0, unknown: 0 }, issuesByCode: {} };
+  try {
+    conditionProfile = readProfile(conditionProfilePath);
+    // Authored empty declaration validates context/policy without reading corpus sources.
+    const result = evaluateGlobalConditions({ name: 'Profile', addonId: 'profile-validation', kind: 'lua-global',
+      activationState: 'unconditional', source: { file: 'profile-validation', range: {
+        start: { line: 0, column: 0 }, end: { line: 0, column: 0 },
+      } } }, conditionProfile.environment, conditionProfile.policy);
+    if (result.availability !== 'active') {
+      for (const issue of result.issues) report.conditionEvaluation.issuesByCode[issue.code] = (report.conditionEvaluation.issuesByCode[issue.code] ?? 0) + 1;
+      fail('condition-profile-invalid'); conditionReady = false;
+    }
+  } catch { fail('condition-profile-invalid'); conditionReady = false; }
 }
 
 function checkParse(content, filename) {
@@ -74,7 +113,7 @@ function checkParse(content, filename) {
   assert.deepEqual(JSON.parse(JSON.stringify(parsed)), parsed);
   const lines = content.split(/\r\n|\n|\r/u);
   // Walk every diagnostic, condition, declaration and entry source reference.
-  function visit(value) {
+  function visit(value, count = true) {
     if (!value || typeof value !== 'object') return;
     if (Object.hasOwn(value, 'file') && Object.hasOwn(value, 'range')) {
       assert.equal(value.file, filename);
@@ -84,10 +123,10 @@ function checkParse(content, filename) {
         assert.ok(Number.isInteger(pos.column) && pos.column >= 0 && pos.column <= lines[pos.line].length);
       }
       assert.ok(end.line > start.line || (end.line === start.line && end.column >= start.column));
-      report.checkedSourceReferences++;
+      if (count) report.checkedSourceReferences++;
       return;
     }
-    for (const child of Object.values(value)) visit(child);
+    for (const child of Object.values(value)) visit(child, count);
   }
   visit(parsed);
   const before = JSON.stringify(parsed.metadata);
@@ -122,6 +161,20 @@ function checkParse(content, filename) {
     }
   }
   report.adapterDeclarations += declarations.length;
+  if (conditionProfile !== null) {
+    const beforeEvaluation = JSON.stringify(declarations);
+    for (const declaration of declarations) {
+      const result = evaluateGlobalConditions(declaration, conditionProfile.environment, conditionProfile.policy);
+      assert.deepEqual(JSON.parse(JSON.stringify(result)), result);
+      assert.ok(Object.hasOwn(report.conditionEvaluation.availability, result.availability));
+      visit(result, false);
+      report.conditionEvaluation.declarations++;
+      report.conditionEvaluation.availability[result.availability]++;
+      for (const issue of result.issues) report.conditionEvaluation.issuesByCode[issue.code] = (report.conditionEvaluation.issuesByCode[issue.code] ?? 0) + 1;
+      if (result.availability === 'unknown') fail('condition-unknown');
+    }
+    assert.equal(JSON.stringify(declarations), beforeEvaluation);
+  }
   report.savedVariableDeclarations += parsed.metadata.savedVariableDeclarations.length;
   for (const diagnostic of parsed.diagnostics) {
     report.diagnosticsByCode[diagnostic.code] = (report.diagnosticsByCode[diagnostic.code] ?? 0) + 1;
@@ -190,7 +243,7 @@ function walk(folder, depth = 0) {
 }
 
 try {
-  if (selectionReady) {
+  if (selectionReady && conditionReady) {
     const rootStat = fs.lstatSync(root);
     if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) fail('invalid-root');
     else walk(root);
@@ -215,6 +268,8 @@ if (selectionProfile !== null && selectionReady) {
 if (report.parsed.toc === 0) fail('no-parsed-tocs');
 if (report.diagnosticsBySeverity.error > 0) fail('toc-parse-errors');
 if (requireAll) fail('unimplemented-parsers');
+if (report.conditionEvaluation) report.conditionEvaluation.issuesByCode = Object.fromEntries(
+  Object.entries(report.conditionEvaluation.issuesByCode).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
 report.failures = [...failures].sort();
 report.diagnosticsByCode = Object.fromEntries(Object.entries(report.diagnosticsByCode).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
 report.status = incomplete ? 'incomplete' : failures.size ? 'failed' : 'passed';

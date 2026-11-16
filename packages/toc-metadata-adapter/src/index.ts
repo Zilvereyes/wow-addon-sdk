@@ -3,7 +3,7 @@ import {
   type AddOnMetadata, type ClientEnvironment, type TocVariantIdentity, type WoWClientFamily,
 } from '@wow-addon/addon-metadata';
 import type { SourceReference } from '@wow-addon/diagnostics';
-import type { GlobalDeclaration, GlobalRegistry } from '@wow-addon/global-registry';
+import type { GlobalDeclaration, GlobalRegistry, ResolvedAvailability } from '@wow-addon/global-registry';
 import { buildGlobalRegistry } from '@wow-addon/global-registry';
 
 /**
@@ -254,4 +254,190 @@ export function selectTocVariant(
     code: 'TOCSEL0003', message: 'Multiple TOC variants share the best available priority.', sources: best.map(candidate => candidate.source),
   }]);
   return selectionResult('selected', [], best[0]!.id);
+}
+
+/**
+ * Explicit data-only caller semantics, not a built-in WoW condition table.
+ * Provider IDs always match exactly; ASCII comparison folds A-Z only.
+ * Values are ORed within a rule, with conservative AND across conditions.
+ *
+ * @beta
+ */
+export interface ConditionEvaluationPolicy {
+  readonly schemaVersion: 1;
+  readonly id: string;
+  readonly nameComparison: 'exact' | 'ascii-insensitive';
+  readonly rules: readonly {
+    readonly providerId: string;
+    readonly name: string;
+    readonly field: 'gameType' | 'textLocale' | 'gameMode';
+    readonly operator: 'include' | 'exclude';
+    readonly valueComparison: 'exact' | 'ascii-insensitive';
+  }[];
+}
+
+/**
+ * Fixed explanation with independent source copies. Context-only issues may
+ * have no source; malformed source objects are never repaired or fabricated.
+ *
+ * @beta
+ */
+export interface ConditionEvaluationIssue {
+  readonly code: 'CONDEVAL0001' | 'CONDEVAL0002' | 'CONDEVAL0003' |
+    'CONDEVAL0004' | 'CONDEVAL0005' | 'CONDEVAL0006';
+  readonly message: string;
+  readonly sources: readonly SourceReference[];
+}
+
+/**
+ * Derived condition availability under the supplied caller policy only.
+ * This does not select a TOC or alter static declaration/registry visibility.
+ *
+ * @beta
+ */
+export interface ConditionEvaluationResult {
+  readonly availability: ResolvedAvailability;
+  readonly reason: 'unconditional' | 'conditions-satisfied' | 'condition-mismatch' |
+    'missing-provenance' | 'unknown' | 'invalid-input';
+  readonly issues: readonly ConditionEvaluationIssue[];
+}
+
+function asciiFold(value: string): string {
+  return value.replace(/[A-Z]/g, character => character.toLowerCase());
+}
+
+function validConditionRule(value: unknown): value is ConditionEvaluationPolicy['rules'][number] {
+  return record(value) && nonempty(value.providerId) && nonempty(value.name) &&
+    typeof value.field === 'string' && ['gameType', 'textLocale', 'gameMode'].includes(value.field) &&
+    typeof value.operator === 'string' && ['include', 'exclude'].includes(value.operator) &&
+    typeof value.valueComparison === 'string' && ['exact', 'ascii-insensitive'].includes(value.valueComparison);
+}
+
+function compareSource(a: SourceReference, b: SourceReference): number {
+  return compareText(a.file, b.file) || a.range.start.line - b.range.start.line ||
+    a.range.start.column - b.range.start.column || a.range.end.line - b.range.end.line ||
+    a.range.end.column - b.range.end.column;
+}
+
+function compareSourceLists(a: readonly SourceReference[], b: readonly SourceReference[]): number {
+  for (let index = 0; index < Math.min(a.length, b.length); index++) {
+    const difference = compareSource(a[index]!, b[index]!);
+    if (difference) return difference;
+  }
+  return a.length - b.length;
+}
+
+function conditionResult(
+  availability: ResolvedAvailability,
+  reason: ConditionEvaluationResult['reason'],
+  issues: readonly ConditionEvaluationIssue[],
+): ConditionEvaluationResult {
+  return { availability, reason, issues: issues.map(issue => ({
+    code: issue.code, message: issue.message,
+    sources: issue.sources.map(origin => ({ file: origin.file, range: {
+      start: { line: origin.range.start.line, column: origin.range.start.column },
+      end: { line: origin.range.end.line, column: origin.range.end.column },
+    } })).sort(compareSource),
+  })).sort((a, b) => compareText(a.code, b.code) || compareText(a.message, b.message) ||
+    compareSourceLists(a.sources, b.sources)) };
+}
+
+/**
+ * Evaluate one caller-supplied declaration without selecting a source,
+ * interpreting raw syntax, inferring game semantics or mutating any input.
+ * Validate the consumed projection, not every legacy declaration field or
+ * source-content bound. Ordinary malformed JSON shapes produce unknown.
+ * Native objects/getters remain caller code, not a sandbox boundary.
+ *
+ * @beta
+ */
+export function evaluateGlobalConditions(
+  declaration: GlobalDeclaration,
+  environment: ClientEnvironment,
+  policy: ConditionEvaluationPolicy,
+): ConditionEvaluationResult {
+  const invalidContext = (): ConditionEvaluationResult => conditionResult('unknown', 'invalid-input', [{
+    code: 'CONDEVAL0001', message: 'Invalid environment or condition policy.', sources: [],
+  }]);
+  if (!record(environment) || environment.schemaVersion !== CLIENT_ENVIRONMENT_SCHEMA_VERSION ||
+      typeof environment.client !== 'string' || typeof environment.clientFamily !== 'string' ||
+      (['gameType', 'textLocale', 'gameMode'] as const).some(field =>
+        Object.hasOwn(environment, field) && typeof environment[field] !== 'string') ||
+      !record(policy) || policy.schemaVersion !== 1 || !nonempty(policy.id) ||
+      !['exact', 'ascii-insensitive'].includes(policy.nameComparison) || !Array.isArray(policy.rules)) return invalidContext();
+  const normalizeName = (value: string): string => policy.nameComparison === 'exact' ? value : asciiFold(value);
+  const rules = new Map<string, ConditionEvaluationPolicy['rules'][number]>();
+  for (const rule of Array.from(policy.rules)) {
+    if (!validConditionRule(rule)) return invalidContext();
+    const key = JSON.stringify([rule.providerId, normalizeName(rule.name)]);
+    if (rules.has(key)) return invalidContext();
+    rules.set(key, rule);
+  }
+  if (!knownClient(environment.client) || !['classic', 'mainline'].includes(environment.clientFamily)) {
+    return conditionResult('unknown', 'unknown', [{
+      code: 'CONDEVAL0005', message: 'Client environment knowledge is unresolved.', sources: [],
+    }]);
+  }
+  if (environment.clientFamily !== familyOf(environment.client)) return invalidContext();
+  const declarationSources = record(declaration) && validSource(declaration.source) ? [declaration.source] : [];
+  const invalidDeclaration = (sources = declarationSources): ConditionEvaluationResult => conditionResult('unknown', 'invalid-input', [{
+    code: 'CONDEVAL0002', message: 'Invalid or contradictory declaration projection.', sources,
+  }]);
+  if (!record(declaration) || !validSource(declaration.source) ||
+      !['conditional', 'unconditional', 'unknown'].includes(declaration.activationState) ||
+      (Object.hasOwn(declaration, 'conditions') && !Array.isArray(declaration.conditions))) return invalidDeclaration();
+  const conditions = Array.from(declaration.conditions ?? []);
+  const invalidDescriptors: ConditionEvaluationIssue[] = [];
+  for (const descriptor of conditions) {
+    if (!record(descriptor) || !nonempty(descriptor.providerId) || !nonempty(descriptor.name) ||
+        typeof descriptor.raw !== 'string' || !Array.isArray(descriptor.values) ||
+        !Array.from(descriptor.values).every(value => typeof value === 'string') || !validSource(descriptor.source)) {
+      invalidDescriptors.push({ code: 'CONDEVAL0002', message: 'Invalid condition descriptor projection.',
+        sources: record(descriptor) && validSource(descriptor.source) ? [descriptor.source] : declarationSources });
+    }
+  }
+  if (invalidDescriptors.length) return conditionResult('unknown', 'invalid-input', invalidDescriptors);
+  if (declaration.activationState === 'unknown') return conditionResult('unknown', 'unknown', [{
+    code: 'CONDEVAL0002', message: 'Static activation provenance is unknown.', sources: declarationSources,
+  }]);
+  if (declaration.activationState === 'unconditional') {
+    return conditions.length ? invalidDeclaration() : conditionResult('active', 'unconditional', []);
+  }
+  if (conditions.length === 0) return conditionResult('unknown', 'missing-provenance', [{
+    code: 'CONDEVAL0002', message: 'Conditional declaration has no condition provenance.', sources: declarationSources,
+  }]);
+
+  let inactive = false;
+  let unknown = false;
+  const issues: ConditionEvaluationIssue[] = [];
+  for (const descriptor of conditions) {
+    const sources = [descriptor.source];
+    const rule = rules.get(JSON.stringify([descriptor.providerId, normalizeName(descriptor.name)]));
+    if (!rule) {
+      unknown = true;
+      issues.push({ code: 'CONDEVAL0003', message: 'Provider condition is unsupported by the explicit policy.', sources });
+      continue;
+    }
+    if (descriptor.values.length === 0 || descriptor.values.some(value => value.length === 0)) {
+      unknown = true;
+      issues.push({ code: 'CONDEVAL0004', message: 'Condition arguments are missing or empty.', sources });
+      continue;
+    }
+    const value = environment[rule.field];
+    if (!nonempty(value) || (rule.field === 'gameMode' && !knownMode(value))) {
+      unknown = true;
+      issues.push({ code: 'CONDEVAL0005', message: 'Required environment field is unknown or unsupported.', sources });
+      continue;
+    }
+    const normalizeValue = (text: string): string => rule.valueComparison === 'exact' ? text : asciiFold(text);
+    const matched = descriptor.values.some(argument => normalizeValue(argument) === normalizeValue(value));
+    const satisfied = rule.operator === 'include' ? matched : !matched;
+    if (!satisfied) {
+      inactive = true;
+      issues.push({ code: 'CONDEVAL0006', message: 'Condition excludes the declaration under the explicit policy.', sources });
+    }
+  }
+  if (inactive) return conditionResult('inactive', 'condition-mismatch', issues);
+  if (unknown) return conditionResult('unknown', 'unknown', issues);
+  return conditionResult('active', 'conditions-satisfied', []);
 }

@@ -1,6 +1,6 @@
 import { WoWClient, WoWGameMode, type AddOnMetadata, type ClientEnvironment, type TocVariantIdentity, type WoWClientFamily } from '@wow-addon/addon-metadata';
 import type { SourceReference } from '@wow-addon/diagnostics';
-import type { GlobalDeclaration, GlobalRegistry } from '@wow-addon/global-registry';
+import type { GlobalDeclaration, GlobalRegistry, ResolvedAvailability } from '@wow-addon/global-registry';
 /**
  * Convert TOC metadata to provider-neutral globals without evaluating conditions.
  * Nonempty condition lists are copied independently per declaration; empty lists
@@ -78,3 +78,54 @@ export interface TocSelectionResult {
  * @beta
  */
 export declare function selectTocVariant(environment: ClientEnvironment, logicalAddonId: string, addonBaseName: string, candidates: readonly TocSelectionCandidate[], policy: TocSelectionPolicy): TocSelectionResult;
+/**
+ * Explicit data-only caller semantics, not a built-in WoW condition table.
+ * Provider IDs always match exactly; ASCII comparison folds A-Z only.
+ * Values are ORed within a rule, with conservative AND across conditions.
+ *
+ * @beta
+ */
+export interface ConditionEvaluationPolicy {
+    readonly schemaVersion: 1;
+    readonly id: string;
+    readonly nameComparison: 'exact' | 'ascii-insensitive';
+    readonly rules: readonly {
+        readonly providerId: string;
+        readonly name: string;
+        readonly field: 'gameType' | 'textLocale' | 'gameMode';
+        readonly operator: 'include' | 'exclude';
+        readonly valueComparison: 'exact' | 'ascii-insensitive';
+    }[];
+}
+/**
+ * Fixed explanation with independent source copies. Context-only issues may
+ * have no source; malformed source objects are never repaired or fabricated.
+ *
+ * @beta
+ */
+export interface ConditionEvaluationIssue {
+    readonly code: 'CONDEVAL0001' | 'CONDEVAL0002' | 'CONDEVAL0003' | 'CONDEVAL0004' | 'CONDEVAL0005' | 'CONDEVAL0006';
+    readonly message: string;
+    readonly sources: readonly SourceReference[];
+}
+/**
+ * Derived condition availability under the supplied caller policy only.
+ * This does not select a TOC or alter static declaration/registry visibility.
+ *
+ * @beta
+ */
+export interface ConditionEvaluationResult {
+    readonly availability: ResolvedAvailability;
+    readonly reason: 'unconditional' | 'conditions-satisfied' | 'condition-mismatch' | 'missing-provenance' | 'unknown' | 'invalid-input';
+    readonly issues: readonly ConditionEvaluationIssue[];
+}
+/**
+ * Evaluate one caller-supplied declaration without selecting a source,
+ * interpreting raw syntax, inferring game semantics or mutating any input.
+ * Validate the consumed projection, not every legacy declaration field or
+ * source-content bound. Ordinary malformed JSON shapes produce unknown.
+ * Native objects/getters remain caller code, not a sandbox boundary.
+ *
+ * @beta
+ */
+export declare function evaluateGlobalConditions(declaration: GlobalDeclaration, environment: ClientEnvironment, policy: ConditionEvaluationPolicy): ConditionEvaluationResult;

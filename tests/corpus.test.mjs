@@ -26,6 +26,51 @@ test('corpus verifies condition copies and reports aggregate counts without expo
   assert.equal(result.stdout, inspect(root).stdout);
 }));
 
+test('optional corpus condition profile reports active/inactive/unknown without hiding unknowns or provenance', () => fixture(root => fixture(config => {
+  fs.writeFileSync(path.join(root, 'private-name.toc'), '## SavedVariables: Always\n' +
+    '## SavedVariables[AllowLoadGameType vanilla]: Yes\n' +
+    '## SavedVariables[ExcludeLoadGameType vanilla]: No\n## SavedVariables[Bootstrap]: Unknown');
+  const profile = path.join(config, 'private-profile.json');
+  fs.writeFileSync(profile, fs.readFileSync('examples/classic-era-condition-profile.json'));
+  const result = inspect(root, '--condition-profile', profile);
+  assert.equal(result.status, 1);
+  assert.deepEqual(result.report.conditionEvaluation, { declarations: 4,
+    availability: { active: 2, inactive: 1, unknown: 1 }, issuesByCode: { CONDEVAL0003: 1, CONDEVAL0006: 1 } });
+  assert.ok(result.report.failures.includes('condition-unknown'));
+  assert.doesNotMatch(result.stdout + result.stderr, /private-name|private-profile|vanilla|Bootstrap|caller-condition-policy/);
+  assert.equal(result.stdout, inspect(root, '--condition-profile', profile).stdout);
+  assert.equal(result.report.fullParsing, false);
+})));
+
+test('invalid, unknown-context or oversized condition profiles fail before source traversal', () => fixture(root => fixture(config => {
+  fs.writeFileSync(path.join(root, 'private-name.toc'), '## SavedVariables: DB');
+  const profile = path.join(config, 'profile.json');
+  const original = JSON.parse(fs.readFileSync('examples/classic-era-condition-profile.json', 'utf8'));
+  for (const input of ['{', JSON.stringify({}), JSON.stringify({ ...original,
+    environment: { ...original.environment, client: 'unknown' } }), ' '.repeat(1024 * 1024 + 1)]) {
+    fs.writeFileSync(profile, input);
+    const result = inspect(root, '--condition-profile', profile);
+    assert.equal(result.status, 1);
+    assert.equal(result.report.entriesVisited, 0);
+    assert.equal(result.report.parsed.toc, 0);
+    assert.ok(result.report.failures.includes('condition-profile-invalid'));
+    assert.doesNotMatch(result.stdout + result.stderr, /private-name|profile\.json/);
+  }
+})));
+
+test('condition profile remains opt-in and rejects missing or repeated flag arguments', () => fixture(root => fixture(config => {
+  fs.writeFileSync(path.join(root, 'A.toc'), '## SavedVariables: DB');
+  assert.equal(Object.hasOwn(inspect(root).report, 'conditionEvaluation'), false);
+  const profile = path.join(config, 'profile.json');
+  fs.writeFileSync(profile, fs.readFileSync('examples/classic-era-condition-profile.json'));
+  assert.equal(inspect(root, '--condition-profile').status, 2);
+  assert.equal(inspect(root, '--condition-profile', profile, '--condition-profile', profile).status, 2);
+  const result = inspect(root, '--condition-profile', profile);
+  assert.equal(result.status, 0);
+  assert.equal(result.report.conditionEvaluation.declarations, 1);
+  assert.equal(result.report.conditionEvaluation.availability.active, 1);
+})));
+
 test('corpus parses every TOC variant read-only and inventories Lua/XML without claiming parsing', () => fixture(root => {
   fs.mkdirSync(path.join(root, 'Å'));
   const contents = {

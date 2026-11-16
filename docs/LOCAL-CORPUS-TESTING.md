@@ -91,3 +91,17 @@ Only counts of groups/candidates/statuses and issue codes are added to the repor
 On the same measured local corpus, the authored example profile processed **100 groups / 227 immediate-folder candidates**: **98 selected, 2 no-match, 0 unresolved/ambiguous/invalid**. All 434 TOCs were still parsed, including nested manifests, with the existing 19 errors and 12 warnings. Exit remained **1**. These are outcomes under the explicit example policy, not observations of the game loader. Lua/XML remain unparsed.
 
 Directory enumeration checks remaining budget before opening a directory and reads incrementally. An over-budget directory is rejected before processing an unordered subset; incomplete coverage cannot become a successful run.
+
+## Optional v0.3.3 condition profile
+
+```powershell
+npm run test:corpus -- '<local-AddOns-directory>' --condition-profile examples/classic-era-condition-profile.json
+```
+
+The JSON profile contains `environment` and `policy` accepted by `evaluateGlobalConditions`. The authored example defines caller rules/casing and is not a verified game condition table. Profiles are limited to 1 MiB using bounded reads; malformed/unknown-context profiles fail before source traversal. Repeated/missing profile arguments are rejected. Default runs omit evaluation.
+
+The runner evaluates every valid adapter declaration, retains JSON/input/range invariants and reports `conditionEvaluation` aggregate declaration/availability/issue-code counts only. Unknown results cause `condition-unknown` and nonzero exit; inactive results are valid evaluated outcomes. Original parser errors, incomplete reads and Lua/XML absence remain visible.
+
+On the stable local corpus, all 347 adapter declarations are unconditional and report active under the authored profile, with zero inactive/unknown results or condition issues. There are still zero conditional SavedVariables: synthetic fixtures provide true/false/unknown condition coverage. All 434 TOCs, 51,501 parser-reference visits, 19 errors, 12 warnings and zero skips remain unchanged; exit stays 1. Lua/XML remain inventoried only.
+
+Condition evaluation covers all supplied variants. The optional selection report is a separate inspection, even when both flags are supplied. These counts are not a resolved global list and cannot establish visibility of non-selected TOCs. The v0.3.4 resolver must compose the steps explicitly.
