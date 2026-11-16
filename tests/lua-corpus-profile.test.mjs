@@ -5,6 +5,23 @@ import { analyzeLua } from '@wow-addon/lua-analysis';
 const run = (text, options = {}) => analyzeLua(text, 'Fixture.lua', { addonId: 'caller', ...options });
 const codes = result => result.diagnostics.map(d => d.code);
 
+test('larger profile preserves Lua 5.1 vararg function boundaries and exact rejection points', () => {
+  // Independently authored classification: Lua 5.1 lparser.c/simpleexp requires
+  // the current function, rather than an enclosing function, to be variadic.
+  for (const profile of ['bounded', 'corpus']) {
+    for (const text of ['local pending = ...', 'function Collect(first, ...) return ... end']) {
+      assert.deepEqual(codes(run(text, { profile })), []);
+    }
+    const invalid = 'Before = 1\r\nfunction Collect(first)\r\n  local pending = ...\r\nend';
+    const rejected = run(invalid, { profile });
+    assert.deepEqual(codes(rejected), ['LUA0002']);
+    assert.deepEqual(rejected.declarations, []);
+    assert.deepEqual(rejected.diagnostics[0].source.range,
+      { start: { line: 2, column: 18 }, end: { line: 2, column: 18 } });
+    assert.deepEqual(codes(run('function Collect(...) return function() return ... end end', { profile })), ['LUA0002']);
+  }
+});
+
 test('corpus profile accepts above-default input while omitted/explicit bounded stay identical', () => {
   const text = ' '.repeat(1024 * 1024) + 'After = 1';
   const legacy = run(text);

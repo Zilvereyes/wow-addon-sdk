@@ -44,6 +44,25 @@ test('byte transport never overrides recognized BOMs or silently expands default
   assert.equal(inspect(root, '--lua-analysis').report.luaAnalysis.inputLimitRejected, 1);
 }));
 
+test('byte transport does not waive invalid non-variadic Lua syntax or leak declarations', () => fixture(root => {
+  fs.writeFileSync(path.join(root, 'Seed.toc'), '#');
+  const file = path.join(root, 'PrivateRejected.lua');
+  const bytes = Buffer.concat([Buffer.from('-- '), Buffer.from([0xF8]),
+    Buffer.from('\r\nBefore = 1\r\nfunction Collect(first) return ... end')]);
+  fs.writeFileSync(file, bytes);
+  const result = inspect(root, '--lua-analysis', '--lua-input-profile', 'corpus-files');
+  assert.equal(result.status, 1);
+  assert.equal(result.report.parsed.lua, 1);
+  assert.equal(result.report.luaAnalysis.syntaxRejected, 1);
+  assert.equal(result.report.luaAnalysis.declarations, 0);
+  assert.equal(result.report.luaAnalysis.encodingRejected, 0);
+  assert.deepEqual(result.report.luaAnalysis.transport, { strictUtf8: 0, bytePreserving: 1 });
+  assert.deepEqual(result.report.luaAnalysis.diagnosticsByCode, { LUA0002: 1 });
+  assert.ok(result.report.failures.includes('lua-syntax-errors'));
+  assert.deepEqual(fs.readFileSync(file), bytes);
+  assert.doesNotMatch(result.stdout + result.stderr, /PrivateRejected|Before|Collect/);
+}));
+
 test('Lua input profile arguments reject unknown/repeated/missing or disabled use before traversal', () => fixture(root => {
   for (const args of [['--lua-input-profile', 'corpus-files'], ['--lua-analysis', '--lua-input-profile'],
     ['--lua-analysis', '--lua-input-profile', 'unknown'],
