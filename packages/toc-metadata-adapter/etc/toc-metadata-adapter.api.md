@@ -4,8 +4,10 @@
 
 ```ts
 
+import { AddOnIdentity } from '@wow-addon/addon-metadata';
 import { AddOnMetadata } from '@wow-addon/addon-metadata';
 import { ClientEnvironment } from '@wow-addon/addon-metadata';
+import type { Diagnostic } from '@wow-addon/diagnostics';
 import type { GlobalDeclaration } from '@wow-addon/global-registry';
 import type { GlobalRegistry } from '@wow-addon/global-registry';
 import type { ResolvedAvailability } from '@wow-addon/global-registry';
@@ -58,6 +60,83 @@ export interface ConditionEvaluationResult {
 
 // @beta
 export function evaluateGlobalConditions(declaration: GlobalDeclaration, environment: ClientEnvironment, policy: ConditionEvaluationPolicy): ConditionEvaluationResult;
+
+// @beta
+export interface GlobalResolutionInput extends AddOnIdentity {
+    // (undocumented)
+    readonly addonBaseName: string;
+    // (undocumented)
+    readonly candidates: readonly TocSelectionCandidate[];
+    // (undocumented)
+    readonly providers?: readonly ProviderDeclarationSet[];
+    // (undocumented)
+    readonly selectionPolicy: TocSelectionPolicy;
+}
+
+// @beta
+export interface GlobalResolutionIssue {
+    // (undocumented)
+    readonly code: 'RESOLVE0001' | 'RESOLVE0002' | 'RESOLVE0003';
+    // (undocumented)
+    readonly logicalAddonId?: string;
+    // (undocumented)
+    readonly message: string;
+    // (undocumented)
+    readonly sources: readonly SourceReference[];
+}
+
+// @beta
+export interface ProviderDeclarationSet {
+    // (undocumented)
+    readonly declarations: readonly GlobalDeclaration[];
+    // (undocumented)
+    readonly providerId: string;
+    // (undocumented)
+    readonly tocVariantId: string;
+}
+
+// @beta
+export interface ResolvedGlobalDeclaration {
+    // (undocumented)
+    readonly declaration: GlobalDeclaration;
+    // (undocumented)
+    readonly evaluation: ConditionEvaluationResult;
+    // (undocumented)
+    readonly logicalAddonId: string;
+    // (undocumented)
+    readonly originalAddonId: string;
+    // (undocumented)
+    readonly providerId: string;
+    // (undocumented)
+    readonly tocVariantId: string;
+}
+
+// @beta
+export interface ResolvedGlobalRegistry {
+    // (undocumented)
+    readonly activeGlobals: readonly string[];
+    // (undocumented)
+    readonly addons: readonly {
+        readonly logicalAddonId: string;
+        readonly selection: TocSelectionResult;
+    }[];
+    // (undocumented)
+    readonly complete: boolean;
+    // (undocumented)
+    readonly diagnostics: readonly Diagnostic[];
+    // (undocumented)
+    readonly entries: readonly {
+        readonly name: string;
+        readonly declarations: readonly ResolvedGlobalDeclaration[];
+    }[];
+    // (undocumented)
+    readonly issues: readonly GlobalResolutionIssue[];
+    // (undocumented)
+    readonly schemaVersion: 1;
+}
+
+// @beta
+export function resolveGlobalRegistry(environment: ClientEnvironment, addons: readonly GlobalResolutionInput[], conditionPolicy: ConditionEvaluationPolicy): ResolvedGlobalRegistry;
 
 // @beta
 export function selectTocVariant(environment: ClientEnvironment, logicalAddonId: string, addonBaseName: string, candidates: readonly TocSelectionCandidate[], policy: TocSelectionPolicy): TocSelectionResult;
