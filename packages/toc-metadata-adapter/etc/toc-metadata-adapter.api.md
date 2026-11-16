@@ -4,12 +4,67 @@
 
 ```ts
 
-import type { AddOnMetadata } from '@wow-addon/addon-metadata';
+import { AddOnMetadata } from '@wow-addon/addon-metadata';
+import { ClientEnvironment } from '@wow-addon/addon-metadata';
 import type { GlobalDeclaration } from '@wow-addon/global-registry';
 import type { GlobalRegistry } from '@wow-addon/global-registry';
+import type { SourceReference } from '@wow-addon/diagnostics';
+import { TocVariantIdentity } from '@wow-addon/addon-metadata';
+import { WoWClient } from '@wow-addon/addon-metadata';
+import { WoWClientFamily } from '@wow-addon/addon-metadata';
+import { WoWGameMode } from '@wow-addon/addon-metadata';
 
 // @beta
 export function buildTocGlobalRegistry(addons: readonly AddOnMetadata[]): GlobalRegistry;
+
+// @beta
+export function selectTocVariant(environment: ClientEnvironment, logicalAddonId: string, addonBaseName: string, candidates: readonly TocSelectionCandidate[], policy: TocSelectionPolicy): TocSelectionResult;
+
+// @beta
+export interface TocSelectionCandidate {
+    // (undocumented)
+    readonly identity: TocVariantIdentity;
+    // (undocumented)
+    readonly metadata: AddOnMetadata;
+}
+
+// @beta
+export interface TocSelectionIssue {
+    // (undocumented)
+    readonly code: 'TOCSEL0001' | 'TOCSEL0002' | 'TOCSEL0003' | 'TOCSEL0004';
+    // (undocumented)
+    readonly message: string;
+    // (undocumented)
+    readonly sources: readonly SourceReference[];
+}
+
+// @beta
+export interface TocSelectionPolicy {
+    // (undocumented)
+    readonly client: WoWClient;
+    // (undocumented)
+    readonly clientFamily: WoWClientFamily;
+    // (undocumented)
+    readonly gameMode?: WoWGameMode;
+    // (undocumented)
+    readonly gameType?: string;
+    // (undocumented)
+    readonly id: string;
+    // (undocumented)
+    readonly schemaVersion: 1;
+    // (undocumented)
+    readonly suffixPrecedence: readonly (string | null)[];
+}
+
+// @beta
+export interface TocSelectionResult {
+    // (undocumented)
+    readonly issues: readonly TocSelectionIssue[];
+    // (undocumented)
+    readonly selectedVariantId?: string;
+    // (undocumented)
+    readonly status: 'selected' | 'no-match' | 'unresolved' | 'ambiguous' | 'invalid';
+}
 
 // @beta
 export function toGlobalDeclarations(addons: readonly AddOnMetadata[]): GlobalDeclaration[];

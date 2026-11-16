@@ -1,0 +1,14 @@
+{
+  "environment": {
+    "schemaVersion": 1,
+    "client": "classic-era",
+    "clientFamily": "classic"
+  },
+  "policy": {
+    "schemaVersion": 1,
+    "id": "example/caller-era-policy",
+    "client": "classic-era",
+    "clientFamily": "classic",
+    "suffixPrecedence": ["Vanilla", "Classic", null]
+  }
+}

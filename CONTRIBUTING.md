@@ -13,7 +13,7 @@ Thanks for helping build a reusable, editor-agnostic SDK.
 
 ## Public API and dependencies
 
-Do not introduce reverse dependencies or dependencies on VS Code, LuaLS or Continue in core packages. Public API snapshots under `api/baselines` and reports under `packages/*/etc/*.api.md` must be reviewed; never refresh them merely to pass CI. Preserve the original 30 intentional `@beta` exports; v0.3.0 adds four reviewed beta contracts (34 total). Use `npm run api:extractor:local` only for intentional report changes, and verify with strict `npm run api:extractor`. Publishable workspaces must carry an MIT `LICENSE` byte-identical to the root. The `0.3.5` architectural freeze is distinct from the stability guarantee planned for `1.0.0`. See [roadmap #7](https://github.com/Zilvereyes/wow-addon-sdk/issues/7).
+Do not introduce reverse dependencies or dependencies on VS Code, LuaLS or Continue in core packages. Public API snapshots under `api/baselines` and reports under `packages/*/etc/*.api.md` must be reviewed; never refresh them merely to pass CI. Preserve the original 30 intentional `@beta` exports; v0.3.0 adds four and v0.3.1 adds five reviewed beta contracts (39 total). Use `npm run api:extractor:local` only for intentional report changes, and verify with strict `npm run api:extractor`. Publishable workspaces must carry an MIT `LICENSE` byte-identical to the root. The `0.3.5` architectural freeze is distinct from the stability guarantee planned for `1.0.0`. See [roadmap #7](https://github.com/Zilvereyes/wow-addon-sdk/issues/7).
 
 ## Third-party and Blizzard materials
 

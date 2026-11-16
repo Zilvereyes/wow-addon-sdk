@@ -4,22 +4,30 @@ import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { parseToc } from '@wow-addon/toc-parser';
+import { selectTocVariant } from '@wow-addon/toc-metadata-adapter';
 
 const args = process.argv.slice(2);
 const rootArgument = args.shift();
 const limits = { '--max-entries': 100000, '--max-file-bytes': 8 * 1024 * 1024 };
 let requireAll = false;
+let selectionProfilePath = null;
 let valid = Boolean(rootArgument && !rootArgument.startsWith('--'));
 while (args.length && valid) {
   const flag = args.shift();
   if (flag === '--require-all-parsers') { requireAll = true; continue; }
+  if (flag === '--selection-profile') {
+    const value = args.shift();
+    if (selectionProfilePath !== null || !value || value.startsWith('--')) { valid = false; break; }
+    selectionProfilePath = value;
+    continue;
+  }
   if (!Object.hasOwn(limits, flag)) { valid = false; break; }
   const value = args.shift();
   if (!value || !/^[1-9][0-9]*$/u.test(value) || !Number.isSafeInteger(Number(value))) { valid = false; break; }
   limits[flag] = Number(value);
 }
 if (!valid) {
-  console.error('Usage: node scripts/inspect-addon-corpus.mjs <AddOns-directory> [--max-entries N] [--max-file-bytes N] [--require-all-parsers]');
+  console.error('Usage: node scripts/inspect-addon-corpus.mjs <AddOns-directory> [--max-entries N] [--max-file-bytes N] [--require-all-parsers] [--selection-profile <JSON-file>]');
   process.exit(2);
 }
 
@@ -36,6 +44,27 @@ const report = {
 const failures = new Set();
 let incomplete = false;
 const fail = (reason, partial = false) => { failures.add(reason); incomplete ||= partial; };
+const selectionGroups = new Map();
+let selectionProfile = null;
+let selectionReady = true;
+if (selectionProfilePath !== null) {
+  report.selection = {
+    groups: 0, candidates: 0,
+    statuses: { selected: 0, 'no-match': 0, unresolved: 0, ambiguous: 0, invalid: 0 }, issuesByCode: {},
+  };
+  try {
+    const stat = fs.statSync(selectionProfilePath);
+    if (!stat.isFile() || stat.size > 1024 * 1024) throw new Error('Invalid selection profile');
+    const bytes = fs.readFileSync(selectionProfilePath);
+    if (bytes.length > 1024 * 1024) throw new Error('Oversized selection profile');
+    selectionProfile = JSON.parse(bytes.toString('utf8'));
+    const result = selectTocVariant(selectionProfile.environment, 'profile-validation', 'Profile', [], selectionProfile.policy);
+    if (result.status !== 'no-match') {
+      for (const issue of result.issues) report.selection.issuesByCode[issue.code] = (report.selection.issuesByCode[issue.code] ?? 0) + 1;
+      fail('selection-profile-invalid'); selectionReady = false;
+    }
+  } catch { fail('selection-profile-invalid'); selectionReady = false; }
+}
 
 function checkParse(content, filename) {
   const parsed = parseToc(content, filename);
@@ -66,6 +95,7 @@ function checkParse(content, filename) {
     report.diagnosticsBySeverity[diagnostic.severity]++;
   }
   report.parsed.toc++;
+  return parsed;
 }
 
 function walk(folder, depth = 0) {
@@ -105,16 +135,50 @@ function walk(folder, depth = 0) {
       // Never resolve or read file paths referenced by a TOC; only discovered TOCs.
       const content = fs.readFileSync(filename);
       if (content.length > limits['--max-file-bytes']) { fail('file-changed', true); continue; }
-      checkParse(content.toString('utf8'), path.relative(root, filename));
+      const relative = path.relative(root, filename);
+      const parsed = checkParse(content.toString('utf8'), relative);
+      // Only immediate AddOn-folder TOCs participate; embedded library manifests
+      // remain part of the parse inventory, not independent loader candidates.
+      if (selectionProfile !== null && depth === 1) {
+        const base = path.basename(folder);
+        const logicalAddonId = JSON.stringify(['local-corpus-group', base]);
+        const candidates = selectionGroups.get(base) ?? [];
+        candidates.push({
+          identity: {
+            logicalAddonId, tocVariantId: JSON.stringify([logicalAddonId, relative]),
+            tocPath: relative, tocSuffix: parsed.metadata.tocSuffix, source: parsed.entries[0].source,
+          },
+          metadata: parsed.metadata,
+        });
+        selectionGroups.set(base, candidates);
+      }
     } catch { fail('read-or-invariant-failure', true); }
   }
 }
 
 try {
-  const rootStat = fs.lstatSync(root);
-  if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) fail('invalid-root');
-  else walk(root);
+  if (selectionReady) {
+    const rootStat = fs.lstatSync(root);
+    if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) fail('invalid-root');
+    else walk(root);
+  }
 } catch { fail('unreadable-root'); }
+if (selectionProfile !== null && selectionReady) {
+  for (const [base, candidates] of selectionGroups) {
+    try {
+      const before = JSON.stringify(candidates);
+      const result = selectTocVariant(selectionProfile.environment, candidates[0].identity.logicalAddonId, base, candidates, selectionProfile.policy);
+      assert.equal(JSON.stringify(candidates), before);
+      report.selection.groups++;
+      report.selection.candidates += candidates.length;
+      report.selection.statuses[result.status]++;
+      for (const issue of result.issues) report.selection.issuesByCode[issue.code] = (report.selection.issuesByCode[issue.code] ?? 0) + 1;
+      if (!['selected', 'no-match'].includes(result.status)) fail(`selection-${result.status}`);
+    } catch { fail('selection-invariant-failure', true); }
+  }
+  if (report.selection.groups === 0) fail('no-selection-groups');
+  report.selection.issuesByCode = Object.fromEntries(Object.entries(report.selection.issuesByCode).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
+}
 if (report.parsed.toc === 0) fail('no-parsed-tocs');
 if (report.diagnosticsBySeverity.error > 0) fail('toc-parse-errors');
 if (requireAll) fail('unimplemented-parsers');

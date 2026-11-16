@@ -91,3 +91,88 @@ test('corpus skips directory links instead of traversing an external tree', () =
   assert.deepEqual(result.report.diagnosticsByCode, {});
   assert.equal(inspect(path.join(root, 'linked')).status, 1);
 })));
+
+const selectionProfile = {
+  environment: { schemaVersion: 1, client: 'classic-era', clientFamily: 'classic' },
+  policy: { schemaVersion: 1, id: 'authored-corpus-policy', client: 'classic-era', clientFamily: 'classic', suffixPrecedence: ['Vanilla', 'Classic', null] },
+};
+
+test('optional corpus selection uses top-level caller groups and keeps nested manifests as parse-only inventory', () => fixture(root => {
+  fs.mkdirSync(path.join(root, 'A', 'libs', 'Library'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'B'));
+  for (const name of ['A/A_Vanilla.toc', 'A/A_Classic.toc', 'A/A.toc', 'A/libs/Library/Library.toc', 'B/B_Mainline.toc']) {
+    fs.writeFileSync(path.join(root, name), '## SavedVariables: PrivateDB');
+  }
+  const profile = path.join(root, 'profile.json'); fs.writeFileSync(profile, JSON.stringify(selectionProfile));
+  const result = inspect(root, '--selection-profile', profile);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.report.parsed.toc, 5);
+  assert.deepEqual(result.report.selection, {
+    groups: 2, candidates: 4,
+    statuses: { selected: 1, 'no-match': 1, unresolved: 0, ambiguous: 0, invalid: 0 }, issuesByCode: {},
+  });
+  assert.doesNotMatch(result.stdout + result.stderr, /PrivateDB|A_Vanilla|Library\.toc|profile\.json/);
+}));
+
+test('invalid or unresolved corpus profiles fail before reading source without exposing configuration', () => fixture(root => {
+  fs.writeFileSync(path.join(root, 'A.toc'), '');
+  const file = path.join(root, 'private-profile.json');
+  for (const profile of [{}, {
+    environment: { ...selectionProfile.environment, client: 'unknown' },
+    policy: { ...selectionProfile.policy, id: 'PRIVATE_POLICY_MARKER', gameType: 'PRIVATE_GAME_TYPE' },
+  }]) {
+    fs.writeFileSync(file, JSON.stringify(profile));
+    const result = inspect(root, '--selection-profile', file);
+    assert.equal(result.status, 1);
+    assert.equal(result.report.parsed.toc, 0);
+    assert.equal(result.report.entriesVisited, 0);
+    assert.ok(result.report.failures.includes('selection-profile-invalid'));
+    assert.doesNotMatch(result.stdout + result.stderr, /private-profile|wow-sdk-corpus-|PRIVATE_POLICY_MARKER|PRIVATE_GAME_TYPE/);
+  }
+  fs.writeFileSync(file, '{malformed');
+  assert.equal(inspect(root, '--selection-profile', file).status, 1);
+  assert.equal(inspect(root, '--selection-profile', path.join(root, 'missing')).status, 1);
+}));
+
+test('corpus selection profile is opt-in, cannot be repeated, and does not waive parse errors', () => fixture(root => {
+  fs.mkdirSync(path.join(root, 'A'));
+  fs.writeFileSync(path.join(root, 'A', 'A.toc'), '## invalid');
+  const profile = path.join(root, 'profile.json'); fs.writeFileSync(profile, JSON.stringify(selectionProfile));
+  assert.equal(Object.hasOwn(inspect(root).report, 'selection'), false);
+  const result = inspect(root, '--selection-profile', profile);
+  assert.equal(result.status, 1);
+  assert.equal(result.report.selection.statuses.selected, 1);
+  assert.ok(result.report.failures.includes('toc-parse-errors'));
+  assert.equal(inspect(root, '--selection-profile', profile, '--selection-profile', profile).status, 2);
+}));
+
+test('oversized selection profile is rejected before traversal', () => fixture(root => {
+  fs.writeFileSync(path.join(root, 'A.toc'), '');
+  const profile = path.join(root, 'large.json'); fs.writeFileSync(profile, ' '.repeat(1024 * 1024 + 1));
+  const result = inspect(root, '--selection-profile', profile);
+  assert.equal(result.status, 1);
+  assert.equal(result.report.entriesVisited, 0);
+  assert.equal(result.report.parsed.toc, 0);
+  assert.ok(result.report.failures.includes('selection-profile-invalid'));
+}));
+
+test('valid selection profile with no immediate AddOn-folder TOCs cannot claim a successful selection run', () => fixture(root => {
+  fs.writeFileSync(path.join(root, 'A.toc'), '');
+  const profile = path.join(root, 'profile.json'); fs.writeFileSync(profile, JSON.stringify(selectionProfile));
+  const result = inspect(root, '--selection-profile', profile);
+  assert.equal(result.status, 1);
+  assert.equal(result.report.parsed.toc, 1);
+  assert.equal(result.report.selection.groups, 0);
+  assert.ok(result.report.failures.includes('no-selection-groups'));
+}));
+
+test('over-budget directories are rejected before processing an unordered subset', () => fixture(root => {
+  fs.writeFileSync(path.join(root, 'B.toc'), '');
+  fs.writeFileSync(path.join(root, 'A.toc'), '');
+  const result = inspect(root, '--max-entries', '1');
+  assert.equal(result.status, 1);
+  assert.equal(result.report.status, 'incomplete');
+  assert.equal(result.report.entriesVisited, 0);
+  assert.equal(result.report.parsed.toc, 0);
+  assert.ok(result.report.failures.includes('entry-limit'));
+}));
