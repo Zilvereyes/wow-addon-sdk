@@ -2,6 +2,12 @@
 
 The [v0.3.5 milestone epic](https://github.com/Zilvereyes/wow-addon-sdk/issues/7) is the authoritative delivery checklist. [Design issue #6](https://github.com/Zilvereyes/wow-addon-sdk/issues/6) records decisions for environment-aware selection and provenance.
 
+**Goal:** Deliver at least a v0.3.5-ready SDK under the [execution goal](GOAL-v0.3.5.md), with release publication subject to explicit sign-off.
+
+**Verified prerequisite:** PR #5 was merged into main on 2026-11-16 as `44b138d5152bb2e43ae43afa793e3613d11b6de5`. Its reviewed head was `7fe976a`; all eight push/PR matrix jobs passed. This is infrastructure completion, not a v0.3.x release.
+
+**Current increment:** v0.3.0 is in design review. See [environment and identity proposal](DESIGN-v0.3.0.md); its four decisions are proposed, not approved or implemented.
+
 | Version | Independently reviewed delivery |
 | --- | --- |
 | v0.2.x | PR #5 complete: reproducible CI, committed API reports, MIT license in every npm tarball. |
