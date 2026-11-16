@@ -4,7 +4,16 @@ Changes are recorded by release. This project is in pre-1.0 development.
 
 ## [Unreleased]
 
-### Repository hardening (in progress)
+### v0.3.0 contract foundation (source version; not published)
+
+- Add approved client-environment schema 1, explicit unknown fields, caller-owned logical AddOn identity and exact TOC-variant identity. Preserve metadata schema 2 and the previous 30 beta exports; four additive beta exports bring the total to 34.
+- Add positive/negative TypeScript contract tests and runtime compatibility/identity examples.
+- Add a bounded read-only local TOC corpus runner with source-range/JSON checks, aggregate-only output and explicit unimplemented Lua/XML status. Record the actual installed-corpus diagnostics rather than declaring a false pass.
+- Use locked PowerShell installs, enforce Node 22+, check native exit statuses and run strict API/package gates.
+- Assert actual npm dry-run file lists and reject extra assets or missing licenses in all five packages.
+- Add migration guidance, complete repository review coverage and a detailed execution plan through v0.3.5 and subsequent TOC/Lua/XML parsing.
+
+### Repository hardening (merged in PR #5)
 
 - Test Node 22 and 24 on both Windows and Linux; retire EOL Node 20.
 - Discover tests deterministically and fail if no test files are found.

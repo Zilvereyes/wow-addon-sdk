@@ -48,4 +48,4 @@ jobs:
       - name: API Extractor (public API contract gate)
         run: npm run api:extractor
       - name: Verify package contents
-        run: npm pack --dry-run --workspaces --ignore-scripts
+        run: npm run check:packages

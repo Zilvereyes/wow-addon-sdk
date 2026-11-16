@@ -1,4 +1,4 @@
-# Arkitektur – WoW AddOn SDK v0.2.0
+# Arkitektur – WoW AddOn SDK v0.3.0
 
 ## Afhængighedsregler
 
@@ -21,6 +21,11 @@ Arkitekturen beskyttes af:
 3. `scripts/check-api-snapshots.mjs` – fail-closed sammenligning af kompileret API-kontrakt mod committed `.d.ts` baselines.
 4. `packages/*/api-extractor.json` og `packages/*/etc/*.api.md` – obligatorisk strict API Extractor i CI, med versionerede rapporter. Lokal regenerering kræver eksplicit review.
 5. `scripts/check-public-exports.mjs` – kontrollerer package-exports og identiske MIT-licenser i alle fem publishable workspaces.
+6. `scripts/check-package-contents.mjs` – afviser manglende/uventede filer i npm's faktiske dry-run-liste.
+
+v0.3.0 tilføjer fire beta-kontrakter i `addon-metadata`: separat environment-schema 1, klientmiljø samt logisk og præcis TOC-variantidentitet. Metadata-schema 2 og parser/registry-adfærd bevares. Se [migration](MIGRATION-v0.2-to-v0.3.md).
+
+Den valgfrie `scripts/inspect-addon-corpus.mjs` er lokal tooling uden for core. Den læser TOC-filer, kontrollerer kildepositioner og viser aggregerede diagnostics; Lua/XML optælles som endnu ikke implementerede parsere. Den tilføjer ingen filesystem-afhængighed til SDK-pakkerne.
 
 ## Syntaks, semantik, registry
 
