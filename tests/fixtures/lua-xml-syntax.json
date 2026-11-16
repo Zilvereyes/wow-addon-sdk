@@ -1,0 +1,69 @@
+{
+  "fixtureSchemaVersion": 1,
+  "purpose": "Authored syntax vectors for future SDK parser acceptance; no SDK Lua/XML parser is implemented by this catalog.",
+  "luaTarget": "Lua 5.1 syntax; Classic Era host compatibility remains separately unverified",
+  "xmlTarget": "XML 1.0 fifth edition, Namespaces 1.0 third edition; proposed SDK profile rejects DTD declarations",
+  "lua": [
+    { "id": "L01-assignment", "source": "Global = 1", "syntax": "valid" },
+    { "id": "L02-varargs", "source": "local a, b = ...; a, b = b, a; return a, b", "syntax": "valid" },
+    { "id": "L03-long-brackets", "source": "--[==[ Fake = 1; ]=] still a comment ]==]\nlocal text = [=[x = 2; [[inner]]]=]\nReal = 3", "syntax": "valid" },
+    { "id": "L04-short-strings", "source": "local a = '\\000\\255'; local b = \"quoted\"; Real = a .. b", "syntax": "valid" },
+    { "id": "L05-escaped-newline", "source": "local text = 'first\\\nsecond'; Real = text", "syntax": "valid" },
+    { "id": "L06-tables", "source": "local key = 'k'; Global = { [key] = 1; named = 2, 3, 4; }", "syntax": "valid" },
+    { "id": "L07-operators", "source": "Global = -2^2 + #('x') * .5e+2; Hex = 0x1a; Text = 1 .. 'x'", "syntax": "valid" },
+    { "id": "L08-blocks", "source": "for i = 1, 3 do if i == 2 then break end end\nfor k, v in pairs({}) do Global = v end\nlocal n = 1; while n > 0 do n = n - 1 end\nrepeat n = n + 1 until n >= 1", "syntax": "valid" },
+    { "id": "L09-functions", "source": "local function f(n) if n == 0 then return 1 end return n * f(n - 1) end\nlocal t = {}; function t:m(a) return self, a end\nGlobal = f(3)", "syntax": "valid" },
+    { "id": "L10-unicode-lines", "source": "-- 🧪\r\nGlobal = \"Å\"\rNext = 2\n", "syntax": "valid", "spans": [
+      { "raw": "Global", "offsets": [7, 13], "start": [1, 0], "end": [1, 6] },
+      { "raw": "Next", "offsets": [20, 24], "start": [2, 0], "end": [2, 4] }
+    ] },
+    { "id": "L11-goto-identifier", "source": "goto = 1; return goto", "syntax": "valid" },
+    { "id": "L12-empty", "source": "", "syntax": "valid" },
+    { "id": "L13-no-execution", "source": "error('FIXTURE_MUST_ONLY_BE_PARSED'); return 1", "syntax": "valid" },
+    { "id": "L14-unclosed-string", "source": "local text = 'unfinished", "syntax": "invalid" },
+    { "id": "L15-unclosed-long-string", "source": "local text = [=[ unfinished ]]", "syntax": "invalid" },
+    { "id": "L16-unclosed-function", "source": "function Global() local x = 1", "syntax": "invalid" },
+    { "id": "L17-missing-expression", "source": "Global = ; Later = 2", "syntax": "invalid" },
+    { "id": "L18-goto-statement", "source": "goto destination", "syntax": "invalid" },
+    { "id": "L19-floor-division", "source": "Global = 4 // 2", "syntax": "invalid" },
+    { "id": "L20-bit-shift", "source": "Global = 1 << 2", "syntax": "invalid" },
+    { "id": "L21-local-attribute", "source": "local x <const> = 1", "syntax": "invalid" },
+    { "id": "L22-nested-varargs", "source": "function f(...) local function g() return ... end end", "syntax": "invalid" },
+    { "id": "L23-break-outside-loop", "source": "break", "syntax": "invalid" },
+    { "id": "L24-statement-after-return", "source": "return 1; Global = 2", "syntax": "invalid" }
+  ],
+  "xml": [
+    { "id": "X01-empty-root", "source": "<Ui/>", "wellFormed": true, "namespaceWellFormed": true, "profile": "allowed" },
+    { "id": "X02-declaration", "source": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Ui><Frame name=\"Fixture\"/></Ui>", "wellFormed": true, "namespaceWellFormed": true, "profile": "allowed" },
+    { "id": "X03-cdata", "source": "<Ui><Script><![CDATA[local x = 1 < 2; local y = 'a&b']]></Script></Ui>", "wellFormed": true, "namespaceWellFormed": true, "profile": "allowed" },
+    { "id": "X04-quoted-angle", "source": "<Ui><Frame name=\"a>b\" value='&quot;quoted&quot;'/></Ui>", "wellFormed": true, "namespaceWellFormed": true, "profile": "allowed" },
+    { "id": "X05-unicode-lines", "source": "<Ui>\r\n  <Frame name=\"Å🧪\"/>\r</Ui>", "wellFormed": true, "namespaceWellFormed": true, "profile": "allowed", "spans": [
+      { "raw": "Frame", "offsets": [9, 14], "start": [1, 3], "end": [1, 8] },
+      { "raw": "Å🧪", "offsets": [21, 24], "start": [1, 15], "end": [1, 18] }
+    ] },
+    { "id": "X06-entities", "source": "<Ui>&amp;&lt;&gt;&apos;&quot;&#65;&#x1F9EA;</Ui>", "wellFormed": true, "namespaceWellFormed": true, "profile": "allowed" },
+    { "id": "X07-doctype-text", "source": "<Ui><![CDATA[<!DOCTYPE Ui SYSTEM 'https://example.invalid/never-fetch'>]]></Ui>", "wellFormed": true, "namespaceWellFormed": true, "profile": "allowed" },
+    { "id": "X08-comment-pi", "source": "<?fixture before?><Ui><!-- harmless --><Frame/><?fixture inside?></Ui>", "wellFormed": true, "namespaceWellFormed": true, "profile": "allowed" },
+    { "id": "X09-namespaces", "source": "<Ui xmlns=\"urn:fixture:ui\" xmlns:p=\"urn:fixture:attrs\"><Frame p:name=\"F\" name=\"G\"/></Ui>", "wellFormed": true, "namespaceWellFormed": true, "profile": "allowed" },
+    { "id": "X10-unbound-prefix", "source": "<Ui><p:Frame/></Ui>", "wellFormed": true, "namespaceWellFormed": false, "profile": "allowed" },
+    { "id": "X11-duplicate-expanded-attribute", "source": "<Ui xmlns:p=\"urn:fixture\" xmlns:q=\"urn:fixture\" p:a=\"1\" q:a=\"2\"/>", "wellFormed": true, "namespaceWellFormed": false, "profile": "allowed" },
+    { "id": "X12-duplicate-attribute", "source": "<Ui name=\"A\" name=\"B\"/>", "wellFormed": false, "namespaceWellFormed": null, "profile": "allowed" },
+    { "id": "X13-mismatched-tag", "source": "<Ui><Frame></Ui>", "wellFormed": false, "namespaceWellFormed": null, "profile": "allowed" },
+    { "id": "X14-unexpected-close", "source": "</Ui>", "wellFormed": false, "namespaceWellFormed": null, "profile": "allowed" },
+    { "id": "X15-unclosed-attribute", "source": "<Ui name=\"unfinished>", "wellFormed": false, "namespaceWellFormed": null, "profile": "allowed" },
+    { "id": "X16-undefined-entity", "source": "<Ui>&fixtureUndefined;</Ui>", "wellFormed": false, "namespaceWellFormed": null, "profile": "allowed" },
+    { "id": "X17-multiple-roots", "source": "<Ui/><Ui/>", "wellFormed": false, "namespaceWellFormed": null, "profile": "allowed" },
+    { "id": "X18-invalid-comment", "source": "<Ui><!-- bad -- comment --></Ui>", "wellFormed": false, "namespaceWellFormed": null, "profile": "allowed" },
+    { "id": "X19-control-character", "source": "<Ui>\u0001</Ui>", "wellFormed": false, "namespaceWellFormed": null, "profile": "allowed" },
+    { "id": "X20-external-dtd", "source": "<!DOCTYPE Ui SYSTEM \"https://example.invalid/never-fetch.dtd\"><Ui/>", "wellFormed": true, "namespaceWellFormed": true, "profile": "reject-dtd" },
+    { "id": "X21-internal-entity", "source": "<!DOCTYPE Ui [<!ENTITY fixture \"value\">]><Ui>&fixture;</Ui>", "wellFormed": true, "namespaceWellFormed": true, "profile": "reject-dtd" },
+    { "id": "X22-file-dtd", "source": "<!DOCTYPE Ui SYSTEM \"file:///fixture-must-not-be-read.dtd\"><Ui/>", "wellFormed": true, "namespaceWellFormed": true, "profile": "reject-dtd" },
+    { "id": "X23-default-namespace-attribute", "source": "<Ui xmlns=\"urn:fixture\" xmlns:p=\"urn:fixture\" a=\"1\" p:a=\"2\"/>", "wellFormed": true, "namespaceWellFormed": true, "profile": "allowed" },
+    { "id": "X24-reserved-prefix", "source": "<Ui xmlns:xml=\"urn:wrong\"/>", "wellFormed": true, "namespaceWellFormed": false, "profile": "allowed" },
+    { "id": "X25-empty-prefix-binding", "source": "<Ui xmlns:p=\"\"/>", "wellFormed": true, "namespaceWellFormed": false, "profile": "allowed" },
+    { "id": "X26-text-cdata-end", "source": "<Ui>raw ]]&gt; is safe; raw ]]> is invalid</Ui>", "wellFormed": false, "namespaceWellFormed": null, "profile": "allowed" },
+    { "id": "X27-entity-range", "source": "<Ui>&#x1F9EA;</Ui>", "wellFormed": true, "namespaceWellFormed": true, "profile": "allowed", "spans": [
+      { "raw": "&#x1F9EA;", "offsets": [4, 13], "start": [0, 4], "end": [0, 13], "decoded": "🧪" }
+    ] }
+  ]
+}
