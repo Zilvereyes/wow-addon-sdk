@@ -75,12 +75,17 @@ function profileBody(body: string): string {
   return units.join('');
 }
 
-export function parseSyntax(content: string): Failure | Success {
+export function parseSyntax(content: string, limits: { maxNodes: number; maxDepth: number; allowShebang: boolean }): Failure | Success {
   const prefix = content.charCodeAt(0) === 0xFEFF ? 1 : 0;
-  const body = content.slice(prefix);
-  // luaparse silently skips shebangs. They are outside this explicit grammar
-  // profile; accepting a leading BOM is the only loader preprocessing here.
-  if (body.startsWith('#!')) return { ok: false, kind: 'syntax', offset: prefix };
+  let body = content.slice(prefix);
+  // luaparse silently skips shebangs. Keep the strict default and perform only
+  // the explicitly selected equal-width loader preprocessing ourselves.
+  if (body.startsWith('#!')) {
+    if (!limits.allowShebang) return { ok: false, kind: 'syntax', offset: prefix };
+    const newline = body.search(/[\r\n]/);
+    const end = newline < 0 ? body.length : newline;
+    body = ' '.repeat(end) + body.slice(end);
+  }
   let root: unknown;
   let created = 0;
   try {
@@ -90,7 +95,7 @@ export function parseSyntax(content: string): Failure | Success {
       luaVersion: '5.1', encodingMode: 'none', extendedIdentifiers: false,
       onCreateScope: null, onDestroyScope: null, onLocalDeclaration: null,
       onCreateNode: (node: unknown) => {
-        if (++created > 50000) {
+        if (++created > limits.maxNodes) {
           const offset = record(node) && Array.isArray(node.range) && Number.isSafeInteger(node.range[0]) ? node.range[0] as number : 0;
           throw new NodeLimit(offset);
         }
@@ -122,7 +127,7 @@ export function parseSyntax(content: string): Failure | Success {
           !range.every(offset => Number.isSafeInteger(offset) && offset >= 0 && offset <= body.length) || range[1] < range[0]) {
         return { ok: false, kind: 'backend', offset: prefix };
       }
-      if (depth > 256 || nodes.length >= 50000) return { ok: false, kind: 'resource', offset: prefix + range[0] };
+      if (depth > limits.maxDepth || nodes.length >= limits.maxNodes) return { ok: false, kind: 'resource', offset: prefix + range[0] };
       nodes.push(value as SyntaxNode);
       childDepth++;
     }

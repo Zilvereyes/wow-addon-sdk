@@ -3,6 +3,13 @@ import type { ConditionDescriptor, GlobalDeclaration } from '@wow-addon/global-r
 import { parseSyntax, type SyntaxNode } from './syntax.js';
 
 /**
+ * Fixed parser budgets. Corpus callers own stack/heap/deadline supervision.
+ *
+ * @beta
+ */
+export type LuaAnalysisProfile = 'bounded' | 'corpus';
+
+/**
  * Caller-owned source association and optional inherited restrictions.
  * This package never discovers files or infers TOC reachability. Conditions
  * are copied without interpreting their grammar or truth.
@@ -12,6 +19,8 @@ import { parseSyntax, type SyntaxNode } from './syntax.js';
 export interface LuaAnalysisOptions {
   readonly addonId: string;
   readonly conditions?: readonly ConditionDescriptor[];
+  readonly profile?: LuaAnalysisProfile;
+  readonly allowShebang?: boolean;
 }
 
 /**
@@ -62,8 +71,10 @@ function copyCondition(value: ConditionDescriptor): ConditionDescriptor {
  * Analyze original text without executing it. The explicit profile is Lua 5.1,
  * ASCII identifiers, uninterpreted string values and one optional leading BOM.
  * Preserve original UTF-16 offsets/endings. Bound input to 1 Mi code units,
- * nodes to 50,000 and accepted AST depth to 256; these are not a CPU/memory
- * sandbox. Corpus callers must add process deadlines and heap limits.
+ * nodes to 50,000 and accepted AST depth to 256 by default. Explicit corpus
+ * profile allows 32 Mi units, 4,000,000 nodes and depth 1,024; these are not a
+ * CPU/memory sandbox. Callers own process/stack/heap/deadline supervision.
+ * Hashbang preprocessing requires allowShebang:true; defaults stay strict.
  * Direct chunk bindings retain static unconditional/inherited-conditional
  * flags; other flow/function assignments remain unknown. Dynamic environment
  * access makes the projection incomplete and all returned bindings unknown.
@@ -75,7 +86,10 @@ function copyCondition(value: ConditionDescriptor): ConditionDescriptor {
 export function analyzeLua(content: string, sourcePath: string, options: LuaAnalysisOptions): LuaAnalysisResult {
   // Reject oversized input before constructing the line index or invoking the
   // backend. Resource failure is anchored at the original start of input.
-  const text = typeof content === 'string' && content.length <= 1024 * 1024 ? content : '';
+  const profile = record(options) ? options.profile : undefined;
+  const allowShebang = record(options) ? options.allowShebang : undefined;
+  const maximum = (profile === 'corpus' ? 32 : 1) * 1024 * 1024;
+  const text = typeof content === 'string' && content.length <= maximum ? content : '';
   const file = typeof sourcePath === 'string' ? sourcePath : '';
   // Original line starts, including CRLF as one break. No source normalization.
   const starts = [0];
@@ -97,11 +111,14 @@ export function analyzeLua(content: string, sourcePath: string, options: LuaAnal
     ] };
   }
   if (typeof content !== 'string' || !nonempty(sourcePath) || !record(options) || !nonempty(options.addonId) ||
+      ('profile' in options && profile !== 'bounded' && profile !== 'corpus') ||
+      ('allowShebang' in options && typeof allowShebang !== 'boolean') ||
       ('conditions' in options && (!denseArray(options.conditions) || !options.conditions.every(validCondition)))) {
     return failure('LUA0001', 'Invalid Lua analysis input projection.');
   }
-  if (content.length > 1024 * 1024) return failure('LUA0003', 'Lua analysis resource limit exceeded.');
-  const parsed = parseSyntax(content);
+  if (content.length > maximum) return failure('LUA0003', 'Lua analysis resource limit exceeded.');
+  const parsed = parseSyntax(content, { maxNodes: profile === 'corpus' ? 4000000 : 50000,
+    maxDepth: profile === 'corpus' ? 1024 : 256, allowShebang: allowShebang === true });
   if (!parsed.ok) return failure(parsed.kind === 'syntax' ? 'LUA0002' : parsed.kind === 'resource' ? 'LUA0003' : 'LUA0005',
     parsed.kind === 'syntax' ? 'Invalid syntax under the Lua 5.1 profile.' : parsed.kind === 'resource' ?
       'Lua analysis resource limit exceeded.' : 'Lua syntax backend projection is unavailable.', parsed.offset);

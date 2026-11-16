@@ -1,5 +1,7 @@
 # Lua analysis: approved A–E implementation
 
+This document describes the integrated v0.4.0 bounded default. The separately approved [v0.4.1 corpus-profile extension](DESIGN-LUA-CORPUS-PROFILE.md) adds one type and two opt-in options without changing those default semantics or dependency boundaries.
+
 The user explicitly approved [proposal A–E](https://github.com/Zilvereyes/wow-addon-sdk/issues/6#issuecomment-6920153516) in [decision 6920213019](https://github.com/Zilvereyes/wow-addon-sdk/issues/6#issuecomment-6920213019). The v0.3 design record is closed as delivered; this implementation and real-corpus evidence continue in #11. Do not request this approval again. Source milestone: v0.4.0 preview, following the verified five-package v0.3.5 core at `0cee5c9`.
 
 ## Boundary and public surface

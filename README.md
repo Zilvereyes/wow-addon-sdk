@@ -6,7 +6,7 @@
 
 WoW AddOn SDK provides reusable libraries for parsing AddOn `.toc` files, analyzing Lua 5.1 syntax and lexical globals, modeling AddOn metadata, and producing source-aware diagnostics. Syntax parsing, semantic models, symbol registries and external tooling adapters are deliberately separated.
 
-> **Status:** Pre-1.0 development preview (`v0.4.0`). Public APIs may change. This is not a published npm release and is not affiliated with Blizzard Entertainment.
+> **Status:** Pre-1.0 development preview (`v0.4.1`). Public APIs may change. This is not a published npm release and is not affiliated with Blizzard Entertainment.
 
 ## Packages
 
@@ -72,11 +72,13 @@ npm run check:packages
 
 GitHub Actions validates Node 22 and 24 on both Ubuntu 24.04 and Windows. The repository includes GitHub Actions verification, TypeScript project references, a custom import-boundary audit, dependency-cruiser rules, versioned declaration snapshots and API Extractor configurations. **Strict API Extractor and actual npm dry-run file-list assertions are mandatory CI gates.** Use `npm run api:extractor:local` only to intentionally regenerate reviewed reports, then run strict `npm run api:extractor`.
 
-v0.3.0 adds separate environment schema 1 and caller-owned logical/variant identity contracts. v0.3.1–0.3.3 provide explicit-policy selection, provenance and conservative evaluation. v0.3.4 composes them into a resolved view: known active names, selected declaration origins and active-only scope conflicts. Static APIs retain their behavior. Metadata remains schema 2; the original 30 beta exports are preserved (52 at core freeze, 55 with approved Lua analysis), and no built-in WoW-loader policy is inferred. See [core migration](docs/MIGRATION-v0.2-to-v0.3.md), [Lua migration](docs/MIGRATION-v0.3-to-v0.4.md), [selection](docs/DESIGN-v0.3.1.md), [provenance](docs/DESIGN-v0.3.2.md), [evaluation](docs/DESIGN-v0.3.3.md) and [resolution design](docs/DESIGN-v0.3.4.md). For optional read-only installed-AddOn checks, see [local corpus testing](docs/LOCAL-CORPUS-TESTING.md). The [pre-freeze review](docs/PRE-FREEZE-REVIEW.md), [surface inventory](docs/PUBLIC-SURFACE.md) and [detailed plan](docs/EXECUTION-v0.3.5.md) record acceptance and remaining actual Lua/XML work.
+v0.3.0 adds separate environment schema 1 and caller-owned logical/variant identity contracts. v0.3.1–0.3.3 provide explicit-policy selection, provenance and conservative evaluation. v0.3.4 composes them into a resolved view: known active names, selected declaration origins and active-only scope conflicts. Static APIs retain their behavior. Metadata remains schema 2; the original 30 beta exports are preserved (52 at core freeze, 56 with approved Lua profiles), and no built-in WoW-loader policy is inferred. See [core migration](docs/MIGRATION-v0.2-to-v0.3.md), [Lua migration](docs/MIGRATION-v0.3-to-v0.4.md), [selection](docs/DESIGN-v0.3.1.md), [provenance](docs/DESIGN-v0.3.2.md), [evaluation](docs/DESIGN-v0.3.3.md) and [resolution design](docs/DESIGN-v0.3.4.md). For optional read-only installed-AddOn checks, see [local corpus testing](docs/LOCAL-CORPUS-TESTING.md). The [pre-freeze review](docs/PRE-FREEZE-REVIEW.md), [surface inventory](docs/PUBLIC-SURFACE.md) and [detailed plan](docs/EXECUTION-v0.3.5.md) record acceptance and remaining actual Lua/XML work.
 
-The [v0.3.5 acceptance record](docs/RELEASE-READINESS-v0.3.5.md) maps the integrated five-package core freeze to implementation, review and CI gates. v0.4.0 adds three approved Lua beta exports (55 total), retaining metadata/environment/result schemas. `analyzeLua(text, sourcePath, { addonId })` returns declarations/diagnostics without exposing a backend AST or executing Lua. Direct chunk bindings differ from runtime-unknown flow/function assignments; dynamic environment access stays incomplete. This does not complete the broader three-parser project goal.
+The [v0.3.5 acceptance record](docs/RELEASE-READINESS-v0.3.5.md) maps the integrated five-package core freeze to implementation, review and CI gates. v0.4.0 adds three approved Lua beta exports (55 at that milestone), retaining metadata/environment/result schemas. `analyzeLua(text, sourcePath, { addonId })` returns declarations/diagnostics without exposing a backend AST or executing Lua. Direct chunk bindings differ from runtime-unknown flow/function assignments; dynamic environment access stays incomplete. This does not complete the broader three-parser project goal.
 
-## Non-goals (v0.4.0)
+v0.4.1 adds the explicitly approved [corpus profile](docs/DESIGN-LUA-CORPUS-PROFILE.md). `profile: 'corpus'` selects larger fixed limits, and `allowShebang: true` enables equal-width header preprocessing. Both are opt-in. The local `--lua-input-profile corpus-files` preset also labels byte-preserving transport for BOM-free invalid UTF-8; it does not infer intended Unicode or execute source. Direct SDK callers own process/stack/heap/deadline supervision. The public surface is 56 beta exports; core schemas and the pinned backend remain unchanged.
+
+## Non-goals (v0.4.1)
 
 This release does **not**:
 

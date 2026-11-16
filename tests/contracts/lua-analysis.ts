@@ -1,7 +1,13 @@
-import { analyzeLua, type LuaAnalysisOptions, type LuaAnalysisResult } from '@wow-addon/lua-analysis';
+import { analyzeLua, type LuaAnalysisOptions, type LuaAnalysisResult, type LuaAnalysisProfile } from '@wow-addon/lua-analysis';
 import { type GlobalDeclaration, type ConditionDescriptor } from '@wow-addon/global-registry';
 
 const options: LuaAnalysisOptions = { addonId: 'caller/opaque', conditions: [] };
+const profile: LuaAnalysisProfile = 'corpus';
+const expanded: LuaAnalysisOptions = { addonId: 'caller', profile, allowShebang: true };
+// @ts-expect-error only the two approved named profiles exist
+const unsupportedProfile: LuaAnalysisProfile = 'unbounded';
+// @ts-expect-error profile selection is readonly
+expanded.profile = 'bounded';
 const result: LuaAnalysisResult = analyzeLua('DB = {}', 'Fixture.lua', options);
 const version: 1 = result.schemaVersion;
 const declarations: readonly GlobalDeclaration[] = result.declarations;
@@ -18,4 +24,4 @@ result.complete = true;
 result.declarations.push(declarations[0]!);
 // @ts-expect-error no backend AST or execution API is exposed
 result.ast;
-void [version, declarations, missing];
+void [version, declarations, missing, unsupportedProfile];
