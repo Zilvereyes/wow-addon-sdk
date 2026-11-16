@@ -8,10 +8,10 @@ import { TocParseResult } from '@wow-addon/addon-metadata';
 import { WoWClient } from '@wow-addon/addon-metadata';
 import { WoWGameMode } from '@wow-addon/addon-metadata';
 
-// @public (undocumented)
+// @beta (undocumented)
 export function parseToc(content: string, tocPath: string, options?: TocParseOptions): TocParseResult;
 
-// @public (undocumented)
+// @beta (undocumented)
 export interface TocParseOptions {
     client?: WoWClient;
     // (undocumented)

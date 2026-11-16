@@ -2,11 +2,17 @@ import { WoWClient, WoWGameMode, type TocParseResult } from '@wow-addon/addon-me
 /**
  * @beta
  */
+/**
+ * @beta
+ */
 export interface TocParseOptions {
     /** Explicit environment selection; never inferred from a Hardcore/SoD TOC suffix. */
     client?: WoWClient;
     gameMode?: WoWGameMode;
 }
+/**
+ * @beta
+ */
 /**
  * @beta
  */

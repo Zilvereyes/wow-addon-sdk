@@ -2,11 +2,19 @@
 /**
  * @beta
  */
+/**
+ * Shared, editor-agnostic diagnostic contracts. All positions are 0-based UTF-16; ends are exclusive.
+ *
+ * @beta
+ */
 export interface SourcePosition {
   line: number;
   column: number;
 }
 
+/**
+ * @beta
+ */
 /**
  * @beta
  */
@@ -18,6 +26,9 @@ export interface SourceRange {
 /**
  * @beta
  */
+/**
+ * @beta
+ */
 export interface SourceReference {
   file: string;
   range: SourceRange;
@@ -26,8 +37,14 @@ export interface SourceReference {
 /**
  * @beta
  */
+/**
+ * @beta
+ */
 export type DiagnosticSeverity = 'error' | 'warning' | 'info';
 
+/**
+ * @beta
+ */
 /**
  * @beta
  */

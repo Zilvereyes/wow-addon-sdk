@@ -8,10 +8,10 @@ import type { AddOnMetadata } from '@wow-addon/addon-metadata';
 import type { GlobalDeclaration } from '@wow-addon/global-registry';
 import type { GlobalRegistry } from '@wow-addon/global-registry';
 
-// @public
+// @beta
 export function buildTocGlobalRegistry(addons: readonly AddOnMetadata[]): GlobalRegistry;
 
-// @public
+// @beta
 export function toGlobalDeclarations(addons: readonly AddOnMetadata[]): GlobalDeclaration[];
 
 // (No @packageDocumentation comment for this package)

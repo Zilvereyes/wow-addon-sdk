@@ -68,7 +68,7 @@ export interface InlineCondition {
     values: string[];
 }
 
-// @beta (undocumented)
+// @beta
 export const METADATA_SCHEMA_VERSION: 2;
 
 // @beta (undocumented)
@@ -149,7 +149,7 @@ export enum WoWClient {
 // @beta (undocumented)
 export type WoWClientFamily = 'unknown' | 'classic' | 'mainline';
 
-// @beta (undocumented)
+// @beta
 export enum WoWGameMode {
     // (undocumented)
     Hardcore = "hardcore",

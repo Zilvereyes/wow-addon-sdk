@@ -21,7 +21,7 @@ export interface Diagnostic {
 // @beta (undocumented)
 export type DiagnosticSeverity = 'error' | 'warning' | 'info';
 
-// @beta (undocumented)
+// @beta
 export interface SourcePosition {
     // (undocumented)
     column: number;
