@@ -56,4 +56,4 @@ for (const declaration of reg.entries[0].declarations) { /* ... */ }
 
 ## API and CI
 
-The baseline compiler signatures live in `api/baselines`. Changes require explicit review and updated snapshots. The API Extractor configs are included but need their first reports approved via `npm run api:extractor:local` after an online npm install.
+The baseline compiler signatures live in `api/baselines` and reviewed reports live in `packages/*/etc/*.api.md`. Changes require intentional review of both. `npm run api:extractor` is a strict CI gate; use `npm run api:extractor:local` only to regenerate and review reports. Install reproducibly from the committed lockfile via `npm ci --ignore-scripts --no-audit --no-fund`.

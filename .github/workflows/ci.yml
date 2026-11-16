@@ -2,6 +2,8 @@ name: SDK contract and architecture checks
 on:
   push:
   pull_request:
+permissions:
+  contents: read
 jobs:
   verify:
     strategy:
@@ -10,16 +12,40 @@ jobs:
         include:
           - os: ubuntu-24.04
             node: '22'
+            shell: bash
+          - os: ubuntu-24.04
+            node: '24'
+            shell: bash
           - os: windows-latest
-            node: '20'
+            node: '22'
+            shell: pwsh
+          - os: windows-latest
+            node: '24'
+            shell: pwsh
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
-          package-manager-cache: false
-      # Bootstrap uses npm install because original offline artifact has no lockfile.
-      # After the initial online install, commit package-lock.json and switch to npm ci.
-      - run: npm install --ignore-scripts --no-audit --no-fund
-      - run: npm run check:all
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Pin npm version
+        run: npm install --global npm@10.9.2
+
+      - name: Document toolchain
+        run: |
+          node --version
+          npm --version
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build, tests, architecture and public exports
+        run: npm run check:all
+      - name: API Extractor (public API contract gate)
+        run: npm run api:extractor
+      - name: Verify package contents
+        run: npm pack --dry-run --workspaces --ignore-scripts

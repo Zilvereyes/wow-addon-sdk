@@ -10,16 +10,17 @@
     "build": "tsc -b",
     "clean": "tsc -b --clean",
     "typecheck": "tsc -b --pretty false",
-    "test": "npm run build && node --test",
+    "test": "npm run build && node scripts/run-tests.mjs",
     "check:architecture": "node scripts/check-architecture.mjs",
     "check:api": "node scripts/check-api-snapshots.mjs",
     "check:deps": "depcruise --config .dependency-cruiser.cjs packages",
-    "check:all": "npm run typecheck && node --test && npm run check:architecture && npm run check:deps && npm run check:api",
+    "check:all": "npm run build && node scripts/run-tests.mjs && npm run check:architecture && npm run check:deps && npm run check:api && npm run check:exports",
     "api:extractor": "node scripts/run-api-extractor.mjs",
-    "api:extractor:local": "node scripts/run-api-extractor.mjs --local"
+    "api:extractor:local": "node scripts/run-api-extractor.mjs --local",
+    "check:exports": "node scripts/check-public-exports.mjs"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "devDependencies": {
     "typescript": "^5.8.3",

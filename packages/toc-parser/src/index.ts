@@ -6,6 +6,9 @@ import {
 } from '@wow-addon/addon-metadata';
 import type { Diagnostic, SourceReference } from '@wow-addon/diagnostics';
 
+/**
+ * @beta
+ */
 export interface TocParseOptions {
   /** Explicit environment selection; never inferred from a Hardcore/SoD TOC suffix. */
   client?: WoWClient;
@@ -89,6 +92,9 @@ function appendUnique(target: string[], value: string): void {
   if (!target.includes(value)) target.push(value);
 }
 
+/**
+ * @beta
+ */
 export function parseToc(content: string, tocPath: string, options: TocParseOptions = {}): TocParseResult {
   const target = targetFromPath(tocPath, options);
   const metadata: AddOnMetadata = {
