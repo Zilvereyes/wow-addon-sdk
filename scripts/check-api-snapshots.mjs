@@ -4,7 +4,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import url from 'node:url';
 const root = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
-const packages = ['diagnostics','addon-metadata','toc-parser','global-registry','toc-metadata-adapter','lua-analysis'];
+const packages = ['diagnostics','addon-metadata','toc-parser','global-registry','toc-metadata-adapter','lua-analysis','xml-parser'];
 const errors=[];
 for (const name of packages) {
   const built=path.join(root,'packages',name,'dist','index.d.ts');

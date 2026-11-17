@@ -3,7 +3,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { createLuaWorker } from './lua-worker-client.mjs';
+import { createXmlWorker } from './xml-worker-client.mjs';
 import { parseToc } from '@wow-addon/toc-parser';
 import { selectTocVariant, toGlobalDeclarations, evaluateGlobalConditions, resolveGlobalRegistry } from '@wow-addon/toc-metadata-adapter';
 
@@ -12,6 +14,7 @@ const rootArgument = args.shift();
 const limits = { '--max-entries': 100000, '--max-file-bytes': 8 * 1024 * 1024 };
 let requireAll = false;
 let luaEnabled = false;
+let xmlEnabled = false;
 let luaInputProfile = null;
 let selectionProfilePath = null;
 let conditionProfilePath = null;
@@ -23,6 +26,11 @@ while (args.length && valid) {
   if (flag === '--lua-analysis') {
     if (luaEnabled) { valid = false; break; }
     luaEnabled = true;
+    continue;
+  }
+  if (flag === '--xml-analysis') {
+    if (xmlEnabled) { valid = false; break; }
+    xmlEnabled = true;
     continue;
   }
   if (flag === '--lua-input-profile') {
@@ -55,14 +63,15 @@ while (args.length && valid) {
   limits[flag] = Number(value);
 }
 if (!valid || (luaInputProfile !== null && !luaEnabled)) {
-  console.error('Usage: node scripts/inspect-addon-corpus.mjs <AddOns-directory> [--max-entries N] [--max-file-bytes N] [--lua-analysis] [--lua-input-profile corpus-files] [--require-all-parsers] [--selection-profile <JSON-file>] [--condition-profile <JSON-file>] [--resolution-profile <JSON-file>]');
+  console.error('Usage: node scripts/inspect-addon-corpus.mjs <AddOns-directory> [--max-entries N] [--max-file-bytes N] [--lua-analysis] [--lua-input-profile corpus-files] [--xml-analysis] [--require-all-parsers] [--selection-profile <JSON-file>] [--condition-profile <JSON-file>] [--resolution-profile <JSON-file>]');
   process.exit(2);
 }
 
 const root = path.resolve(rootArgument);
 const report = {
   schemaVersion: 1, status: 'passed', fullParsing: false,
-  unimplementedParsers: ['xml'], disabledParsers: luaEnabled ? [] : ['lua'],
+  unimplementedParsers: [], disabledParsers: [...(luaEnabled ? [] : ['lua']), ...(xmlEnabled ? [] : ['xml'])],
+  missingFullParsingCapabilities: ['xml-provider', 'loader-reference-graph'],
   files: { toc: 0, lua: 0, xml: 0 }, parsed: { toc: 0, lua: 0, xml: 0 },
   entriesVisited: 0, skippedLinks: 0, skippedOversizedTocs: 0, skippedOversizedLua: 0,
   checkedSourceReferences: 0, savedVariableDeclarations: 0,
@@ -72,6 +81,15 @@ const report = {
 };
 const failures = new Set();
 const luaFiles = [];
+const xmlFiles = [];
+if (xmlEnabled) report.xmlAnalysis = {
+  complete: true, discoveryComplete: false, namespaceAware: true, discovered: 0, attempted: 0, submitted: 0, completed: 0,
+  accepted: 0, rejected: 0, profileRejected: 0, resourceRejected: 0,
+  encodingRejected: 0, inputLimitRejected: 0, readFailures: 0, workerFailures: 0, backendFailures: 0,
+  invariantFailures: 0, checkedSourceReferences: 0, checkedDecodedMappings: 0, inputBytes: 0,
+  sourceIntegrity: { checked: 0, matching: 0, changed: 0, verificationFailures: 0 },
+  diagnosticsByCode: {}, resolvedProviderParticipation: false,
+};
 if (luaEnabled) report.luaAnalysis = {
   complete: true, attempted: 0, submitted: 0, completed: 0,
   syntaxAccepted: 0, syntaxRejected: 0, incompleteFiles: 0,
@@ -84,6 +102,8 @@ if (luaEnabled) report.luaAnalysis = {
 };
 let incomplete = false;
 const fail = (reason, partial = false) => { failures.add(reason); incomplete ||= partial; };
+let discoveryComplete = false;
+const failDiscovery = (reason, partial = true) => { discoveryComplete = false; fail(reason, partial); };
 const selectionGroups = new Map();
 let selectionProfile = null;
 let selectionReady = true;
@@ -236,9 +256,9 @@ function checkParse(content, filename) {
 }
 
 function walk(folder, depth = 0) {
-  if (depth > 64) { fail('depth-limit', true); return; }
+  if (depth > 64) { failDiscovery('depth-limit'); return; }
   const remaining = limits['--max-entries'] - report.entriesVisited;
-  if (remaining <= 0) { fail('entry-limit', true); return; }
+  if (remaining <= 0) { failDiscovery('entry-limit'); return; }
   const entries = [];
   try {
     const directory = fs.opendirSync(folder, { bufferSize: 1 });
@@ -246,20 +266,24 @@ function walk(folder, depth = 0) {
       let entry;
       while ((entry = directory.readSync()) !== null) {
         // Detect overflow with one extra read; do not process an unordered subset.
-        if (entries.length >= remaining) { fail('entry-limit', true); return; }
+        if (entries.length >= remaining) { failDiscovery('entry-limit'); return; }
         entries.push(entry);
       }
     } finally { directory.closeSync(); }
-  } catch { fail('directory-read', true); return; }
+  } catch { failDiscovery('directory-read'); return; }
   entries.sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
   for (const entry of entries) {
-    if (report.entriesVisited >= limits['--max-entries']) { fail('entry-limit', true); return; }
+    if (report.entriesVisited >= limits['--max-entries']) { failDiscovery('entry-limit'); return; }
     report.entriesVisited++;
     const filename = path.join(folder, entry.name);
+    let stat;
+    // Classify with lstat so junctions are never intentionally followed.
+    // Failure to classify an entry leaves the eligible XML inventory unknown.
+    // TOC processing errors below are independent of directory discovery.
+    try { stat = fs.lstatSync(filename); }
+    catch { failDiscovery('read-or-invariant-failure'); continue; }
     try {
-      // Recheck with lstat so directory junctions are never intentionally followed.
-      const stat = fs.lstatSync(filename);
-      if (stat.isSymbolicLink()) { report.skippedLinks++; fail('skipped-links', true); continue; }
+      if (stat.isSymbolicLink()) { report.skippedLinks++; failDiscovery('skipped-links'); continue; }
       if (stat.isDirectory()) { walk(filename, depth + 1); continue; }
       if (!stat.isFile()) continue;
       const extension = path.extname(entry.name).slice(1).toLowerCase();
@@ -267,6 +291,11 @@ function walk(folder, depth = 0) {
       report.files[extension]++;
       if (extension === 'lua' && luaEnabled) {
         luaFiles.push({ filename, relative: path.relative(root, filename) });
+        continue;
+      }
+      if (extension === 'xml' && xmlEnabled) {
+        xmlFiles.push({ filename, relative: path.relative(root, filename) });
+        report.xmlAnalysis.discovered++;
         continue;
       }
       if (extension !== 'toc') continue;
@@ -300,10 +329,14 @@ function walk(folder, depth = 0) {
 try {
   if (selectionReady && conditionReady && resolutionReady) {
     const rootStat = fs.lstatSync(root);
-    if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) fail('invalid-root');
-    else walk(root);
+    if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) failDiscovery('invalid-root', false);
+    else { discoveryComplete = true; walk(root); }
   }
-} catch { fail('unreadable-root'); }
+} catch { failDiscovery('unreadable-root', false); }
+if (xmlEnabled) {
+  report.xmlAnalysis.discoveryComplete = discoveryComplete;
+  report.xmlAnalysis.complete = discoveryComplete;
+}
 if (luaEnabled) {
   const counts = report.luaAnalysis;
   const expanded = luaInputProfile === 'corpus-files';
@@ -426,6 +459,200 @@ if (luaEnabled) {
   } finally { await worker.close(); }
   counts.diagnosticsByCode = Object.fromEntries(Object.entries(counts.diagnosticsByCode).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
 }
+// XML transport is deliberately fixed: strict UTF-8 (retaining BOM), a bounded
+// read, and namespace validation. XML never chooses paths, backend options or
+// referenced files for this tooling adapter.
+if (xmlEnabled) {
+  const counts = report.xmlAnalysis;
+  const maximumUnits = 1024 * 1024;
+  const maximumBytes = Math.min(limits['--max-file-bytes'], 4 * maximumUnits);
+  const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
+  const worker = createXmlWorker();
+  function readXml(filename) {
+    const stat = fs.lstatSync(filename);
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('xml-read-failure');
+    if (stat.size > maximumBytes) throw new Error('xml-input-limit');
+    const fd = fs.openSync(filename, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0));
+    try {
+      const opened = fs.fstatSync(fd);
+      if (!opened.isFile() || opened.dev !== stat.dev || opened.ino !== stat.ino || opened.size !== stat.size ||
+          opened.mtimeMs !== stat.mtimeMs) throw new Error('xml-read-failure');
+      const bytes = Buffer.alloc(stat.size + 1);
+      let total = 0;
+      while (total < bytes.length) {
+        const size = fs.readSync(fd, bytes, total, bytes.length - total, total);
+        if (size === 0) break;
+        total += size;
+      }
+      const after = fs.fstatSync(fd);
+      if (total !== stat.size || after.size !== stat.size || after.mtimeMs !== stat.mtimeMs ||
+          after.ctimeMs !== stat.ctimeMs) throw new Error('xml-read-failure');
+      const content = bytes.subarray(0, total);
+      return { bytes: content, digest: createHash('sha256').update(content).digest('hex') };
+    } finally { fs.closeSync(fd); }
+  }
+  function verifyXml(result, content, filename) {
+    assert.deepEqual(JSON.parse(JSON.stringify(result)), result);
+    assert.equal(result.schemaVersion, 1);
+    assert.equal(typeof result.complete, 'boolean');
+    assert.equal(result.complete, result.diagnostics.length === 0);
+    assert.ok(Array.isArray(result.elements) && Array.isArray(result.text));
+    const starts = [0], lengths = [];
+    const breaks = /\r\n|\r|\n/gu;
+    for (const match of content.matchAll(breaks)) {
+      lengths.push(match.index - starts.at(-1)); starts.push(match.index + match[0].length);
+    }
+    lengths.push(content.length - starts.at(-1));
+    function offsets(source) {
+      assert.equal(source.file, filename);
+      const positions = [source.range.start, source.range.end];
+      const offsets = positions.map(position => {
+        assert.ok(Number.isSafeInteger(position.line) && position.line >= 0 && position.line < starts.length);
+        assert.ok(Number.isSafeInteger(position.column) && position.column >= 0 && position.column <= lengths[position.line]);
+        return starts[position.line] + position.column;
+      });
+      assert.ok(offsets[1] >= offsets[0]);
+      return offsets;
+    }
+    const slice = source => { const [start, end] = offsets(source); return content.slice(start, end); };
+    function visit(value) {
+      if (!value || typeof value !== 'object') return;
+      if (Object.hasOwn(value, 'file') && Object.hasOwn(value, 'range')) {
+        offsets(value); counts.checkedSourceReferences++; return;
+      }
+      for (const child of Object.values(value)) visit(child);
+    }
+    visit(result);
+    if (!result.complete) {
+      assert.equal(result.elements.length, 0); assert.equal(result.text.length, 0);
+      return;
+    }
+    assert.ok(result.elements.length > 0);
+    let records = result.elements.length + result.text.length, decodedUnits = 0;
+    function mapped(value, attribute, cdata = false) {
+      assert.equal(typeof value.value, 'string');
+      assert.ok(Array.isArray(value.mappings));
+      decodedUnits += value.value.length;
+      records += value.mappings.length;
+      const [begin, end] = offsets(value.source);
+      let decoded = 0, raw = begin;
+      for (const mapping of value.mappings) {
+        assert.equal(mapping.decodedStart, decoded);
+        assert.ok(Number.isSafeInteger(mapping.decodedEnd) && mapping.decodedEnd > decoded && mapping.decodedEnd <= value.value.length);
+        const [start, stop] = offsets(mapping.source);
+        assert.equal(start, raw); assert.ok(stop > start && stop <= end);
+        const original = content.slice(start, stop), projected = value.value.slice(decoded, mapping.decodedEnd);
+        if (mapping.kind === 'literal') assert.equal(projected, original);
+        else if (mapping.kind === 'normalized') {
+          assert.ok((attribute ? /^(?:\r\n|\r|\n|\t)$/u : /^(?:\r\n|\r)$/u).test(original));
+          assert.equal(projected, attribute ? ' ' : '\n');
+        } else {
+          assert.equal(mapping.kind, 'entity'); assert.equal(cdata, false);
+          const predefined = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&apos;': "'", '&quot;': '"' };
+          if (Object.hasOwn(predefined, original)) assert.equal(projected, predefined[original]);
+          else {
+            const match = /^&#(?:(x)([0-9a-fA-F]+)|([0-9]+));$/u.exec(original);
+            assert.ok(match);
+            assert.equal(projected, String.fromCodePoint(Number.parseInt(match[2] ?? match[3], match[1] ? 16 : 10)));
+          }
+        }
+        counts.checkedDecodedMappings++; decoded = mapping.decodedEnd; raw = stop;
+      }
+      assert.equal(decoded, value.value.length); assert.equal(raw, end);
+    }
+    const depths = [];
+    for (const [index, element] of result.elements.entries()) {
+      assert.equal(slice(element.nameSource), element.name.qualifiedName);
+      const [start, end] = offsets(element.source), [openStart, openEnd] = offsets(element.openSource);
+      assert.equal(start, openStart); assert.ok(openEnd <= end);
+      assert.ok(slice(element.openSource).startsWith('<') && slice(element.openSource).endsWith('>'));
+      if (element.closeSource === null) { assert.equal(end, openEnd); assert.ok(slice(element.openSource).endsWith('/>')); }
+      else {
+        const [closeStart, closeEnd] = offsets(element.closeSource);
+        assert.ok(closeStart >= openEnd); assert.equal(closeEnd, end);
+        assert.ok(slice(element.closeSource).startsWith('</'));
+      }
+      if (element.parentIndex === null) { assert.equal(index, 0); depths[index] = 1; }
+      else {
+        assert.ok(Number.isSafeInteger(element.parentIndex) && element.parentIndex >= 0 && element.parentIndex < index);
+        const [parentStart, parentEnd] = offsets(result.elements[element.parentIndex].source);
+        assert.ok(start >= parentStart && end <= parentEnd); depths[index] = depths[element.parentIndex] + 1;
+      }
+      assert.ok(depths[index] <= 256);
+      records += element.attributes.length;
+      for (const attribute of element.attributes) {
+        assert.equal(slice(attribute.nameSource), attribute.name.qualifiedName);
+        const [attributeStart, attributeEnd] = offsets(attribute.source), [valueStart, valueEnd] = offsets(attribute.value.source);
+        assert.ok(attributeStart >= openStart && attributeEnd <= openEnd && valueStart > attributeStart && valueEnd < attributeEnd);
+        const quote = content[valueStart - 1]; assert.ok(quote === '"' || quote === "'"); assert.equal(content[valueEnd], quote);
+        mapped(attribute.value, true);
+      }
+    }
+    for (const text of result.text) {
+      assert.ok(Number.isSafeInteger(text.parentIndex) && text.parentIndex >= 0 && text.parentIndex < result.elements.length);
+      assert.ok(text.kind === 'text' || text.kind === 'cdata');
+      const parent = result.elements[text.parentIndex], [start, end] = offsets(text.value.source);
+      assert.ok(start >= offsets(parent.openSource)[1] && parent.closeSource !== null && end <= offsets(parent.closeSource)[0]);
+      if (text.kind === 'cdata') {
+        assert.equal(content.slice(start - 9, start), '<![CDATA['); assert.equal(content.slice(end, end + 3), ']]>');
+      }
+      mapped(text.value, false, text.kind === 'cdata');
+    }
+    assert.ok(records <= 50000 && decodedUnits <= 2 * 1024 * 1024);
+  }
+  try {
+    for (const { filename, relative } of xmlFiles) {
+      counts.attempted++;
+      let input;
+      try { input = readXml(filename); counts.inputBytes += input.bytes.length; }
+      catch (error) {
+        counts.complete = false;
+        if (error.message === 'xml-input-limit') { counts.inputLimitRejected++; counts.resourceRejected++; fail('xml-input-limit', true); }
+        else { counts.readFailures++; fail('xml-read-failure', true); }
+        continue;
+      }
+      try {
+        let content;
+        try { content = decoder.decode(input.bytes); }
+        catch { counts.encodingRejected++; counts.complete = false; fail('xml-invalid-utf8', true); continue; }
+        if (content.length > maximumUnits) {
+          counts.inputLimitRejected++; counts.resourceRejected++; counts.complete = false; fail('xml-input-limit', true); continue;
+        }
+        let result;
+        try { counts.submitted++; result = await worker.analyze({ content, sourcePath: relative }); counts.completed++; }
+        catch { counts.workerFailures++; counts.complete = false; fail('xml-worker-failure', true); continue; }
+        try {
+          verifyXml(result, content, relative);
+          const codes = new Set();
+          for (const diagnostic of result.diagnostics) {
+            assert.ok(['XML0001', 'XML0002', 'XML0003', 'XML0004', 'XML0005'].includes(diagnostic.code));
+            assert.equal(diagnostic.severity, 'error');
+            codes.add(diagnostic.code);
+            counts.diagnosticsByCode[diagnostic.code] = (counts.diagnosticsByCode[diagnostic.code] ?? 0) + 1;
+          }
+          if (codes.has('XML0001') || codes.has('XML0005')) { counts.backendFailures++; fail('xml-backend-failure', true); }
+          else if (codes.has('XML0003')) { counts.resourceRejected++; fail('xml-resource-limit', true); }
+          else {
+            report.parsed.xml++;
+            if (codes.has('XML0004')) { counts.profileRejected++; counts.rejected++; fail('xml-profile-rejected'); }
+            else if (codes.has('XML0002')) { counts.rejected++; fail('xml-syntax-errors'); }
+            else counts.accepted++;
+          }
+          if (!result.complete) counts.complete = false;
+        } catch { counts.invariantFailures++; counts.complete = false; fail('xml-invariant-failure', true); }
+      } finally {
+        // Re-read with the same fixed bounds; only aggregate equality escapes.
+        // This detects source changes without writing or publishing source hashes.
+        try {
+          const after = readXml(filename); counts.sourceIntegrity.checked++;
+          if (input.digest === after.digest) counts.sourceIntegrity.matching++;
+          else { counts.sourceIntegrity.changed++; counts.complete = false; fail('xml-source-changed', true); }
+        } catch { counts.sourceIntegrity.verificationFailures++; counts.readFailures++; counts.complete = false; fail('xml-integrity-read-failure', true); }
+      }
+    }
+  } finally { await worker.close(); }
+  counts.diagnosticsByCode = Object.fromEntries(Object.entries(counts.diagnosticsByCode).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
+}
 if (selectionProfile !== null && selectionReady) {
   for (const [base, candidates] of selectionGroups) {
     try {
@@ -491,7 +718,11 @@ if (resolutionProfile !== null && resolutionReady) {
 }
 if (report.parsed.toc === 0) fail('no-parsed-tocs');
 if (report.diagnosticsBySeverity.error > 0) fail('toc-parse-errors');
-if (requireAll) fail('unimplemented-parsers');
+if (requireAll) {
+  if (report.disabledParsers.length > 0) fail('disabled-parsers');
+  // Syntax coverage alone does not implement XML providers or loader traversal.
+  fail('missing-full-parsing-capabilities');
+}
 if (report.conditionEvaluation) report.conditionEvaluation.issuesByCode = Object.fromEntries(
   Object.entries(report.conditionEvaluation.issuesByCode).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
 report.failures = [...failures].sort();

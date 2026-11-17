@@ -4,9 +4,9 @@
 
 **A modular, editor-agnostic TypeScript SDK for World of Warcraft AddOn development.**
 
-WoW AddOn SDK provides reusable libraries for parsing AddOn `.toc` files, analyzing Lua 5.1 syntax and lexical globals, modeling AddOn metadata, and producing source-aware diagnostics. Syntax parsing, semantic models, symbol registries and external tooling adapters are deliberately separated.
+WoW AddOn SDK provides reusable libraries for parsing AddOn `.toc` and XML documents, analyzing Lua 5.1 syntax and lexical globals, modeling AddOn metadata, and producing source-aware diagnostics. Syntax parsing, semantic models, symbol registries and external tooling adapters are deliberately separated.
 
-> **Status:** Pre-1.0 development preview (`v0.4.1`). Public APIs may change. This is not a published npm release and is not affiliated with Blizzard Entertainment.
+> **Status:** Pre-1.0 development preview (`v0.5.0` source milestone). Public APIs may change. This is not a published npm release and is not affiliated with Blizzard Entertainment. Source versions do not establish release readiness or local corpus acceptance.
 
 ## Packages
 
@@ -18,10 +18,11 @@ WoW AddOn SDK provides reusable libraries for parsing AddOn `.toc` files, analyz
 | `@wow-addon/global-registry` | Provider-neutral global declarations, consolidation and scope conflicts |
 | `@wow-addon/toc-metadata-adapter` | The official AddOn metadata → global declaration translation |
 | `@wow-addon/lua-analysis` | Optional Lua 5.1 syntax and conservative lexical-global analysis, with a pinned MIT backend |
+| `@wow-addon/xml-parser` | Optional XML 1.0 syntax, namespace-aware names and decoded-value provenance, with pinned backends |
 
 The core contains **no dependencies on VS Code, LuaLS or Continue**. Dependency boundaries are enforced in source and CI.
 
-The five original core packages retain their dependency rules. The separately approved Lua extension depends on registry/diagnostics and exactly `luaparse@0.3.1`; providers need no TOC-adapter import. See [the Lua profile and limits](docs/DESIGN-LUA-ANALYSIS.md).
+The five original core packages retain their dependency rules. The separately approved Lua extension depends on registry/diagnostics and exactly `luaparse@0.3.1`; providers need no TOC-adapter import. The approved XML extension depends on diagnostics and exactly `saxes@6.0.0` / `xmlchars@2.2.0`. See [the Lua profile and limits](docs/DESIGN-LUA-ANALYSIS.md) and [XML migration and limits](docs/MIGRATION-v0.4-to-v0.5.md).
 
 ## Quick start
 
@@ -76,13 +77,16 @@ v0.3.0 adds separate environment schema 1 and caller-owned logical/variant ident
 
 The [v0.3.5 acceptance record](docs/RELEASE-READINESS-v0.3.5.md) maps the integrated five-package core freeze to implementation, review and CI gates. v0.4.0 adds three approved Lua beta exports (55 at that milestone), retaining metadata/environment/result schemas. `analyzeLua(text, sourcePath, { addonId })` returns declarations/diagnostics without exposing a backend AST or executing Lua. Direct chunk bindings differ from runtime-unknown flow/function assignments; dynamic environment access stays incomplete. This does not complete the broader three-parser project goal.
 
-v0.4.1 adds the explicitly approved [corpus profile](docs/DESIGN-LUA-CORPUS-PROFILE.md). `profile: 'corpus'` selects larger fixed limits, and `allowShebang: true` enables equal-width header preprocessing. Both are opt-in. The local `--lua-input-profile corpus-files` preset also labels byte-preserving transport for BOM-free invalid UTF-8; it does not infer intended Unicode or execute source. Direct SDK callers own process/stack/heap/deadline supervision. The public surface is 56 beta exports; core schemas and the pinned backend remain unchanged.
+v0.4.1 adds the explicitly approved [corpus profile](docs/DESIGN-LUA-CORPUS-PROFILE.md). `profile: 'corpus'` selects larger fixed limits, and `allowShebang: true` enables equal-width header preprocessing. Both are opt-in. The local `--lua-input-profile corpus-files` preset also labels byte-preserving transport for BOM-free invalid UTF-8; it does not infer intended Unicode or execute source. Direct SDK callers own process/stack/heap/deadline supervision. That milestone had 56 beta exports; core schemas and the pinned Lua backend remain unchanged.
 
-## Non-goals (v0.4.1)
+v0.5.0 implements the explicitly approved XML A–F syntax increment. `parseXml(text, sourcePath)` returns schema 1 with flat preorder elements, original-order text, namespace-aware names and decoded-value mappings to original UTF-16 ranges. DTDs and XML 1.1 are rejected; failures return empty projections and fixed diagnostics. Namespace constraints are enabled by default; the SDK alone permits explicit `{ namespaceAware: false }`. No source is executed or referenced file fetched. The seven-package surface has 65 beta exports (14 runtime and 51 type-only). The local `--xml-analysis` opt-in uses strict UTF-8 with BOM retention, bounded reads and a supervised worker; aggregate syntax verdicts remain separate from blocked work. See [XML migration](docs/MIGRATION-v0.4-to-v0.5.md) for limits and remaining acceptance boundaries.
+
+## Non-goals (v0.5.0)
 
 This release does **not**:
 
-- Parse XML or Blizzard FrameXML, or prove the Classic Era runtime dialect from a Lua 5.1 grammar profile.
+- Interpret Blizzard FrameXML semantics or prove the Classic Era runtime dialect from an XML/Lua grammar profile.
+- Derive XML global declarations or resolve the actual loader reference graph. Three syntax parsers alone do not establish full AddOn parsing or active-source reachability.
 - Resolve `$parent` frame names or infer saved-variable types.
 - Infer an automatic WoW-loader TOC/condition policy. Selection, condition evaluation and resolved views use explicit caller policies and source associations.
 - Depend on VS Code, Lua Language Server or AI tooling.
@@ -100,7 +104,8 @@ Those capabilities belong to separately versioned future adapters and analysis p
 | `0.3.1–0.3.4` | Active TOC selection, condition provenance, tri-state evaluation and resolved global views |
 | `0.3.5` | **Architectural Freeze**: API snapshots, environment regression coverage, migration docs, licensing and packaging gates |
 | `0.4.x` | Approved Lua syntax/provider analysis and actual local corpus tests |
-| Later analysis/adapters | XML parser/provider, reference graph and LuaLS integration |
+| `0.5.0` | Approved XML syntax and original-source decoded mappings; opt-in read-only corpus transport |
+| Later analysis/adapters | XML provider, reference graph and LuaLS integration |
 | `1.0.0` | **Consumer API Stability**, SemVer guarantees |
 
 An architectural freeze in `0.3.5` **is not** a promise of stable public APIs. See [API Policy](docs/API-POLICY.md) and [v0.3.5 roadmap](docs/ROADMAP-v0.3.5.md).

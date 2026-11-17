@@ -6,6 +6,7 @@ const permitted = {
   'global-registry': ['global-registry', 'diagnostics'],
   'toc-metadata-adapter': ['toc-metadata-adapter', 'diagnostics','addon-metadata','global-registry'],
   'lua-analysis': ['lua-analysis', 'diagnostics', 'global-registry'],
+  'xml-parser': ['xml-parser', 'diagnostics'],
 };
 module.exports = {
   forbidden: [

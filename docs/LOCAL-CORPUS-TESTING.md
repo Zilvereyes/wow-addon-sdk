@@ -1,12 +1,13 @@
 # Local AddOn corpus testing
 
-The runner reads an explicitly supplied local directory. It discovers every TOC variant, including library/test manifests; it does not infer which are loaded by the client. Default mode inventories Lua/XML. The explicit `--lua-analysis` flag invokes the actual Lua SDK parser/provider in a bounded worker; XML remains unimplemented. No input code is executed, written back, copied or uploaded from that directory.
+The runner reads an explicitly supplied local directory. It discovers every TOC variant, including library/test manifests; it does not infer which are loaded by the client. Default mode inventories Lua/XML. The explicit `--lua-analysis` flag invokes the actual Lua SDK parser/provider in a bounded worker; the separate `--xml-analysis` flag invokes the XML syntax/provenance parser. No input code is executed, written back, copied or uploaded from that directory.
 
 ```powershell
 npm ci --ignore-scripts --no-audit --no-fund
 npm run test:corpus -- '<local-Classic-Era-AddOns-directory>'
 npm run test:corpus -- '<local-Classic-Era-AddOns-directory>' --lua-analysis
-# Full-parser acceptance must still fail while XML is unimplemented:
+npm run test:corpus -- '<local-Classic-Era-AddOns-directory>' --xml-analysis
+# Full acceptance remains failed until providers/reference traversal and diagnostics are accepted:
 npm run test:corpus -- '<local-Classic-Era-AddOns-directory>' --require-all-parsers
 ```
 
@@ -20,13 +21,13 @@ npm run test:corpus -- '<local-Classic-Era-AddOns-directory>' --require-all-pars
 4. Assert metadata schema 2, exact TOC identity, JSON roundtrip and bounds/order of all source references, including conditions and related diagnostics.
    The v0.3.2 adapter check also verifies derived declaration JSON, absence of empty provenance, exact descriptor fields and independent copies of condition values/ranges; it leaves the parser-reference visit counter unchanged.
 5. Emit aggregate JSON only: no absolute/relative paths, AddOn names, source text, variable names or diagnostic messages.
-6. Distinguish a passing TOC smoke test from full parsing. `parsed.lua` and `parsed.xml` remain zero and `fullParsing` remains false.
+6. Distinguish a passing TOC smoke test from full parsing. `parsed.lua` and `parsed.xml` remain zero unless their respective opt-ins are supplied; `fullParsing` remains false.
 
 Limits default to 100,000 visited entries, 8 MiB per TOC and depth 64. Override the first two with positive safe integers using `--max-entries N` and `--max-file-bytes N`. A limit, read failure or invariant failure produces incomplete coverage and nonzero exit; it cannot silently pass. Run against a stable installation without simultaneous file changes. Enumeration is bounded, but this is not a hostile-filesystem sandbox or a game loader emulator.
 
 | Exit | Meaning |
 | --- | --- |
-| 0 | All discovered TOCs processed; no parser errors or incomplete coverage. Warnings may remain. Lua/XML still unimplemented. |
+| 0 | All discovered TOCs processed; no parser errors or incomplete coverage. Warnings may remain. Optional Lua/XML analysis runs only when explicitly enabled. |
 | 1 | Parser errors, invariant/read failures, incomplete coverage, zero parsed TOCs, invalid root, or requested parsers unavailable |
 | 2 | Invalid command-line arguments |
 
@@ -172,3 +173,11 @@ A subsequent corpus-only lifecycle fix makes replacement await failed-child clos
 Post-fix reanalysis on `4fab3ab` considered the 136 previously blocked files plus the old shebang rejection: **137 attempts, 136 syntax accepts, one syntax reject, zero resource/backend/worker failures**. The old shebang rejection now accepts. The remaining reject comes from one of the four byte-transferred inputs: a vararg expression in a non-variadic function. This is invalid under the approved Lua 5.1 profile, consistent with [the reference parser's current-function vararg check](https://www.lua.org/source/5.1/lparser.c.html#simpleexp) and [manual §2.5.9](https://www.lua.org/manual/5.1/manual.html#2.5.9). It is not a remaining codec failure or an SDK false rejection; installed client loading/reachability was not tested. Independently authored positive/negative vararg cases and a byte-transport CLI rejection case exercise the distinction and preserve zero declaration leakage.
 
 The private ledger verifies **125 prior hashes**. Twelve previously unread files had no historical hashes: seven generic-byte skips and five derived input pre-read skips. Their hashes establish new current baselines only. A separate post-run read verifies all **137 current hashes**, with unchanged installed bytes. No source text or identifying ledger is committed. The first audit attempts exposed missing Worker permission and incomplete assumptions about absent historical hashes; they are failed tooling attempts, not parser verdicts or extra corpus coverage. Corrected exact-byte/native-syntax-gated audit exit is **0**; the full-corpus exit remains **1** for the explicitly recorded syntax/TOC/dynamic limitations.
+
+## Approved v0.5.0 XML syntax analysis
+
+The user approved XML A–F on 2026-11-17. `--xml-analysis` now calls the actual optional SDK parser through a fixed supervised worker. It strictly decodes bounded UTF-8 with BOM retained, validates namespace-aware XML 1.0, rejects DTD/XML 1.1, checks source/raw-slice/decoded-map invariants and reports aggregate before/after source integrity. XML never executes or selects files to follow.
+
+`xmlAnalysis` separates discovered/attempted/submitted/completed, accepted/rejected, profile/resource/encoding rejection, read/worker/backend/invariant failures and source/mapping checks. `profileRejected` is a subset of rejected. Only accepted or syntax/profile-rejected documents increment `parsed.xml`; blocked work never counts as a parse verdict. Disabled parsers are now listed separately from missing providers/reference capabilities. Both syntax opt-ins can run together, but fullParsing remains false and --require-all-parsers still fails until those capabilities and diagnostic acceptance exist.
+
+The fresh XML-focused run produced 1,199 actual verdicts (1,146 accepted, 53 XML0002 rejections), zero codec/resource/read/worker/backend/invariant blocks and all 1,199 source hashes unchanged. It checked 281,315 original source references and 85,212 decoded mappings. Private classification explained 52 namespace-only cases and one multiple-root document without waiving either. The full command exited 1, retaining existing TOC errors, disabled Lua and missing provider/reference work. See [exact commands, snapshot and remaining acceptance](REVIEW-XML-v0.5.0.md). Older Lua/candidate results above remain historical evidence for their respective snapshots.

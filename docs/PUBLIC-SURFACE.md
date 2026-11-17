@@ -1,8 +1,8 @@
-# Public surface review: frozen core and approved Lua extension
+# Public surface review: frozen core and approved Lua/XML extensions
 
-Core review baseline: v0.3.5 integrated at `0cee5c9`, including the user's named rule. The five core root entry points retain **52 beta declarations**. Approved v0.4.0 Lua A–E adds three and v0.4.1 adds the approved profile type, for **56 overall: 13 runtime values/functions and 43 type-only contracts**. The original 30 exports are retained by requirement. Nothing is promoted to public stability or removed merely to reduce a count.
+Core review baseline: v0.3.5 integrated at `0cee5c9`, including the user's named rule. The five core root entry points retain **52 beta declarations**. Approved v0.4.0 Lua A–E adds three and v0.4.1 adds the approved profile type (56 at that milestone). Approved v0.5.0 XML A–F adds nine, for **65 overall: 14 runtime values/functions and 51 type-only contracts** across seven workspaces. The original 30 exports are retained by requirement. Nothing is promoted to public stability or removed merely to reduce a count.
 
-The source AST audit counts 16 metadata, five diagnostics, eleven registry, two parser, eighteen adapter and four Lua exports, each with exactly one `@beta`. Compiled declaration snapshots and strict API Extractor verify the reviewed shape. The Lua backend AST and internal syntax-module exports do not become root API. Every root export has one consumer-purpose row below.
+The source inventory is 16 metadata, five diagnostics, eleven registry, two TOC parser, eighteen adapter, four Lua and nine XML exports, each requiring exactly one `@beta`. Source AST auditing, compiled declaration snapshots and strict API Extractor are the acceptance gates for this shape; their current-run outcomes are recorded separately. Backend objects and internal syntax-module exports do not become root API. Every root export has one consumer-purpose row below.
 
 ## Diagnostics: five shared contracts
 
@@ -41,7 +41,7 @@ The source AST audit counts 16 metadata, five diagnostics, eleven registry, two 
 | --- | --- |
 | `ActivationState` | Type declaration-time unconditional/conditional/unknown flags; retain |
 | `ResolvedAvailability` | Type derived active/inactive/unknown independently; retain |
-| `GlobalKind` | Type saved-variable/frame/Lua declarations; retain, actual latter providers remain unimplemented |
+| `GlobalKind` | Type saved-variable/frame/Lua declarations; retain, the Lua provider exists while the XML/frame provider remains unimplemented |
 | `GlobalScope` | Type registry scope independently of TOC metadata; retain |
 | `ConditionDescriptor` | Supply opaque condition provenance from any provider; retain |
 | `GlobalDeclaration` | Construct provider outputs without parser/metadata dependencies; retain |
@@ -91,6 +91,24 @@ The source AST audit counts 16 metadata, five diagnostics, eleven registry, two 
 | `analyzeLua` | Parse the explicit Lua 5.1 profile and derive conservative lexical globals without execution; add |
 
 No internal validation, copying, canonicalization or context helpers become root API. No GlobalSymbol rename is needed. The new actual Lua provider composes with TOC metadata in tests using the existing neutral registry/selection contracts, without importing the TOC adapter itself. This does not prove Classic Era grammar conformance, an XML provider or filesystem reachability. See [the approved Lua design](DESIGN-LUA-ANALYSIS.md).
+
+## XML syntax extension: nine approved exports
+
+The user approved XML A–F on 2026-11-17 ([decision](https://github.com/Zilvereyes/wow-addon-sdk/issues/11#issuecomment-6947486320)). These exports belong only to the new `@wow-addon/xml-parser` root entry point. They do not widen existing core contracts.
+
+| Export | Consumer need / disposition |
+| --- | --- |
+| `XmlParseOptions` | Explicit optional namespace constraints, enabled by default; add |
+| `XmlName` | Inspect original qualified spelling and owned local/prefix/namespace metadata; add |
+| `XmlMappedSpan` | Relate a decoded end-exclusive UTF-16 interval to literal/normalized/entity source provenance; add |
+| `XmlValue` | Consume decoded attribute/text values with complete original-source mapping; add |
+| `XmlAttribute` | Inspect original name/value/quoted-attribute ranges in source order; add |
+| `XmlElement` | Inspect flat preorder elements with parent indices and open/close/original ranges; add |
+| `XmlText` | Inspect original-order element text and CDATA with decoded mappings; add |
+| `XmlParseResult` | Handle independent schema 1, syntax completeness, flat projections and diagnostics; add |
+| `parseXml` | Parse bounded XML 1.0 documents without executing source or fetching references; add |
+
+All eight types expose readonly contracts, with independently owned per-call records and no runtime freeze. `complete` concerns accepted syntax and provenance only. DTDs/XML 1.1 are rejected; every failure empties both element and text projections. Namespaces are checked by default; `{ namespaceAware: false }` is an explicit direct-API grammar choice and makes no game-loader claim. The fixed budgets, decoded-map interpretation and remaining XML provider/reference-graph work are described in [XML migration](MIGRATION-v0.4-to-v0.5.md). Neither saxes/xmlchars objects nor worker controls become public API.
 
 ## Compatibility disposition
 
