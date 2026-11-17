@@ -131,7 +131,7 @@ The installed source corpus is unchanged and read-only. A future inline pass req
 
 ## D — Required authored acceptance examples
 
-The rows below are proposed expected feature behavior, **not tests already passed**. Existing characterization and type-fixture checks are labelled separately in [the review record](REVIEW-INLINE-LUA-PROPOSAL.md).
+The rows below retain the approved acceptance requirements. The earlier [proposal-only record](REVIEW-INLINE-LUA-PROPOSAL.md) is historical; [implementation acceptance](REVIEW-INLINE-LUA-v0.7.0.md) and [actual partial-context corpus evidence](REVIEW-INLINE-LUA-CORPUS.md) distinguish executed results from remaining coverage. A row is not proved merely by appearing in this matrix.
 
 | Requirement | Authored vector / measurable result |
 | --- | --- |
@@ -158,7 +158,7 @@ All example offsets are zero-based UTF-16, ends exclusive; raw golden offsets as
 
 ## E — Dependency-ordered implementation and decision boundary
 
-An approved implementation would advance all eight shared workspace/internal ranges to source0.7.0, retaining beta status. **Five new exports**: LuaAnalysisContext plus mapXmlValueRanges/XmlMappedSourcePart/XmlSourceMapping/XmlSourceMappingResult. Expected total78 =16 runtime +62 type-only. This proposal itself changes **zero SDK exports, versions, lock records or package edges**. Keep all current73 exports, all prior defaults, existing schema1 results and public core contracts.
+The approved implementation advanced all eight shared workspace/internal ranges to source0.7.0, retaining beta status. **Five new exports**: LuaAnalysisContext plus mapXmlValueRanges/XmlMappedSourcePart/XmlSourceMapping/XmlSourceMappingResult. Total78 =16 runtime +62 type-only. The original documentation-only proposal changed zero SDK exports/versions/lock records; the subsequent reviewed implementation preserves all prior73 exports/defaults, existing schema1 results, public core contracts and package edges.
 
 | Step | Write surface | Prerequisites / acceptance |
 | --- | --- | --- |

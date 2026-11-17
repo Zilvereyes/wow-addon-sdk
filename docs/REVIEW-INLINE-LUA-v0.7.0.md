@@ -36,6 +36,6 @@ Mapping retains existing CRLF endpoint canonicalization. Separate raw contributi
 
 ## Remaining acceptance and next dependency
 
-No installed inline-context run has been performed for this increment. Earlier provider inventory at 580ed8b extracted 37 chunks/1,302 handlers but parsed none as Lua; its 1,199 matching XML hashes do not validate new code. Prepare/select a concrete context profile from justified signature evidence and report missing/unsupported contexts honestly. The assistant owns technical preparation; the user need not author JSON.
+At this implementation checkpoint no installed inline-context run had been performed. Subsequent [actual partial-context characterization on ab36b28](REVIEW-INLINE-LUA-CORPUS.md) supersedes that not-run boundary: 654 bodies actually analyzed/mapped, 685 missing contexts, all 6,875 standalone inputs parsed and unchanged, exit1/incomplete. It does not complete handler/loader acceptance. Earlier provider inventory at 580ed8b extracted 37 chunks/1,302 handlers but parsed none as Lua. Context preparation remains the assistant's technical work; the user need not author JSON.
 
 Selected-source reference traversal, remaining handler/animation/font/binding domains, provider participation in selected-TOC resolution, and diagnostic acceptance remain open in [issue #11](https://github.com/Zilvereyes/wow-addon-sdk/issues/11). The broader v0.3.5/parsing goal is incomplete. Installed sources remain read-only and private; CI uses authored fixtures. Optional unavailable plugin scans are not claimed as passed project gates.

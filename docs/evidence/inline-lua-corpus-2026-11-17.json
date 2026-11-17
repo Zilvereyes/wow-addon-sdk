@@ -1,0 +1,261 @@
+{
+  "schemaVersion": 1,
+  "kind": "actual-partial-context-inline-lua-corpus",
+  "sourceCommit": "ab36b2809824400429479f71244d7354a47b8c82",
+  "runtime": "v26.13.1",
+  "hostSession": 97095,
+  "command": "node scripts/inspect-addon-corpus.mjs <explicit-local-AddOns> --max-file-bytes 134217728 --lua-analysis --lua-input-profile corpus-files --xml-analysis --xml-provider-profile <prepared-private-provider> --xml-inline-lua-profile <prepared-private-contexts>",
+  "corpusExit": 1,
+  "status": "incomplete",
+  "fullParsing": false,
+  "files": {
+    "toc": 434,
+    "lua": 5242,
+    "xml": 1199
+  },
+  "syntaxVerdicts": {
+    "toc": 434,
+    "lua": 5242,
+    "xml": 1199
+  },
+  "contextPolicy": {
+    "selectedForRun": true,
+    "selectedExpandedHandlers": 16,
+    "missingExpandedHandlers": 39,
+    "selectedHandlerKinds": 7,
+    "missingHandlerKinds": 25,
+    "authoredChecks": 14,
+    "reference": {
+      "repo": "wowless/wowless",
+      "commit": "c695caab195f06367aec63b9c7ac86241b1f390d",
+      "xmlBlob": "dbde4d73e7a42c94432c11286ebd7c004604d980",
+      "compilerBlob": "d034d0cfb3e41b6e70a6020c8dbf4decdc153515",
+      "scriptTypesBlob": "4d83558e8d8c1e66ce87ef01d386d869ad59bd75"
+    },
+    "referenceFallbackSelected": false,
+    "installedClientConformance": false,
+    "fullContextCoverage": false
+  },
+  "tocSyntax": {
+    "discoveryComplete": true,
+    "discovered": 434,
+    "attempted": 434,
+    "submitted": 434,
+    "completed": 434,
+    "accepted": 428,
+    "rejected": 6,
+    "skippedOversized": 0,
+    "resourceRejected": 0,
+    "readFailures": 0,
+    "backendFailures": 0,
+    "invariantFailures": 0
+  },
+  "luaStandalone": {
+    "discoveryComplete": true,
+    "attempted": 5242,
+    "submitted": 5242,
+    "completed": 5242,
+    "syntaxAccepted": 5241,
+    "syntaxRejected": 1,
+    "incompleteFiles": 1531,
+    "encodingRejected": 0,
+    "inputLimitRejected": 0,
+    "resourceRejected": 0,
+    "workerFailures": 0,
+    "readFailures": 0,
+    "backendFailures": 0,
+    "invariantFailures": 0,
+    "declarations": 6636,
+    "activation": {
+      "unconditional": 1830,
+      "conditional": 0,
+      "unknown": 4806
+    },
+    "checkedSourceReferences": 12989,
+    "diagnosticsByCode": {
+      "LUA0002": 1,
+      "LUA0004": 6352
+    },
+    "profile": "corpus-files",
+    "transport": {
+      "strictUtf8": 5238,
+      "bytePreserving": 4
+    },
+    "resolvedProviderParticipation": false
+  },
+  "xmlSyntax": {
+    "discoveryComplete": true,
+    "discovered": 1199,
+    "attempted": 1199,
+    "submitted": 1199,
+    "completed": 1199,
+    "accepted": 1146,
+    "rejected": 53,
+    "profileRejected": 0,
+    "resourceRejected": 0,
+    "encodingRejected": 0,
+    "inputLimitRejected": 0,
+    "readFailures": 0,
+    "workerFailures": 0,
+    "backendFailures": 0,
+    "invariantFailures": 0,
+    "checkedSourceReferences": 281315,
+    "checkedDecodedMappings": 85212,
+    "diagnosticsByCode": {
+      "XML0002": 53
+    },
+    "sourceIntegrity": {
+      "checked": 1199,
+      "matching": 1199,
+      "changed": 0,
+      "verificationFailures": 0
+    },
+    "resolvedProviderParticipation": false
+  },
+  "xmlProvider": {
+    "requested": true,
+    "complete": false,
+    "discoveryComplete": true,
+    "association": "caller-owned-inventory",
+    "resolvedProviderParticipation": false,
+    "discovered": 1199,
+    "eligible": 1146,
+    "attempted": 1199,
+    "submitted": 1199,
+    "completed": 1199,
+    "projectionAttempted": 1146,
+    "validated": 1146,
+    "projectionComplete": 1116,
+    "projectionIncomplete": 30,
+    "rejectedBeforeProjection": 53,
+    "blocked": 0,
+    "skippedOversized": 0,
+    "readFailures": 0,
+    "encodingRejected": 0,
+    "inputLimitRejected": 0,
+    "workerFailures": 0,
+    "backendFailures": 0,
+    "invariantFailures": 0,
+    "resourceRejected": 0,
+    "frameCandidates": 3147,
+    "declarations": 1076,
+    "references": 3811,
+    "inlineChunks": 37,
+    "inlineHandlers": 1302,
+    "checkedSourceReferences": 31727,
+    "checkedDecodedMappings": 12714,
+    "diagnosticsByCode": {
+      "XUI0004": 30
+    }
+  },
+  "xmlInlineLua": {
+    "requested": true,
+    "complete": false,
+    "discoveryComplete": true,
+    "association": "caller-owned-inventory",
+    "resolvedProviderParticipation": false,
+    "discoveredFiles": 1199,
+    "attemptedFiles": 1199,
+    "submittedFiles": 1199,
+    "completedFiles": 1199,
+    "validatedFiles": 1146,
+    "rejectedBeforeInline": 53,
+    "blockedFiles": 0,
+    "skippedFiles": 0,
+    "skippedOversized": 0,
+    "readFailures": 0,
+    "encodingRejected": 0,
+    "inputLimitRejected": 0,
+    "workerFailures": 0,
+    "backendFailures": 0,
+    "invariantFailures": 0,
+    "resourceRejected": 0,
+    "providerBlockedBeforeInline": 0,
+    "discoveredBodies": 1339,
+    "eligibleBodies": 654,
+    "skippedMissingContext": 685,
+    "attemptedBodies": 654,
+    "syntaxAccepted": 654,
+    "syntaxRejected": 0,
+    "resourceBlockedBodies": 0,
+    "backendBlockedBodies": 0,
+    "lexicalComplete": 640,
+    "lexicalIncomplete": 14,
+    "mappingValidated": 654,
+    "declarations": 3,
+    "queriedRecords": 45,
+    "originalParts": 45,
+    "checkedSourceReferences": 90,
+    "diagnosticsByCode": {
+      "LUA0004": 42
+    },
+    "sourceIntegrity": {
+      "checked": 1199,
+      "matching": 1199,
+      "changed": 0,
+      "verificationFailures": 0
+    }
+  },
+  "diagnosticsByCode": {
+    "TOC0001": 19,
+    "TOC0004": 12
+  },
+  "diagnosticsBySeverity": {
+    "error": 19,
+    "warning": 12,
+    "info": 0
+  },
+  "failures": [
+    "lua-analysis-incomplete",
+    "lua-syntax-errors",
+    "toc-parse-errors",
+    "xml-inline-lua-lexical-incomplete",
+    "xml-inline-lua-missing-context",
+    "xml-provider-incomplete",
+    "xml-syntax-errors"
+  ],
+  "sourceIntegrity": {
+    "checked": 6875,
+    "matching": 6875,
+    "changed": 0,
+    "counts": {
+      "toc": 434,
+      "lua": 5242,
+      "xml": 1199
+    },
+    "scope": "Private bounded SHA256 ledger immediately before/after the expanded run; all discovered TOC/Lua/XML text inputs"
+  },
+  "initialDefaultCapAttempt": {
+    "hostSession": 2052,
+    "exit": 1,
+    "status": "incomplete",
+    "genericByteCap": 8388608,
+    "standaloneLuaVerdicts": 5235,
+    "standaloneLuaOversized": 7,
+    "inlineSyntaxVerdicts": 654,
+    "acceptedAsFullCoverage": false
+  },
+  "verification": {
+    "accountingReconciled": true,
+    "contextProfileUnchanged": true,
+    "sourceWrites": false,
+    "sourceExecution": false,
+    "serializationChecked": true,
+    "freshBuildExit": 0,
+    "authoredChecksExit": 0,
+    "supportedImplementationCI": {
+      "pr": 44125730013,
+      "push": 44125716555,
+      "jobsPerRun": 4,
+      "conclusion": "success"
+    }
+  },
+  "limitations": [
+    "This is an explicit partial-context inventory characterization, not game-loader or complete-handler acceptance",
+    "Only seven observed handler kinds with explicit reference parameters are selected; 25 kinds lack contexts and remain skipped",
+    "The pinned independent emulator reference does not prove installed-client signatures; its generic self/varargs fallback is not selected",
+    "Syntax-rejected XML, unsupported root/handler/font/animation/binding domains, lexical incompleteness and existing TOC/Lua findings remain visible",
+    "No selected-source traversal or selected-TOC provider participation; no declaration occurrence count is an active-global count",
+    "No installed names, paths, source text, namespace identities, per-file hashes or complete diagnostics are published"
+  ]
+}
