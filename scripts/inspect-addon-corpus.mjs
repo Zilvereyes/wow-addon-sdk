@@ -83,7 +83,7 @@ const failures = new Set();
 const luaFiles = [];
 const xmlFiles = [];
 if (xmlEnabled) report.xmlAnalysis = {
-  complete: true, namespaceAware: true, discovered: 0, attempted: 0, submitted: 0, completed: 0,
+  complete: true, discoveryComplete: false, namespaceAware: true, discovered: 0, attempted: 0, submitted: 0, completed: 0,
   accepted: 0, rejected: 0, profileRejected: 0, resourceRejected: 0,
   encodingRejected: 0, inputLimitRejected: 0, readFailures: 0, workerFailures: 0, backendFailures: 0,
   invariantFailures: 0, checkedSourceReferences: 0, checkedDecodedMappings: 0, inputBytes: 0,
@@ -102,6 +102,8 @@ if (luaEnabled) report.luaAnalysis = {
 };
 let incomplete = false;
 const fail = (reason, partial = false) => { failures.add(reason); incomplete ||= partial; };
+let discoveryComplete = false;
+const failDiscovery = (reason, partial = true) => { discoveryComplete = false; fail(reason, partial); };
 const selectionGroups = new Map();
 let selectionProfile = null;
 let selectionReady = true;
@@ -254,9 +256,9 @@ function checkParse(content, filename) {
 }
 
 function walk(folder, depth = 0) {
-  if (depth > 64) { fail('depth-limit', true); return; }
+  if (depth > 64) { failDiscovery('depth-limit'); return; }
   const remaining = limits['--max-entries'] - report.entriesVisited;
-  if (remaining <= 0) { fail('entry-limit', true); return; }
+  if (remaining <= 0) { failDiscovery('entry-limit'); return; }
   const entries = [];
   try {
     const directory = fs.opendirSync(folder, { bufferSize: 1 });
@@ -264,20 +266,24 @@ function walk(folder, depth = 0) {
       let entry;
       while ((entry = directory.readSync()) !== null) {
         // Detect overflow with one extra read; do not process an unordered subset.
-        if (entries.length >= remaining) { fail('entry-limit', true); return; }
+        if (entries.length >= remaining) { failDiscovery('entry-limit'); return; }
         entries.push(entry);
       }
     } finally { directory.closeSync(); }
-  } catch { fail('directory-read', true); return; }
+  } catch { failDiscovery('directory-read'); return; }
   entries.sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
   for (const entry of entries) {
-    if (report.entriesVisited >= limits['--max-entries']) { fail('entry-limit', true); return; }
+    if (report.entriesVisited >= limits['--max-entries']) { failDiscovery('entry-limit'); return; }
     report.entriesVisited++;
     const filename = path.join(folder, entry.name);
+    let stat;
+    // Classify with lstat so junctions are never intentionally followed.
+    // Failure to classify an entry leaves the eligible XML inventory unknown.
+    // TOC processing errors below are independent of directory discovery.
+    try { stat = fs.lstatSync(filename); }
+    catch { failDiscovery('read-or-invariant-failure'); continue; }
     try {
-      // Recheck with lstat so directory junctions are never intentionally followed.
-      const stat = fs.lstatSync(filename);
-      if (stat.isSymbolicLink()) { report.skippedLinks++; fail('skipped-links', true); continue; }
+      if (stat.isSymbolicLink()) { report.skippedLinks++; failDiscovery('skipped-links'); continue; }
       if (stat.isDirectory()) { walk(filename, depth + 1); continue; }
       if (!stat.isFile()) continue;
       const extension = path.extname(entry.name).slice(1).toLowerCase();
@@ -323,10 +329,14 @@ function walk(folder, depth = 0) {
 try {
   if (selectionReady && conditionReady && resolutionReady) {
     const rootStat = fs.lstatSync(root);
-    if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) fail('invalid-root');
-    else walk(root);
+    if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) failDiscovery('invalid-root', false);
+    else { discoveryComplete = true; walk(root); }
   }
-} catch { fail('unreadable-root'); }
+} catch { failDiscovery('unreadable-root', false); }
+if (xmlEnabled) {
+  report.xmlAnalysis.discoveryComplete = discoveryComplete;
+  report.xmlAnalysis.complete = discoveryComplete;
+}
 if (luaEnabled) {
   const counts = report.luaAnalysis;
   const expanded = luaInputProfile === 'corpus-files';

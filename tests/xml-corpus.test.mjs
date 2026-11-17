@@ -181,6 +181,111 @@ test('XML analysis stays explicit and duplicate or namespace fallback flags are 
   }
 }));
 
+test('XML discovery is incomplete after entry/depth limits or skipped directory links', () => {
+  fixture(root => {
+    const filename = path.join(root, 'private-unread.xml');
+    fs.writeFileSync(filename, '<r/>');
+    const before = digest(filename);
+    const result = inspect(root, '--xml-analysis', '--max-entries', '1');
+    assert.equal(result.status, 1);
+    assert.ok(result.report.failures.includes('entry-limit'));
+    assert.equal(result.report.xmlAnalysis.discoveryComplete, false);
+    assert.equal(result.report.xmlAnalysis.complete, false);
+    assert.equal(result.report.xmlAnalysis.attempted, 0);
+    assert.equal(digest(filename), before);
+    assert.equal((result.stdout + result.stderr).includes(root), false);
+  });
+  fixture(root => {
+    const folder = path.join(root, ...Array(65).fill('d'));
+    fs.mkdirSync(folder, { recursive: true });
+    const filename = path.join(folder, 'private-deep.xml');
+    fs.writeFileSync(filename, '<r/>');
+    const before = digest(filename);
+    const result = inspect(root, '--xml-analysis');
+    assert.equal(result.status, 1);
+    assert.ok(result.report.failures.includes('depth-limit'));
+    assert.equal(result.report.xmlAnalysis.discoveryComplete, false);
+    assert.equal(result.report.xmlAnalysis.complete, false);
+    assert.equal(result.report.xmlAnalysis.attempted, 0);
+    assert.equal(digest(filename), before);
+    assert.equal((result.stdout + result.stderr).includes(root), false);
+  });
+  fixture(root => fixture(outside => {
+    const filename = path.join(root, 'private-visible.xml');
+    const hidden = path.join(outside, 'private-linked.xml');
+    fs.writeFileSync(filename, '<r/>');
+    fs.writeFileSync(hidden, '<secret-linked/>');
+    const before = digest(hidden);
+    fs.symlinkSync(outside, path.join(root, 'private-link'), process.platform === 'win32' ? 'junction' : 'dir');
+    const result = inspect(root, '--xml-analysis');
+    assert.equal(result.status, 1);
+    assert.ok(result.report.failures.includes('skipped-links'));
+    assert.equal(result.report.skippedLinks, 1);
+    assert.equal(result.report.xmlAnalysis.discoveryComplete, false);
+    assert.equal(result.report.xmlAnalysis.complete, false);
+    assert.equal(result.report.xmlAnalysis.accepted, 1);
+    assert.equal(result.report.xmlAnalysis.discovered, 1, 'linked XML must not be followed or counted');
+    assert.equal(digest(hidden), before);
+    for (const secret of [root, outside, 'private-link', 'private-linked.xml', 'secret-linked', before]) {
+      assert.equal((result.stdout + result.stderr).includes(secret), false);
+    }
+  }));
+});
+
+test('invalid roots and rejected profile preflight cannot claim complete XML discovery without traversal', () => fixture(root => {
+  const filename = path.join(root, 'private-unread.xml');
+  fs.writeFileSync(filename, '<r/>');
+  const before = digest(filename);
+  for (const invalidRoot of [path.join(root, 'private-missing'), path.join(root, 'Seed.toc')]) {
+    const result = inspect(invalidRoot, '--xml-analysis');
+    assert.equal(result.status, 1);
+    assert.equal(result.report.xmlAnalysis.discoveryComplete, false);
+    assert.equal(result.report.xmlAnalysis.complete, false);
+    assert.equal(result.report.entriesVisited, 0);
+    assert.equal(result.report.xmlAnalysis.attempted, 0);
+    assert.equal((result.stdout + result.stderr).includes(invalidRoot), false);
+  }
+  const profile = path.join(root, 'private-invalid-profile.json');
+  fs.writeFileSync(profile, '{}');
+  for (const flag of ['--selection-profile', '--condition-profile', '--resolution-profile']) {
+    const result = inspect(root, '--xml-analysis', flag, profile);
+    assert.equal(result.status, 1);
+    assert.ok(result.report.failures.includes(flag.slice(2) + '-invalid'));
+    assert.equal(result.report.xmlAnalysis.discoveryComplete, false);
+    assert.equal(result.report.xmlAnalysis.complete, false);
+    assert.equal(result.report.entriesVisited, 0);
+    assert.equal(result.report.xmlAnalysis.attempted, 0);
+    for (const secret of [root, profile, 'private-unread.xml']) assert.equal((result.stdout + result.stderr).includes(secret), false);
+  }
+  assert.equal(digest(filename), before);
+}));
+
+test('unrelated TOC syntax and size failures do not invalidate fully discovered and accepted XML', () => {
+  for (const oversized of [false, true]) fixture(root => {
+    const toc = path.join(root, 'Seed.toc');
+    const filename = path.join(root, 'private-complete.xml');
+    fs.writeFileSync(toc, oversized ? '#'.repeat(100) : '## private-missing-colon\n');
+    fs.writeFileSync(filename, '<r/>');
+    const before = digest(filename), tocBefore = digest(toc);
+    const result = inspect(root, '--xml-analysis', ...(oversized ? ['--max-file-bytes', '64'] : []));
+    assert.equal(result.status, 1);
+    assert.equal(result.report.status, oversized ? 'incomplete' : 'failed');
+    if (oversized) assert.ok(result.report.failures.includes('oversized-toc'));
+    else assert.equal(result.report.diagnosticsByCode.TOC0001, 1);
+    const counts = result.report.xmlAnalysis;
+    assert.equal(counts.discoveryComplete, true);
+    assert.equal(counts.complete, true);
+    for (const name of ['discovered', 'attempted', 'submitted', 'completed', 'accepted']) assert.equal(counts[name], 1, name);
+    assert.equal(counts.rejected, 0);
+    assert.deepEqual(counts.sourceIntegrity, { checked: 1, matching: 1, changed: 0, verificationFailures: 0 });
+    assert.equal(digest(filename), before);
+    assert.equal(digest(toc), tocBefore);
+    for (const secret of [root, 'private-complete.xml', 'private-missing-colon', before, tocBefore]) {
+      assert.equal((result.stdout + result.stderr).includes(secret), false);
+    }
+  });
+});
+
 test('all syntax parsers cannot waive the missing XML provider and loader reference graph', () => fixture(root => {
   fs.writeFileSync(path.join(root, 'fixture.xml'), '<Ui/>');
   fs.writeFileSync(path.join(root, 'fixture.lua'), 'local authored = true\n');
