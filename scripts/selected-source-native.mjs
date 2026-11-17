@@ -7,6 +7,7 @@ import {getGraphRequest} from './selected-source-context.mjs';
 import {normalizeGraphPath} from './selected-source-profile.mjs';
 import {readBoundedFile} from './read-bounded-file.mjs';
 import {createWindowsPathInspector} from './selected-source-windows.mjs';
+import {requireGraphBudget} from './selected-source-budget.mjs';
 
 const fail=kind=>{throw Object.assign(Error('graph-native-'+kind),{code:'graph-native-'+kind});};
 const fold=value=>value.replace(/[A-Z]/gu,c=>c.toLowerCase());
@@ -15,23 +16,27 @@ const stamp=s=>[identity(s),s.size,s.mtimeNs,s.ctimeNs].map(String).join(':');
 const hash=value=>createHash('sha256').update(value).digest('hex');
 
 /** io/clock/inspectorFactory are trusted test ports, never profile or CLI fields. */
-export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>performance.now(),inspectorFactory=process.platform==='win32'?createWindowsPathInspector:null}={}){
+export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>performance.now(),inspectorFactory=process.platform==='win32'?createWindowsPathInspector:null,budget=null}={}){
   const request=getGraphRequest(context),limits=request.profile.limits;
+  if(budget)requireGraphBudget(budget,context);
+  const shared=run=>{try{return run();}catch{fail('budget');}};
   if(typeof rootInput!=='string'||!path.isAbsolute(rootInput)||/^(?:[\\/]{2}|[A-Za-z]+:\/\/)/u.test(rootInput)||
     (process.platform==='win32'&&!/^[A-Za-z]:[\\/]/u.test(rootInput))||rootInput.includes('\0'))fail('root');
   const root=path.resolve(rootInput),started=now(),inspector=inspectorFactory?inspectorFactory():null;
   const directories=new Map(),sources=new Map(),invalidDirectories=new Set(),invalidSources=new Set(),ancestors=[];
   let closed=false,busy=false,canonicalRoot,entriesSeen=0,records=0,stringUnits=0,chargedReadBytes=0,consumedReadBytes=0;
-  function check(){if(closed)fail('closed');if(now()-started>=limits.operationMilliseconds)fail('budget');}
+  function check(){if(closed)fail('closed');if(budget)shared(()=>budget.check());if(now()-started>=limits.operationMilliseconds)fail('budget');}
+  const remaining=()=>budget?shared(()=>budget.remaining()):limits.operationMilliseconds-(now()-started);
   function retain(count,units){
     check();if(records+count>limits.retainedRecords||stringUnits+units>limits.retainedStringUnits)fail('budget');
+    if(budget)shared(()=>budget.retain(count,units));
     records+=count;stringUnits+=units;
   }
   async function statChecked(absolute){
     check();const stat=io.lstatSync(absolute,{bigint:true});if(stat.isSymbolicLink())fail('link');
     if(inspector){
       let row;
-      try{[row]=await inspector.inspect([absolute],limits.operationMilliseconds-(now()-started));}catch{check();fail('attributes');}
+      try{[row]=await inspector.inspect([absolute],remaining());}catch{check();fail('attributes');}
       if(!row.ok)fail('attributes');if(row.reparsePoint)fail('link');
     }
     check();return stat;
@@ -56,7 +61,8 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     const entries=[],dir=io.opendirSync(absolute,{encoding:'buffer',bufferSize:1});
     try{
       for(let row;(row=dir.readSync())!==null;){
-        check();if(++entriesSeen>limits.directoryEntries)fail('budget');
+        check();if(entriesSeen+1>limits.directoryEntries)fail('budget');
+        if(budget)shared(()=>budget.use('directoryEntries',1));entriesSeen++;
         let name;try{name=new TextDecoder('utf-8',{fatal:true}).decode(row.name);}catch{fail('encoding');}
         const scalar=normalizeGraphPath(name,[],{maximumUnits:limits.pathUnits});
         const kind=row.isSymbolicLink()?'link':row.isDirectory()?'directory':row.isFile()?'file':'unsupported';
@@ -65,7 +71,7 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     }finally{dir.closeSync();}
     if(inspector)for(let i=0;i<entries.length;i+=128){
       const batch=entries.slice(i,i+128);let rows;
-      try{rows=await inspector.inspect(batch.map(row=>path.join(absolute,row.name)),limits.operationMilliseconds-(now()-started));}
+      try{rows=await inspector.inspect(batch.map(row=>path.join(absolute,row.name)),remaining());}
       catch{check();fail('attributes');}
       for(let j=0;j<rows.length;j++){
         if(!rows[j].ok)fail('changed');
@@ -117,7 +123,8 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     const absolute=path.join(root,sourcePath),before=await statChecked(absolute);inside(absolute);
     if(before.size<0n||before.size>BigInt(maximumBytes))fail('input');
     const bound=Math.min(maximumBytes,Math.max(1,Number(before.size))),reservation=bound+1;
-    if(chargedReadBytes+reservation>limits.readBytes)fail('budget');chargedReadBytes+=reservation;
+    if(chargedReadBytes+reservation>limits.readBytes)fail('budget');
+    if(budget)shared(()=>budget.use('readBytes',reservation));chargedReadBytes+=reservation;
     let consumed=0;
     const observed={...io,readSync(...args){
       const count=io.readSync(...args);if(!Number.isSafeInteger(count)||count<0||count>args[3])fail('read');
@@ -134,6 +141,7 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
       retain(2,fingerprint.length); // Each handed-off result and byte buffer, including repeated empty inputs.
       // Refund only verified returned I/O counts. A failed/unknown read retains its full reservation.
       chargedReadBytes-=reservation-consumed;
+      if(budget)budget.release('readBytes',reservation-consumed);
       return{bytes,fingerprint};
     }catch(error){
       if(error?.code?.startsWith('graph-native-'))throw error;
@@ -171,17 +179,17 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     verifyDirectory:(sourceDirectory,fingerprint)=>exclusive(async()=>{
       if(!directories.has(sourceDirectory)||directories.get(sourceDirectory).fingerprint!==fingerprint)return false;
       try{
-        const r=await resolve(sourceDirectory,true);if(r.status!=='ready')return false;
+        const r=await resolve(sourceDirectory,true);if(r.status==='budget')fail('budget');if(r.status!=='ready')return false;
         const actual=await scan(r.sourcePath),valid=actual.fingerprint===fingerprint;
         if(!valid)invalidDirectories.add(r.sourcePath);return valid;
-      }catch{invalidDirectories.add(sourceDirectory);return false;}
+      }catch(error){invalidDirectories.add(sourceDirectory);if(error?.code==='graph-native-budget')throw error;return false;}
     }),
     readSource:(sourcePath,maximumBytes)=>exclusive(()=>read(sourcePath,maximumBytes)),
     verifySource:(sourcePath,fingerprint,maximumBytes)=>exclusive(async()=>{
       if(!sources.has(sourcePath)||sources.get(sourcePath)!==fingerprint)return false;
       try{const current=await read(sourcePath,maximumBytes),valid=current.fingerprint===fingerprint;
         if(!valid)invalidSources.add(sourcePath);return valid;
-      }catch{invalidSources.add(sourcePath);return false;}
+      }catch(error){invalidSources.add(sourcePath);if(error?.code==='graph-native-budget')throw error;return false;}
     }),
     metrics:()=>({directoryEntries:entriesSeen,chargedReadBytes,consumedReadBytes,retainedRecords:records,retainedStringUnits:stringUnits}),
     async close(){closed=true;await inspector?.close();},

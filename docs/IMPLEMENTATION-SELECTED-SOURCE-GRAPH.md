@@ -42,3 +42,7 @@ Stage3 now supplies the bounded native file portion of the approved host, using 
 
 
 The subsequent helper-deadline [A–D amendment](https://github.com/Zilvereyes/wow-addon-sdk/pull/30#issuecomment-6961659940) is also explicitly approved: inspect30seconds including startup/replacement and remaining-operation clamping, separate10second close/reap bounds with post-acknowledgement monotonic checks. It corrects native availability/CI failures recorded at c86d338; it does not alter other A–F policy, PS bytes or authorize merge/release/game writes. The iterative engine/cache/occurrence/shared-budget dependency remains next after this parser/transport acceptance.
+
+## Integrated stages4–6 implementation
+
+The [engine/resolver/CLI checkpoint](REVIEW-SELECTED-SOURCE-ENGINE.md) supersedes that next-code pointer: shared native/graph budgets, actual iterative selected-source traversal, exact resolver origin composition, allowlisted aggregate and the four-profile read-only CLI are now implemented with authored controls. Independent review corrections include shell retention, whole-occurrence provider coverage and native verification budget classification. Parent integration/full gates and exact-head supported CI are acceptance requirements, not implied by agent summaries or the prior02cdaca checkpoint. Stage7's installed graph run, private association/profile preparation and broader domain/project audit remain open. No additional contract approval or merge right is inferred.
