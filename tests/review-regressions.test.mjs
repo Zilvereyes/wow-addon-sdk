@@ -246,9 +246,11 @@ function auditApiSnapshots(mutate = () => {}) {
     for (const name of packages) {
       const declarations = name === 'xml-analysis' ?
         ['XmlElementSelector', 'XmlAnalysisPolicy', 'XmlAnalysisOptions', 'XmlFrameCandidate',
-          'XmlFileReference', 'XmlInlineScript', 'XmlAnalysisResult']
+          'XmlFileReference', 'XmlInlineScript', 'XmlAnalysisResult', 'XmlMappedSourcePart',
+          'XmlSourceMapping', 'XmlSourceMappingResult']
           .map(name => `/** @beta */\nexport interface ${name} {}`).join('\n') +
-          '\n/** @beta */\nexport declare function analyzeXml(): unknown;\n' :
+          '\n/** @beta */\nexport declare function analyzeXml(): unknown;\n' +
+          '\n/** @beta */\nexport declare function mapXmlValueRanges(): unknown;\n' :
         fs.readFileSync(path.join('api/baselines', `${name}.d.ts`), 'utf8');
       fs.mkdirSync(path.join(root, 'packages', name, 'dist'), { recursive: true });
       fs.writeFileSync(path.join(root, 'packages', name, 'dist/index.d.ts'), declarations);
@@ -259,10 +261,10 @@ function auditApiSnapshots(mutate = () => {}) {
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 }
 
-test('API gate preserves 73 beta exports and the provider runtime/type split even if copied baselines are changed too', () => {
+test('API gate preserves 78 beta exports and the provider runtime/type split even if copied baselines are changed too', () => {
   const valid = auditApiSnapshots();
   assert.equal(valid.status, 0, valid.stderr);
-  assert.match(valid.stdout, /73 beta exports \(15 runtime, 58 type-only\)/);
+  assert.match(valid.stdout, /78 beta exports \(16 runtime, 62 type-only\)/);
   for (const alter of [
     declarations => declarations.replace('@beta', '@public'),
     declarations => declarations + '/** @beta */\nexport interface UnreviewedProviderExport {}\n',
@@ -275,11 +277,21 @@ test('API gate preserves 73 beta exports and the provider runtime/type split eve
       }
     });
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /public API surface for xml-analysis must retain 8 beta exports \(1 runtime\)/);
+    assert.match(result.stderr, /public API surface for xml-analysis must retain 12 beta exports \(2 runtime\)/);
   }
   const missing = auditApiSnapshots(root => fs.unlinkSync(path.join(root, 'api/baselines/xml-analysis.d.ts')));
   assert.notEqual(missing.status, 0);
   assert.match(missing.stderr, /missing compiled or baseline API for xml-analysis/);
+  const missingContext = auditApiSnapshots(root => {
+    for (const file of ['packages/lua-analysis/dist/index.d.ts', 'api/baselines/lua-analysis.d.ts']) {
+      const filename = path.join(root, file);
+      const declarations = fs.readFileSync(filename, 'utf8');
+      assert.match(declarations, /export type LuaAnalysisContext/);
+      fs.writeFileSync(filename, declarations.replace('export type LuaAnalysisContext', 'type LuaAnalysisContext'));
+    }
+  });
+  assert.notEqual(missingContext.status, 0);
+  assert.match(missingContext.stderr, /public API surface for lua-analysis must retain 5 beta exports \(1 runtime\)/);
 });
 
 test('public export gate verifies complete XML notices, exact lock artifacts and executable backend bytes', () => {

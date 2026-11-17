@@ -1,9 +1,20 @@
-import { analyzeLua, type LuaAnalysisOptions, type LuaAnalysisResult, type LuaAnalysisProfile } from '@wow-addon/lua-analysis';
+import { analyzeLua, type LuaAnalysisOptions, type LuaAnalysisResult, type LuaAnalysisProfile, type LuaAnalysisContext } from '@wow-addon/lua-analysis';
 import { type GlobalDeclaration, type ConditionDescriptor } from '@wow-addon/global-registry';
 
 const options: LuaAnalysisOptions = { addonId: 'caller/opaque', conditions: [] };
 const profile: LuaAnalysisProfile = 'corpus';
 const expanded: LuaAnalysisOptions = { addonId: 'caller', profile, allowShebang: true };
+const handler: LuaAnalysisContext = { kind: 'function-body', parameters: ['self'], variadic: false };
+const contextual: LuaAnalysisOptions = { addonId: 'caller', context: handler };
+// @ts-expect-error function-body requires explicit variadic permission
+const missingVariadic: LuaAnalysisContext = { kind: 'function-body', parameters: [] };
+// @ts-expect-error function-body requires explicit parameter list
+const missingParameters: LuaAnalysisContext = { kind: 'function-body', variadic: true };
+// @ts-expect-error context fields are readonly
+handler.variadic = true;
+// @ts-expect-error parameter list is readonly
+handler.parameters.push('other');
+void [contextual, missingVariadic, missingParameters];
 // @ts-expect-error only the two approved named profiles exist
 const unsupportedProfile: LuaAnalysisProfile = 'unbounded';
 // @ts-expect-error profile selection is readonly

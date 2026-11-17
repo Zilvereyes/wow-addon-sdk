@@ -4,6 +4,13 @@ Changes are recorded by release. This project is in pre-1.0 development.
 
 ## [Unreleased]
 
+### v0.7.0 explicit inline Lua (source version; not published)
+
+- Implement approved A–E: explicit chunk/function-body context with bounded owned parameters and current-function vararg checks, plus disjoint original-XML range sidecars. Add five beta exports (78 overall: 16 runtime / 62 type-only) without changing core contracts, schemas, package edges or backend pins.
+- Compose actual inline Lua analysis in the supervised XML worker only under an explicit separate context profile. Preserve decoded declarations and ordered original-source sidecars; distinguish missing contexts, syntax rejects, lexical incompleteness and technical blocks. Whole-file validation and matching source rereads precede aggregate credit.
+- Fix reproduced iterator ownership, provider option-budget ordering and malformed namespace projection issues. Use bounded descriptor reads for Lua/XML and cover inode/path replacement plus Linux FIFO races with authored tests.
+- Harden alternative dependency fields, actual backend entry provenance and canonical strict API Extractor configuration. Advance all eight workspace versions/internal ranges together; preserve all 84 external lock records and existing package payload contracts. Detailed acceptance and outstanding installed-context/graph work are recorded in [the implementation review](docs/REVIEW-INLINE-LUA-v0.7.0.md).
+
 ### v0.6.0 XML facts (source version; not published)
 
 - Add the user-approved optional xml-analysis leaf with eight beta exports (73 overall), explicit expanded-name caller policy, unknown frame candidates, unresolved Script/Include references and original-source mapped chunk/handler bodies. Preserve all seven earlier APIs and 84 existing external lock records.

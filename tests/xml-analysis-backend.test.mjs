@@ -33,6 +33,7 @@ export function parseXml(content, filename, options) {
   if (filename === 'private-bad-mapping.xml') result.text[0].value.mappings[1].decodedStart = 0;
   if (filename === 'private-bad-element-parent.xml') result.elements[2].parentIndex = 0;
   if (filename === 'private-bad-text-parent.xml') result.text[0].parentIndex = 1;
+  if (filename === 'private-null-prefix-uri.xml') result.elements[1].name.namespaceUri = null;
   if (filename === 'private-extra-position.xml') {
     function decorate(value) {
       if (!value || typeof value !== 'object') return;
@@ -72,6 +73,7 @@ for (const file of ['private-bad-schema.xml', 'private-bad-mapping.xml', 'privat
   assert.deepEqual(analyzeXml(text, 'good.xml', options), valid);
 }
 for (const [content, file] of [
+  ['<Ui xmlns:p="urn:wrong"><p:Frame name="Bad"/></Ui>', 'private-null-prefix-uri.xml'],
   ['<Ui><Unknown><Include file="x"/></Unknown></Ui>', 'private-bad-element-parent.xml'],
   ['<Ui><Script><Unknown>nested</Unknown></Script></Ui>', 'private-bad-text-parent.xml'],
 ]) {

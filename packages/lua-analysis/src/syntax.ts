@@ -75,7 +75,8 @@ function profileBody(body: string): string {
   return units.join('');
 }
 
-export function parseSyntax(content: string, limits: { maxNodes: number; maxDepth: number; allowShebang: boolean }): Failure | Success {
+export function parseSyntax(content: string, limits: { maxNodes: number; maxDepth: number; allowShebang: boolean;
+  parameters?: readonly string[]; variadic?: boolean }): Failure | Success {
   const prefix = content.charCodeAt(0) === 0xFEFF ? 1 : 0;
   let body = content.slice(prefix);
   // luaparse silently skips shebangs. Keep the strict default and perform only
@@ -136,7 +137,23 @@ export function parseSyntax(content: string, limits: { maxNodes: number; maxDept
     const children = Object.values(value);
     for (let i = children.length - 1; i >= 0; i--) stack.push({ value: children[i], depth: childDepth });
   }
-  try { annotateScopes(root as SyntaxNode); }
+  if (limits.variadic === false) {
+    // A Chunk backend permits root varargs; explicit function bodies do not
+    // inherit permission from nested functions or their parameter nodes.
+    let invalid = Infinity;
+    const visited = new WeakSet<object>();
+    const pending: unknown[] = [(root as SyntaxNode).body];
+    while (pending.length) {
+      const current = pending.pop();
+      if (current === null || typeof current !== 'object' || visited.has(current)) continue;
+      visited.add(current);
+      if (record(current) && current.type === 'FunctionDeclaration') continue;
+      if (record(current) && current.type === 'VarargLiteral') invalid = Math.min(invalid, (current.range as [number, number])[0]);
+      for (const child of Object.values(current)) pending.push(child);
+    }
+    if (invalid !== Infinity) return { ok: false, kind: 'syntax', offset: prefix + invalid };
+  }
+  try { annotateScopes(root as SyntaxNode, limits.parameters ?? []); }
   catch (error) { return { ok: false, kind: error instanceof RangeError ? 'resource' : 'backend', offset: prefix }; }
   return { ok: true, nodes, root: root as SyntaxNode, prefix };
 }
@@ -144,7 +161,7 @@ export function parseSyntax(content: string, limits: { maxNodes: number; maxDept
 // The backend introduces for variables before parsing header expressions.
 // Recompute lexical reference annotations on the bounded/validated AST, using
 // Lua 5.1 declaration order. Property/field names are not variable references.
-function annotateScopes(root: SyntaxNode): void {
+function annotateScopes(root: SyntaxNode, parameters: readonly string[]): void {
   function node(value: unknown): SyntaxNode {
     if (!record(value) || typeof value.type !== 'string') throw new Error('Unavailable scope node');
     return value as SyntaxNode;
@@ -213,5 +230,5 @@ function annotateScopes(root: SyntaxNode): void {
       default: throw new Error('Unavailable scope node type');
     }
   }
-  visit(root, new Set());
+  visit(root, new Set(parameters));
 }

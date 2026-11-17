@@ -12,6 +12,15 @@ import type { GlobalDeclaration } from '@wow-addon/global-registry';
 export function analyzeLua(content: string, sourcePath: string, options: LuaAnalysisOptions): LuaAnalysisResult;
 
 // @beta
+export type LuaAnalysisContext = {
+    readonly kind: 'chunk';
+} | {
+    readonly kind: 'function-body';
+    readonly parameters: readonly string[];
+    readonly variadic: boolean;
+};
+
+// @beta
 export interface LuaAnalysisOptions {
     // (undocumented)
     readonly addonId: string;
@@ -19,6 +28,8 @@ export interface LuaAnalysisOptions {
     readonly allowShebang?: boolean;
     // (undocumented)
     readonly conditions?: readonly ConditionDescriptor[];
+    // (undocumented)
+    readonly context?: LuaAnalysisContext;
     // (undocumented)
     readonly profile?: LuaAnalysisProfile;
 }

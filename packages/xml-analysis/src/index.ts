@@ -1,6 +1,6 @@
 import { parseXml } from '@wow-addon/xml-parser';
 import type { XmlElement, XmlName, XmlText, XmlValue, XmlParseResult } from '@wow-addon/xml-parser';
-import type { Diagnostic, SourceReference } from '@wow-addon/diagnostics';
+import type { Diagnostic, SourceRange, SourceReference } from '@wow-addon/diagnostics';
 import type { ConditionDescriptor, GlobalDeclaration } from '@wow-addon/global-registry';
 
 /** Exact expanded-name selector; null denotes no namespace. @beta */
@@ -72,11 +72,12 @@ function dense(value: unknown, maximum: number, code: string): asserts value is 
   if (value.length > maximum) throw new Failure(code);
   for (let i = 0; i < value.length; i++) if (!Object.hasOwn(value, i)) throw new Failure('XUI0001');
 }
-function optionArray(value: unknown, maximum: number): unknown[] {
+function optionArray(value: unknown, maximum: number, reserve?: (length: number) => void): unknown[] {
   if (!Array.isArray(value)) throw new Failure('XUI0001');
   const length = value.length;
   if (!Number.isSafeInteger(length) || length < 0) throw new Failure('XUI0001');
   if (length > maximum) throw new Failure('XUI0003');
+  reserve?.(length);
   const snapshot: unknown[] = [];
   for (let i = 0; i < length; i++) {
     if (!Object.hasOwn(value, i)) throw new Failure('XUI0001');
@@ -142,17 +143,16 @@ export function analyzeXml(content: string, sourcePath: string, options: XmlAnal
       if (units > 1024 * 1024) throw new Failure('XUI0003');
       return value;
     }
-    function entry() { if (++entries > 50000) throw new Failure('XUI0003'); }
+    function entry(length: number) { if (entries + length > 50000) throw new Failure('XUI0003'); entries += length; }
     addonId = consume(own(options, 'addonId'));
     if (!addonId) throw new Failure('XUI0001');
     const selectedPolicy = own(options, 'policy'), all = new Set<string>();
     policy = { roots: new Set(), frameElements: new Set(), includeElements: new Set(), scriptElements: new Set(),
       handlerContainers: new Set(), handlerElements: new Set() };
     for (const role of roles) {
-      const selectors = optionArray(own(selectedPolicy, role), 128);
+      const selectors = optionArray(own(selectedPolicy, role), 128, entry);
       if (role === 'roots' && !selectors.length) throw new Failure('XUI0001');
       for (const selector of selectors) {
-        entry();
         const uriValue = own(selector, 'namespaceUri');
         const uri = uriValue === null ? null : consume(uriValue);
         const local = consume(own(selector, 'localName'));
@@ -164,15 +164,14 @@ export function analyzeXml(content: string, sourcePath: string, options: XmlAnal
     }
     conditions = [];
     if (Object.hasOwn(options, 'conditions')) {
-      const selected = optionArray(options.conditions, 256);
+      const selected = optionArray(options.conditions, 256, entry);
       for (const condition of selected) {
-        entry();
         const providerId = consume(own(condition, 'providerId')), name = consume(own(condition, 'name'));
         const raw = consume(own(condition, 'raw'));
         if (!providerId || !name) throw new Failure('XUI0001');
-        const selectedValues = optionArray(own(condition, 'values'), 1024);
+        const selectedValues = optionArray(own(condition, 'values'), 1024, entry);
         const values: string[] = [];
-        for (const value of selectedValues) { entry(); values.push(consume(value)); }
+        for (const value of selectedValues) values.push(consume(value));
         const source = sourceSnapshot(own(condition, 'source'), consume);
         conditions.push({ providerId, name, raw, values, source });
       }
@@ -237,7 +236,8 @@ export function analyzeXml(content: string, sourcePath: string, options: XmlAnal
       const qualified = own(name, 'qualifiedName'), local = own(name, 'localName');
       const prefix = own(name, 'prefix'), uri = own(name, 'namespaceUri');
       if (!nonempty(qualified) || !nonempty(local) || !(prefix === null || nonempty(prefix)) ||
-          !(uri === null || nonempty(uri)) || qualified !== (prefix === null ? local : `${prefix}:${local}`)) throw new Failure('XUI0002');
+          !(uri === null || nonempty(uri)) || (prefix !== null && uri === null) ||
+          qualified !== (prefix === null ? local : `${prefix}:${local}`)) throw new Failure('XUI0002');
       const [a, b] = bounds(source);
       if (content.slice(a, b) !== qualified) throw new Failure('XUI0002');
     }
@@ -403,4 +403,204 @@ export function analyzeXml(content: string, sourcePath: string, options: XmlAnal
     }
     return { schemaVersion: 1, complete: diagnostics.length === 0, frames, references, scripts, declarations, diagnostics };
   } catch (error) { return failed(error instanceof Failure && error.code === 'XUI0003' ? 'XUI0003' : 'XUI0002'); }
+}
+
+/** One ordered original contribution to a decoded range; points may be anchors. @beta */
+export interface XmlMappedSourcePart {
+  readonly decodedRange: SourceRange;
+  readonly kind: 'literal' | 'entity' | 'normalized' | 'anchor';
+  readonly source: SourceReference;
+}
+/** One query occurrence with disjoint source parts retained in original order. @beta */
+export interface XmlSourceMapping {
+  readonly decodedRange: SourceRange;
+  readonly parts: readonly XmlMappedSourcePart[];
+}
+/** Batch-atomic owned source mappings, independent from Lua or loader semantics. @beta */
+export interface XmlSourceMappingResult {
+  readonly schemaVersion: 1;
+  readonly complete: boolean;
+  readonly mappings: readonly XmlSourceMapping[];
+  readonly diagnostics: readonly Diagnostic[];
+}
+
+/**
+ * Map decoded UTF-16 ranges to ordered original XML contributions without
+ * parsing XML or Lua, executing source or resolving references. Literal parts
+ * clip by offset; entity/normalized intersections retain whole raw spans.
+ * Point seams prefer the next contribution; EOF excludes trailing raw gaps.
+ * Decoded endpoints follow Lua's CRLF canonicalization: a part boundary
+ * between CR and LF collapses to the break start without losing raw parts.
+ * Snapshot documented own fields and dense own numeric cells once. Original
+ * and decoded input are each limited to 1 Mi units, source-file strings to
+ * 1 Mi consumed and emitted units, and arrays to 50,000 cells. Combined output
+ * mappings/parts are limited to 50,000 records before allocation. Every failure
+ * returns no mappings. Native getters remain caller code, not sandboxed input.
+ * @beta
+ */
+export function mapXmlValueRanges(
+  content: string, sourcePath: string, value: XmlValue, ranges: readonly SourceRange[],
+): XmlSourceMappingResult {
+  const maximum = 1024 * 1024;
+  const file = typeof sourcePath === 'string' && sourcePath.length <= maximum ? sourcePath : '';
+  const failure = (code: 'XUI0001' | 'XUI0003'): XmlSourceMappingResult => ({
+    schemaVersion: 1, complete: false, mappings: [], diagnostics: [{ code, severity: 'error',
+      message: code === 'XUI0003' ? 'XML analysis resource limit exceeded.' : 'Invalid XML analysis input projection.',
+      source: { file, range: { start: { line: 0, column: 0 }, end: { line: 0, column: 0 } } },
+    }],
+  });
+  try {
+    if (typeof sourcePath === 'string' && sourcePath.length > maximum) throw new Failure('XUI0003');
+    if (typeof content !== 'string' || !file) throw new Failure('XUI0001');
+    if (content.length > maximum) throw new Failure('XUI0003');
+    let sourceUnits = 0;
+    function sourceFile(value: unknown): string {
+      if (typeof value !== 'string') throw new Failure('XUI0001');
+      if (value.length > maximum - sourceUnits) throw new Failure('XUI0003');
+      sourceUnits += value.length;
+      return value;
+    }
+    sourceFile(file);
+    function takePoint(value: unknown) {
+      const line = own(value, 'line'), column = own(value, 'column');
+      if (!Number.isSafeInteger(line) || !Number.isSafeInteger(column) || (line as number) < 0 || (column as number) < 0) {
+        throw new Failure('XUI0001');
+      }
+      return { line: line as number, column: column as number };
+    }
+    function takeRange(value: unknown): SourceRange {
+      const start = takePoint(own(value, 'start')), end = takePoint(own(value, 'end'));
+      if (end.line < start.line || (end.line === start.line && end.column < start.column)) throw new Failure('XUI0001');
+      return { start, end };
+    }
+    // Nothing below validation refers to caller records. In particular, source
+    // getters and array iterators cannot substitute records during emission.
+    const decoded = own(value, 'value');
+    if (typeof decoded !== 'string') throw new Failure('XUI0001');
+    if (decoded.length > maximum) throw new Failure('XUI0003');
+    const enclosing = sourceSnapshot(own(value, 'source'), sourceFile);
+    const selectedMappings = optionArray(own(value, 'mappings'), 50000);
+    const selectedRanges = optionArray(ranges, 50000);
+    const mappings = selectedMappings.map(mapping => ({
+      start: own(mapping, 'decodedStart'), end: own(mapping, 'decodedEnd'), kind: own(mapping, 'kind'),
+      source: sourceSnapshot(own(mapping, 'source'), sourceFile),
+    }));
+    const queries = selectedRanges.map(takeRange);
+
+    function index(text: string) {
+      const starts = [0], ends: number[] = [];
+      for (let i = 0; i < text.length; i++) {
+        if (text[i] !== '\r' && text[i] !== '\n') continue;
+        ends.push(i);
+        if (text[i] === '\r' && text[i + 1] === '\n') i++;
+        starts.push(i + 1);
+      }
+      ends.push(text.length);
+      function offset(point: { line: number; column: number }): number {
+        const start = starts[point.line], end = ends[point.line];
+        if (start === undefined || end === undefined || point.column > end - start) throw new Failure('XUI0001');
+        return start + point.column;
+      }
+      function position(offset: number) {
+        // Match the existing Lua public converter at an interior CRLF offset.
+        if (offset > 0 && text[offset] === '\n' && text[offset - 1] === '\r') offset--;
+        let low = 0, high = starts.length;
+        while (low + 1 < high) {
+          const middle = (low + high) >>> 1;
+          if (starts[middle]! <= offset) low = middle; else high = middle;
+        }
+        return { line: low, column: offset - starts[low]! };
+      }
+      return { offset, position };
+    }
+    const rawIndex = index(content), decodedIndex = index(decoded);
+    function rawBounds(source: SourceReference): [number, number] {
+      if (source.file !== file) throw new Failure('XUI0001');
+      return [rawIndex.offset(source.range.start), rawIndex.offset(source.range.end)];
+    }
+    const outer = rawBounds(enclosing);
+    const validated: { start: number; end: number; kind: 'literal' | 'entity' | 'normalized'; rawStart: number; rawEnd: number }[] = [];
+    let decodedEnd = 0, rawEnd = outer[0];
+    const predefined: Record<string, string> = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&apos;': "'", '&quot;': '"' };
+    for (const mapping of mappings) {
+      const start = mapping.start, end = mapping.end, kind = mapping.kind;
+      if (start !== decodedEnd || !Number.isSafeInteger(end) || (end as number) <= decodedEnd || (end as number) > decoded.length) {
+        throw new Failure('XUI0001');
+      }
+      const [a, b] = rawBounds(mapping.source);
+      if (a < rawEnd || b <= a || a < outer[0] || b > outer[1]) throw new Failure('XUI0001');
+      const spelling = content.slice(a, b), part = decoded.slice(decodedEnd, end as number);
+      if (kind === 'literal') {
+        if (spelling !== part || spelling.includes('\r')) throw new Failure('XUI0001');
+      } else if (kind === 'normalized') {
+        const cr = /^(?:\r|\r\n)$/u.test(spelling);
+        if (!(cr && (part === '\n' || part === ' ')) && !(/^[\t\n]$/u.test(spelling) && part === ' ')) {
+          throw new Failure('XUI0001');
+        }
+      } else if (kind === 'entity') {
+        let expected = Object.hasOwn(predefined, spelling) ? predefined[spelling] : undefined;
+        if (expected === undefined) {
+          const numeric = /^&#(?:x([0-9A-Fa-f]+)|([0-9]+));$/u.exec(spelling);
+          if (!numeric) throw new Failure('XUI0001');
+          const scalar = Number.parseInt(numeric[1] ?? numeric[2]!, numeric[1] === undefined ? 10 : 16);
+          if (!(scalar === 9 || scalar === 10 || scalar === 13 || (scalar >= 0x20 && scalar <= 0xD7FF) ||
+              (scalar >= 0xE000 && scalar <= 0xFFFD) || (scalar >= 0x10000 && scalar <= 0x10FFFF))) throw new Failure('XUI0001');
+          expected = String.fromCodePoint(scalar);
+        }
+        if (part !== expected) throw new Failure('XUI0001');
+      } else throw new Failure('XUI0001');
+      validated.push({ start: decodedEnd, end: end as number, kind, rawStart: a, rawEnd: b });
+      decodedEnd = end as number; rawEnd = b;
+    }
+    if (decodedEnd !== decoded.length) throw new Failure('XUI0001');
+    const queryOffsets = queries.map(query => ({ start: decodedIndex.offset(query.start), end: decodedIndex.offset(query.end) }));
+    let outputRecords = 0, outputUnits = 0;
+    function record() { if (++outputRecords > 50000) throw new Failure('XUI0003'); }
+    function decodedRange(start: number, end: number): SourceRange {
+      return { start: decodedIndex.position(start), end: decodedIndex.position(end) };
+    }
+    function part(start: number, end: number, kind: XmlMappedSourcePart['kind'], rawStart: number, rawEnd: number): XmlMappedSourcePart {
+      record();
+      if (file.length > maximum - outputUnits) throw new Failure('XUI0003');
+      outputUnits += file.length;
+      return { decodedRange: decodedRange(start, end), kind, source: { file,
+        range: { start: rawIndex.position(rawStart), end: rawIndex.position(rawEnd) } } };
+    }
+    function firstAfter(offset: number): number {
+      let low = 0, high = validated.length;
+      while (low < high) {
+        const middle = (low + high) >>> 1;
+        if (validated[middle]!.end <= offset) low = middle + 1; else high = middle;
+      }
+      return low;
+    }
+    const result: XmlSourceMapping[] = [];
+    for (const query of queryOffsets) {
+      record();
+      const parts: XmlMappedSourcePart[] = [];
+      if (query.start === query.end) {
+        const mapping = validated[firstAfter(query.start)];
+        if (!mapping) {
+          const anchor = validated.length ? validated[validated.length - 1]!.rawEnd : outer[0];
+          parts.push(part(query.start, query.end, 'anchor', anchor, anchor));
+        } else if (query.start > mapping.start && mapping.kind === 'entity') {
+          parts.push(part(query.start, query.end, 'entity', mapping.rawStart, mapping.rawEnd));
+        } else {
+          const anchor = mapping.kind === 'literal' ? mapping.rawStart + query.start - mapping.start : mapping.rawStart;
+          parts.push(part(query.start, query.end, 'anchor', anchor, anchor));
+        }
+      } else {
+        for (let i = firstAfter(query.start); i < validated.length; i++) {
+          const mapping = validated[i]!;
+          if (mapping.start >= query.end) break;
+          const start = Math.max(query.start, mapping.start), end = Math.min(query.end, mapping.end);
+          parts.push(part(start, end, mapping.kind,
+            mapping.kind === 'literal' ? mapping.rawStart + start - mapping.start : mapping.rawStart,
+            mapping.kind === 'literal' ? mapping.rawStart + end - mapping.start : mapping.rawEnd));
+        }
+      }
+      result.push({ decodedRange: decodedRange(query.start, query.end), parts });
+    }
+    return { schemaVersion: 1, complete: true, mappings: result, diagnostics: [] };
+  } catch (error) { return failure(error instanceof Failure && error.code === 'XUI0003' ? 'XUI0003' : 'XUI0001'); }
 }

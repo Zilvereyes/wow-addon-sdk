@@ -1,0 +1,1 @@
+# Authored inline-Lua SDK fixture; no game execution.
