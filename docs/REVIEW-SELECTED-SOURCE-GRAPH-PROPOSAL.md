@@ -54,6 +54,6 @@ Read the same raw proposal, actual bounded-reader/worker code and official path/
 
 Each reviewer should return material findings first, with severity/confidence, exact location, violated requirement, a concrete counterexample and legitimate control, plus missing executable evidence. Separate confirmed defects from proposed alternatives and unavailable checks. Report no finding only with explicit residual limits. Agreement or another AI's confidence is not proof; parent-run regressions must exercise any integrated correction.
 
-## Before implementation
+## Approval and implementation boundary
 
-Obtain the requested independent reviews when explicitly delegated, reconcile their concrete findings, then ask only for the new A–F design decision. Do not ask again for Lua/XML/provider/inline approvals. Once A–F is approved, implement the ordered red/green/host/graph/worker/resolver/aggregate/native/CI stages in the proposal. No approval of this review packet authorizes merge, release or installation writes.
+The two explicitly delegated reviews completed and their correction was rechecked; the user then explicitly approved A–F and implementation atafdf86e ([record](https://github.com/Zilvereyes/wow-addon-sdk/pull/30#issuecomment-6957138420)). The earlier proposal-only passages above are historical review context. Do not ask again for this or prior Lua/XML/provider/inline approvals. Implement the ordered red/green/host/graph/worker/resolver/aggregate/native/CI stages in the binding contract. The approval does not authorize PR30 merge, release or installation writes.

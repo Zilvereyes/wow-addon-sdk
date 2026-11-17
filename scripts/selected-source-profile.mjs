@@ -27,11 +27,16 @@ export function normalizeGraphPath(input,base=[],options={}){
   if(typeof input!=='string'||!input||!Array.isArray(base))return{status:'blocked',reason:'invalid'};
   if(!Number.isSafeInteger(maximum)||maximum<1||input.length>maximum)return{status:'budget',reason:'path-units'};
   if(rooted(input))return{status:'blocked',reason:'rooted'};
-  if(!options.allowDirectory&&/[\\/]$/u.test(input))return{status:'blocked',reason:'directory'};
+  const allowDirectory=options.allowDirectory,baseLength=base.length;
+  if(!Number.isSafeInteger(baseLength)||baseLength<0)return{status:'blocked',reason:'invalid'};
+  if(baseLength>maximum)return{status:'budget',reason:'path-units'};
+  if(!allowDirectory&&/[\\/]$/u.test(input))return{status:'blocked',reason:'directory'};
   const parts=[];
-  for(let i=0;i<base.length;i++){
-    if(!Object.hasOwn(base,i)||!component(base[i]))return{status:'blocked',reason:'invalid'};
-    parts.push(base[i]);
+  for(let i=0;i<baseLength;i++){
+    if(!Object.hasOwn(base,i))return{status:'blocked',reason:'invalid'};
+    const part=base[i];
+    if(!component(part))return{status:'blocked',reason:'invalid'};
+    parts.push(part);
   }
   for(const part of input.split(/[\\/]/u)){
     if(part===''||part==='.')continue;
@@ -39,7 +44,7 @@ export function normalizeGraphPath(input,base=[],options={}){
     if(!component(part))return{status:'blocked',reason:'invalid'};
     parts.push(part);
   }
-  if(!options.allowDirectory&&!parts.length)return{status:'blocked',reason:'directory'};
+  if(!allowDirectory&&!parts.length)return{status:'blocked',reason:'directory'};
   if(parts.join('/').length>maximum)return{status:'budget',reason:'path-units'};
   return{status:'ready',components:parts};
 }
@@ -48,12 +53,15 @@ export function normalizeGraphPath(input,base=[],options={}){
 export function expandGraphTarget(input,tokens,maximum=GRAPH_LIMITS.pathUnits){
   if(typeof input!=='string'||!Number.isSafeInteger(maximum)||maximum<1||input.length>maximum)return{status:'budget'};
   if(rooted(input))return{status:'blocked'};
-  if(input.includes('$')||!Array.isArray(tokens)||tokens.length>32)return{status:'unsupported'};
+  if(input.includes('$')||!Array.isArray(tokens))return{status:'unsupported'};
   const table=new Map();
   try{
-    for(let i=0;i<tokens.length;i++){
-      if(!Object.hasOwn(tokens,i)||!record(tokens[i]))return{status:'unsupported'};
-      const {token,replacement:value}=tokens[i];
+    const length=tokens.length;
+    if(!Number.isSafeInteger(length)||length<0||length>32)return{status:'unsupported'};
+    for(let i=0;i<length;i++){
+      if(!Object.hasOwn(tokens,i))return{status:'unsupported'};
+      const row=tokens[i];if(!record(row))return{status:'unsupported'};
+      const {token,replacement:value}=row;
       if(!tokenName(token)||!replacement(value)||table.has(token))return{status:'unsupported'};
       table.set(token,value);
     }

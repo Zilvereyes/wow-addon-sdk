@@ -48,6 +48,22 @@ test('portable lookup keeps Unicode exact, collapses internal separators and all
   assert.equal(normalizeGraphPath('abcd.lua',[],{maximumUnits:7}).status,'budget');
 });
 
+test('lexical helpers validate and retain the same numeric cells and snapshot array lengths once',()=>{
+  let baseReads=0,baseLengthReads=0;
+  const base=[];
+  Object.defineProperty(base,0,{get(){baseReads++;return baseReads===1?'Demo':'..';},enumerable:true});
+  const observedBase=new Proxy(base,{get(target,key,receiver){if(key==='length')baseLengthReads++;return Reflect.get(target,key,receiver);}});
+  assert.deepEqual(normalizeGraphPath('File.lua',observedBase),{status:'ready',components:['Demo','File.lua']});
+  assert.equal(baseReads,1);assert.equal(baseLengthReads,1);
+  assert.deepEqual(normalizeGraphPath('File.lua',['Demo']).components,['Demo','File.lua']);
+  let tokenReads=0,tokenLengthReads=0;
+  const tokens=[];
+  Object.defineProperty(tokens,0,{get(){tokenReads++;return tokenReads===1?{token:'[A]',replacement:'Era'}:null;},enumerable:true});
+  const observedTokens=new Proxy(tokens,{get(target,key,receiver){if(key==='length')tokenLengthReads++;return Reflect.get(target,key,receiver);}});
+  assert.deepEqual(expandGraphTarget('[A]/File.lua',observedTokens),{status:'ready',expandedTarget:'Era/File.lua'});
+  assert.equal(tokenReads,1);assert.equal(tokenLengthReads,1);
+});
+
 test('portable lookup rejects root/device/ADS/reserved/unrepresentable/directory targets before a host is needed',()=>{
   for(const target of ['/a.lua','\\a.lua','C:a.lua','C:\\a.lua','\\\\host\\a.lua','\\\\?\\C:\\a.lua','../a.lua',
     'a.lua:stream','NUL.lua','con','COM1.lua','lPt9.txt','COM¹.lua','LPT².xml','a?.lua','a*.xml','a|b.lua',
