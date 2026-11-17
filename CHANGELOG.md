@@ -4,6 +4,12 @@ Changes are recorded by release. This project is in pre-1.0 development.
 
 ## [Unreleased]
 
+### Corpus tooling follow-up (issue #26; SDK contracts unchanged)
+
+- Add per-file TOC discovery/read/parser/invariant accounting and Lua invariant/discovery counters. Stage all TOC/Lua projection metrics until validation completes, so malformed late records cannot retain parsed, diagnostic, declaration or activation credit.
+- Replace TOC stat-then-readFileSync with a bounded read-only descriptor helper, exact bigint identity/times, growth/replacement detection, final pathname checks and deterministic descriptor cleanup. Use nonblocking open where supported to reject FIFO substitution.
+- Add isolated real-SDK projection/read-error integration cases and native file-race tests. The Linux FIFO case has a bounded child and is explicitly skipped on Windows; supported-platform acceptance is recorded with exact CI evidence in the focused PR. Public SDK packages, versions, APIs and payloads are unchanged.
+
 ### v0.5.0 XML syntax and original provenance (source version; not published)
 
 - Add the approved optional xml-parser package with nine beta exports (65 overall), exact saxes 6.0.0 / xmlchars 2.2.0 pins and complete retained notices. Preserve all six earlier API contracts/reports and 82 unrelated external lock records.

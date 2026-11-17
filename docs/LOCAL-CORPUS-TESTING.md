@@ -33,6 +33,25 @@ Limits default to 100,000 visited entries, 8 MiB per TOC and depth 64. Override 
 
 Synthetic tests cover BOM/mixed endings/Unicode, multiple variants, source privacy, no execution, unchanged file content, malformed TOCs, links, empty/missing roots and limits. CI uses only authored temporary fixtures. A smoke test is not an independent correctness oracle for every parsed declaration; targeted regressions remain necessary.
 
+## Per-file failure accounting
+
+The issue #26 tooling increment adds `tocAnalysis` without changing SDK contracts or the existing top-level `files`, `parsed`, diagnostics and skip fields. `discovered` counts classified regular TOCs, `attempted` counts read attempts, `submitted` counts parser calls and `completed` counts returned parser results. `accepted` and `rejected` count fully validated syntax verdicts; a TOC with warning diagnostics only is accepted, while any error makes it rejected. Read/backend/invariant failures and skipped oversized files never receive `parsed.toc` credit. Input bytes count successful bounded reads, including files whose later projection is rejected by an invariant.
+
+| TOC field | Meaning |
+| --- | --- |
+| `discoveryComplete` | False when traversal is truncated, unreadable, skipped or blocked by preflight |
+| `complete` | Requires complete discovery and no rejected or blocked TOC work |
+| `skippedOversized` / `resourceRejected` | Initial file size exceeds the caller's byte cap; no source read or parser call |
+| `readFailures` | Failed native read/close, changed file metadata/identity or incomplete bounded snapshot |
+| `backendFailures` | Parser call throws before returning a result |
+| `invariantFailures` | Returned projection fails schema/source/serialization/adapter validation |
+
+Lua adds `invariantFailures` and `discoveryComplete`. A completed worker response is not automatically a parsed file: every declaration, source and diagnostic must validate before verdict, diagnostic, source-reference, activation or declaration metrics are committed. A malformed late declaration invalidates the whole file's projection rather than retaining earlier credit. TOC-derived metrics are staged the same way. Counts represent occurrences, not unique names.
+
+TOC reads now use a read-only bounded descriptor helper. It allocates at most the initial size plus one sentinel byte, never more than the caller cap plus one; growth cannot enlarge the allocation or native read request. It checks bigint identity/size and nanosecond modification/change times before/after reading and rechecks the final pathname, then closes every owned descriptor. Final-component links and replacements are rejected. Nonblocking open is used where supported so a substituted FIFO can be rejected before a blocking open; the Linux-native case is tested in Ubuntu CI, with an explicit platform skip on Windows. See [Node's file-open constants](https://nodejs.org/api/fs.html#file-open-constants) and the [delivery plan/evidence](PLAN-CORPUS-ACCOUNTING.md).
+
+These checks do not create an immutable filesystem snapshot or protect against every concurrent privileged writer/ancestor-junction change. Run against a stable local installation. TOC decoding remains the existing UTF-8 string conversion with replacement behavior; this tooling fix does not select a new codec policy or claim strict UTF-8 validation for TOCs. Lua's explicit transport/profile and XML's strict transport/profile remain unchanged. None of these observations establishes loader reachability or completes the provider/reference goal.
+
 ## Measured baseline: 2026-11-16
 
 The local installed Classic Era corpus contained 101 top-level AddOn directories and 12,714 visited entries:
