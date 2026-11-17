@@ -2,7 +2,7 @@
 
 `lua-xml-syntax.json` is test input for the actual parser work tracked in [issue #11](https://github.com/Zilvereyes/wow-addon-sdk/issues/11). It contains 24 Lua and 27 XML cases. All source strings were independently authored for this project. No installed AddOn source is included.
 
-The data catalog itself implements no parser. All 24 Lua rows and both Lua golden spans are now consumed by `tests/lua-analysis.test.mjs`, which calls the actual public SDK API. The 27 XML rows remain preparatory and are not yet consumed by an SDK XML parser test. Future XML tests must read every row and assert each axis without silent skips. Catalog/schema/range checks alone cannot satisfy three-parser acceptance.
+The data catalog itself implements no parser. All 24 Lua rows and both Lua golden spans are consumed by `tests/lua-analysis.test.mjs`. All 27 XML rows and three XML golden spans are consumed by `tests/xml-parser.test.mjs`, calling the actual public XML SDK in both namespace modes and retaining the DTD-profile axis. No catalog row is silently skipped. Catalog/schema/range checks alone cannot satisfy the full provider/reference goal.
 
 ## Meaning of the expectations
 
@@ -12,7 +12,7 @@ XML uses three separate axes:
 
 - `wellFormed` follows [XML 1.0 fifth edition](https://www.w3.org/TR/xml/). This alone permits colon-containing names without namespace processing.
 - `namespaceWellFormed` additionally follows [Namespaces in XML 1.0 third edition](https://www.w3.org/TR/xml-names/). Null means that malformed XML already prevents a complete namespace verdict. X10/X11/X24/X25 deliberately separate these axes.
-- `profile` specifies the proposed SDK DTD prohibition. A document may be well-formed XML and still fail this explicit input policy. DTD rejection must occur before any external reference resolution or custom entity expansion. A DOCTYPE-looking string inside CDATA is ordinary text, as demonstrated by X07.
+- `profile` specifies the approved SDK DTD prohibition. A document may be well-formed XML and still fail this explicit input policy. DTD rejection must occur before any external reference resolution or custom entity expansion. A DOCTYPE-looking string inside CDATA is ordinary text, as demonstrated by X07.
 
 The XML cases establish no WoW UI schema, frame inheritance, client loading order or XSD validation. Attribute/default-namespace handling must be tested independently from element namespaces. Any recovered/partial tree must retain diagnostics and incomplete status.
 
