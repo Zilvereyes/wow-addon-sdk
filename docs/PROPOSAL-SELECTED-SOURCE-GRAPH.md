@@ -1,6 +1,6 @@
 # Selected-source graph and resolver composition — decision proposal
 
-Status: **A–F proposed, unapproved and unimplemented**. Reviewed SDK baseline: source0.7.0, eight packages/78beta exports, original PR #29 tree at `07b79a88150804be87b3d9c041bc7f2ff23e531f` and PR #28 source head580ed8b. Subsequent separately authorized integration/history updates are tracked in [#11](https://github.com/Zilvereyes/wow-addon-sdk/issues/11); they do not approve this graph. Existing Lua/XML/provider/inline approvals remain binding, but do not approve the path, traversal or publication choices below. No merge/tag/publication/game writes are authorized by this proposal.
+Status: **A–F explicitly approved at afdf86ec0c171dab1ccd3f73e515bcf8d1a5c74a; implementation in progress, graph acceptance incomplete**. [Approval record](https://github.com/Zilvereyes/wow-addon-sdk/pull/30#issuecomment-6957138420). Reviewed SDK baseline: source0.7.0, eight packages/78beta exports, original PR #29 tree at `07b79a88150804be87b3d9c041bc7f2ff23e531f` and PR #28 source head580ed8b. Separately authorized integration/history updates are tracked in [#11](https://github.com/Zilvereyes/wow-addon-sdk/issues/11). Existing Lua/XML/provider/inline approvals remain binding; the new explicit A–F approval covers the path, traversal and publication choices below. No PR30 merge/tag/publication/game writes are authorized by this design approval.
 
 ## Observed gap and evidence boundary
 
