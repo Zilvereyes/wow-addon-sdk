@@ -15,6 +15,10 @@ for (const name of expected) {
   const pkg = JSON.parse(fs.readFileSync(p,'utf8'));
   const keys = Object.keys(pkg.exports ?? {});
   if (keys.length !== 1 || keys[0] !== '.') errors.push(`${name}: exports must expose only '.'`);
+  const conditions = Object.keys(pkg.exports?.['.'] ?? {});
+  if (conditions.length !== 2 || !conditions.includes('types') || !conditions.includes('default')) {
+    errors.push(`${name}: root export conditions must be exactly types and default`);
+  }
   if (pkg.exports?.['.']?.types !== './dist/index.d.ts') errors.push(`${name}: wrong type entry point`);
   if (pkg.exports?.['.']?.default !== './dist/index.js') errors.push(`${name}: wrong runtime entry point`);
   const publishFiles = name === 'xml-parser' ? ['dist', 'THIRD-PARTY-NOTICES.txt'] : ['dist'];

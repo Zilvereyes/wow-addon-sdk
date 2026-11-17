@@ -207,6 +207,24 @@ test('predefined and numeric references decode once without interpreting resulti
   for (const invalid of ['<r>&unknown;</r>', '<r>&#0;</r>', '<r>&#xD800;</r>', '<r>&#x110000;</r>', '<r>&#x;</r>']) failed(invalid);
 });
 
+test('unterminated references at markup boundaries and EOF are syntax errors with no projection and independent recovery', () => {
+  const valid = '<r a="&amp;">&#65;</r>';
+  const expected = parse(valid);
+  assert.equal(expected.complete, true);
+  const malformed = ['&amp', '&#65', '&#x41', '&'].flatMap(reference => [
+    `<r>${reference}</r>`, `<r>${reference}`,
+  ]);
+  // A semicolon in later markup must not terminate the preceding text reference.
+  malformed.push('<r>&amp<c a=";"/></r>', '<r>&#65<c a=";"/></r>');
+  for (const input of malformed) {
+    for (const namespaceAware of [true, false]) {
+      const result = failed(input, { namespaceAware });
+      assert.deepEqual(result.diagnostics.map(diagnostic => diagnostic.code), ['XML0002'], input);
+      assert.deepEqual(parse(valid), expected, 'failed reference parsing does not affect later calls');
+    }
+  }
+});
+
 test('DOCTYPE-looking comments, CDATA and processing instructions are not declarations or executable Lua', () => {
   const input = '<?fixture <!DOCTYPE r SYSTEM "https://example.invalid/pi">?><r><!-- <!DOCTYPE r> -->' +
     '<![CDATA[<!DOCTYPE r SYSTEM "file:///never-read">]]><?inside error("MUST_NOT_EXECUTE")?></r>';

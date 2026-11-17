@@ -38,13 +38,13 @@ test('whitespace-only CSV cell reports the position after whitespace', () => {
 // Execute the actual audit on a synthetic workspace, including the approved
 // optional Lua extension without changing the five core dependency boundaries.
 const packages = ['diagnostics','addon-metadata','toc-parser','global-registry','toc-metadata-adapter','lua-analysis','xml-parser'];
-function auditWithSource(packageName, contents, dependencies) {
+function auditWithSource(packageName, contents, dependencies, mutate = () => {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wow-sdk-audit-'));
   try {
     const scripts = path.join(root,'scripts');
     fs.mkdirSync(scripts,{ recursive:true });
     fs.copyFileSync(path.join(process.cwd(),'scripts/check-architecture.mjs'),path.join(scripts,'check-architecture.mjs'));
-    fs.writeFileSync(path.join(root,'package.json'),'{"type":"module"}');
+    fs.writeFileSync(path.join(root,'package.json'),'{"type":"module","version":"1.0.0"}');
     fs.writeFileSync(path.join(root,'tsconfig.json'),JSON.stringify({ references:packages.map(name=>({path:'./packages/'+name})) }));
     const tsPath = fs.realpathSync(path.join(process.cwd(),'node_modules','typescript'));
     fs.mkdirSync(path.join(root,'node_modules'),{recursive:true});
@@ -52,12 +52,14 @@ function auditWithSource(packageName, contents, dependencies) {
     for (const name of packages) {
       const folder = path.join(root,'packages',name);
       fs.mkdirSync(path.join(folder,'src'),{recursive:true});
-      fs.writeFileSync(path.join(folder,'package.json'),JSON.stringify({name:'@wow-addon/'+name,
-        dependencies: name === packageName && dependencies !== undefined ? dependencies : name === 'lua-analysis' ? { luaparse: '0.3.1' }
-          : name === 'xml-parser' ? { saxes: '6.0.0', xmlchars: '2.2.0' } : {} }));
-      fs.writeFileSync(path.join(folder,'tsconfig.json'),JSON.stringify({references:[]}));
+      const declared = name === packageName && dependencies !== undefined ? dependencies : name === 'lua-analysis' ? { luaparse: '0.3.1' }
+        : name === 'xml-parser' ? { saxes: '6.0.0', xmlchars: '2.2.0' } : {};
+      fs.writeFileSync(path.join(folder,'package.json'),JSON.stringify({name:'@wow-addon/'+name, version:'1.0.0', dependencies: declared }));
+      fs.writeFileSync(path.join(folder,'tsconfig.json'),JSON.stringify({references:Object.keys(declared)
+        .filter(name => name.startsWith('@wow-addon/')).map(name => ({path:'../'+name.slice('@wow-addon/'.length)}))}));
       fs.writeFileSync(path.join(folder,'src','index.ts'),name === packageName ? contents : 'export {};');
     }
+    mutate(root);
     return spawnSync(process.execPath,[path.join(scripts,'check-architecture.mjs')],{ cwd:root, encoding:'utf8' });
   } finally {
     fs.rmSync(root,{recursive:true,force:true});
@@ -103,6 +105,25 @@ test('Lua backend version ranges and undeclared backends fail closed', () => {
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /exact version|forbidden declared external dependency/);
   }
+});
+
+test('architecture gate requires exact internal dependency and workspace versions matching the root', () => {
+  const source = "import type { SourceReference } from '@wow-addon/diagnostics';";
+  const valid = auditWithSource('addon-metadata', source, { '@wow-addon/diagnostics': '1.0.0' });
+  assert.equal(valid.status, 0, valid.stderr);
+  for (const version of ['0.9.0', '^1.0.0', 'workspace:*']) {
+    const result = auditWithSource('addon-metadata', source, { '@wow-addon/diagnostics': version });
+    assert.notEqual(result.status, 0, `unexpectedly accepted internal dependency ${version}`);
+    assert.match(result.stderr, /internal dependency .* requires exact root version/);
+  }
+  const mismatched = auditWithSource('addon-metadata', source, { '@wow-addon/diagnostics': '1.0.0' }, root => {
+    const file = path.join(root, 'packages/diagnostics/package.json');
+    const manifest = JSON.parse(fs.readFileSync(file, 'utf8'));
+    manifest.version = '0.9.0';
+    fs.writeFileSync(file, JSON.stringify(manifest));
+  });
+  assert.notEqual(mismatched.status, 0, 'unexpectedly accepted a stale workspace version');
+  assert.match(mismatched.stderr, /diagnostics: workspace version must match root version/);
 });
 
 test('XML backend pins are optional-extension-only and cannot add a core/Lua reverse edge', () => {
@@ -162,6 +183,21 @@ function auditPublicExports(mutate = () => {}) {
     fs.rmSync(root, { recursive: true, force: true });
   }
 }
+
+test('public export gate rejects additional conditional entry points under the package root', () => {
+  for (const condition of ['browser', 'node', 'import', 'require']) {
+    const result = auditPublicExports(root => {
+      const file = path.join(root, 'packages/lua-analysis/package.json');
+      const manifest = JSON.parse(fs.readFileSync(file, 'utf8'));
+      // The private helper is already in the approved Lua packlist. An extra
+      // condition can redirect a consumer without adding any tarball files.
+      manifest.exports['.'] = { [condition]: './dist/syntax.js', ...manifest.exports['.'] };
+      fs.writeFileSync(file, JSON.stringify(manifest));
+    });
+    assert.notEqual(result.status, 0, `unexpectedly accepted ${condition} entry point`);
+    assert.match(result.stderr, /root export conditions must be exactly types and default/);
+  }
+});
 
 test('public export gate verifies complete XML notices, exact lock artifacts and executable backend bytes', () => {
   const valid = auditPublicExports();

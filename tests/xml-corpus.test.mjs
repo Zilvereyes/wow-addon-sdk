@@ -96,6 +96,42 @@ test('XML corpus blocks malformed UTF-8 and UTF-16 transport before submission w
   assert.deepEqual(result.report.failures, ['xml-invalid-utf8']);
 }));
 
+test('unterminated XML references count as completed syntax rejections rather than blocked backend work', () => fixture(root => {
+  const malformed = ['&amp', '&#65', '&#x41', '&'].flatMap(reference => [
+    `<r>private-authored-reference ${reference}</r>`, `<r>private-authored-reference ${reference}`,
+  ]);
+  malformed.push('<r>private-authored-reference &amp<c a=";"/></r>');
+  const authored = ['<r>&amp;&#65;</r>', ...malformed].map((content, index) => {
+    const filename = path.join(root, `private-reference-${index}.xml`);
+    fs.writeFileSync(filename, content);
+    return { filename, before: digest(filename), modified: fs.statSync(filename).mtimeMs };
+  });
+  const result = inspect(root, '--xml-analysis');
+  assert.equal(result.status, 1);
+  assert.equal(result.stderr, '');
+  assert.equal(result.report.status, 'failed');
+  assert.equal(result.report.files.xml, authored.length);
+  assert.equal(result.report.parsed.xml, authored.length);
+  const counts = result.report.xmlAnalysis;
+  for (const name of ['discovered', 'attempted', 'submitted', 'completed']) assert.equal(counts[name], authored.length, name);
+  assert.equal(counts.accepted, 1);
+  assert.equal(counts.rejected, malformed.length);
+  assert.deepEqual(counts.diagnosticsByCode, { XML0002: malformed.length });
+  for (const name of ['profileRejected', 'resourceRejected', 'encodingRejected', 'inputLimitRejected',
+    'readFailures', 'workerFailures', 'backendFailures', 'invariantFailures']) assert.equal(counts[name], 0, name);
+  assert.deepEqual(result.report.failures, ['xml-syntax-errors']);
+  assert.deepEqual(counts.sourceIntegrity, {
+    checked: authored.length, matching: authored.length, changed: 0, verificationFailures: 0,
+  });
+  for (const { filename, before, modified } of authored) {
+    assert.equal(digest(filename), before);
+    assert.equal(fs.statSync(filename).mtimeMs, modified);
+    for (const secret of [root, filename, path.basename(filename), before, 'private-authored-reference']) {
+      assert.equal((result.stdout + result.stderr).includes(secret), false, 'Corpus output must remain aggregate');
+    }
+  }
+}));
+
 test('XML corpus enforces its UTF-16 unit cap and derived byte cap even with a larger generic limit', () => fixture(root => {
   fs.writeFileSync(path.join(root, 'units.xml'), '<Ui>' + 'x'.repeat(1024 * 1024) + '</Ui>');
   fs.writeFileSync(path.join(root, 'bytes.xml'), Buffer.alloc(4 * 1024 * 1024 + 1, 0x20));

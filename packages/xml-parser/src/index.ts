@@ -137,7 +137,9 @@ export function parseXml(content: string, sourcePath: string, options?: XmlParse
       const begin = cursor;
       if (!cdata && original[cursor] === '&') {
         const close = original.indexOf(';', cursor + 1);
-        if (close < 0 || close >= end) throw new Failure('XML0005', cursor);
+        // Text events may still be buffered in the backend at a chunk boundary.
+        // An unfinished reference is malformed source, not a projection outage.
+        if (close < 0 || close >= end) throw new Failure('XML0002', cursor);
         const entity = original.slice(cursor + 1, close);
         const predefined: Record<string, string> = { amp: '&', lt: '<', gt: '>', apos: "'", quot: '"' };
         const chunk = Object.hasOwn(predefined, entity) ? predefined[entity]! : entity.startsWith('#x') ?

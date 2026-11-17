@@ -23,6 +23,8 @@ const external = new Map([
 const errors = [];
 const pkgNames = [...allowed.keys()];
 const packagePrefix = '@wow-addon/';
+const rootVersion = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
+if (typeof rootVersion !== 'string' || rootVersion.length === 0) errors.push('root package requires a version');
 
 function allSources(dir) {
   if (!fs.existsSync(dir)) return [];
@@ -37,7 +39,13 @@ for (const [name, permitted] of allowed) {
   if (!fs.existsSync(folder)) { errors.push(`${name}: missing package`); continue; }
   const pkg = JSON.parse(fs.readFileSync(path.join(folder,'package.json'),'utf8'));
   const tsconfig = JSON.parse(fs.readFileSync(path.join(folder,'tsconfig.json'),'utf8'));
+  if (pkg.version !== rootVersion) errors.push(`${name}: workspace version must match root version ${rootVersion}`);
   const declared = Object.keys(pkg.dependencies ?? {}).filter(dep => dep.startsWith(packagePrefix)).map(dep => dep.slice(packagePrefix.length));
+  for (const [dep, version] of Object.entries(pkg.dependencies ?? {})) {
+    if (dep.startsWith(packagePrefix) && version !== rootVersion) {
+      errors.push(`${name}: internal dependency ${dep} requires exact root version ${rootVersion}`);
+    }
+  }
   const approvedExternal = external.get(name) ?? {};
   for (const dep of Object.keys(pkg.dependencies ?? {})) {
     if (!dep.startsWith(packagePrefix) && !Object.hasOwn(approvedExternal, dep)) {
