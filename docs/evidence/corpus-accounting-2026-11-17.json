@@ -1,0 +1,152 @@
+{
+  "sourceCommit": "947e559ee94e4a82b01a1e0261df2af3fd59f1e3",
+  "command": "node scripts/inspect-addon-corpus.mjs <explicit-local-AddOns> --lua-analysis --lua-input-profile corpus-files --xml-analysis --max-file-bytes 134217728 --require-all-parsers",
+  "exitCode": 1,
+  "localRuntime": {
+    "platform": "win32",
+    "node": "v26.13.1",
+    "npm": "12.2.0"
+  },
+  "report": {
+    "schemaVersion": 1,
+    "status": "failed",
+    "fullParsing": false,
+    "unimplementedParsers": [],
+    "disabledParsers": [],
+    "missingFullParsingCapabilities": [
+      "xml-provider",
+      "loader-reference-graph"
+    ],
+    "files": {
+      "toc": 434,
+      "lua": 5242,
+      "xml": 1199
+    },
+    "parsed": {
+      "toc": 434,
+      "lua": 5242,
+      "xml": 1199
+    },
+    "entriesVisited": 12714,
+    "skippedLinks": 0,
+    "skippedOversizedTocs": 0,
+    "skippedOversizedLua": 0,
+    "checkedSourceReferences": 51501,
+    "savedVariableDeclarations": 347,
+    "adapterDeclarations": 347,
+    "conditionDescriptors": 0,
+    "diagnosticsByCode": {
+      "TOC0001": 19,
+      "TOC0004": 12
+    },
+    "diagnosticsBySeverity": {
+      "error": 19,
+      "warning": 12,
+      "info": 0
+    },
+    "failures": [
+      "lua-analysis-incomplete",
+      "lua-syntax-errors",
+      "missing-full-parsing-capabilities",
+      "toc-parse-errors",
+      "xml-syntax-errors"
+    ],
+    "tocAnalysis": {
+      "complete": false,
+      "discoveryComplete": true,
+      "discovered": 434,
+      "attempted": 434,
+      "submitted": 434,
+      "completed": 434,
+      "accepted": 428,
+      "rejected": 6,
+      "skippedOversized": 0,
+      "resourceRejected": 0,
+      "readFailures": 0,
+      "backendFailures": 0,
+      "invariantFailures": 0,
+      "inputBytes": 463606
+    },
+    "xmlAnalysis": {
+      "complete": false,
+      "discoveryComplete": true,
+      "namespaceAware": true,
+      "discovered": 1199,
+      "attempted": 1199,
+      "submitted": 1199,
+      "completed": 1199,
+      "accepted": 1146,
+      "rejected": 53,
+      "profileRejected": 0,
+      "resourceRejected": 0,
+      "encodingRejected": 0,
+      "inputLimitRejected": 0,
+      "readFailures": 0,
+      "workerFailures": 0,
+      "backendFailures": 0,
+      "invariantFailures": 0,
+      "checkedSourceReferences": 281315,
+      "checkedDecodedMappings": 85212,
+      "inputBytes": 1541465,
+      "sourceIntegrity": {
+        "checked": 1199,
+        "matching": 1199,
+        "changed": 0,
+        "verificationFailures": 0
+      },
+      "diagnosticsByCode": {
+        "XML0002": 53
+      },
+      "resolvedProviderParticipation": false
+    },
+    "luaAnalysis": {
+      "complete": false,
+      "discoveryComplete": true,
+      "attempted": 5242,
+      "submitted": 5242,
+      "completed": 5242,
+      "syntaxAccepted": 5241,
+      "syntaxRejected": 1,
+      "incompleteFiles": 1531,
+      "encodingRejected": 0,
+      "inputLimitRejected": 0,
+      "resourceRejected": 0,
+      "workerFailures": 0,
+      "readFailures": 0,
+      "backendFailures": 0,
+      "invariantFailures": 0,
+      "declarations": 6636,
+      "activation": {
+        "unconditional": 1830,
+        "conditional": 0,
+        "unknown": 4806
+      },
+      "checkedSourceReferences": 12989,
+      "inputBytes": 485315420,
+      "diagnosticsByCode": {
+        "LUA0002": 1,
+        "LUA0004": 6352
+      },
+      "resolvedProviderParticipation": false,
+      "profile": "corpus-files",
+      "transport": {
+        "strictUtf8": 5238,
+        "bytePreserving": 4
+      }
+    }
+  },
+  "sourceIntegrity": {
+    "phase": "after",
+    "files": {
+      "toc": 434,
+      "lua": 5242,
+      "xml": 1199
+    },
+    "checked": 6875,
+    "matching": 6875,
+    "changed": 0,
+    "added": 0,
+    "removed": 0,
+    "skippedLinks": 0
+  }
+}
