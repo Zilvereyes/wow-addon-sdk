@@ -6,7 +6,7 @@ import type { ClientEnvironment, TocParseResult } from '@wow-addon/addon-metadat
 import type { Diagnostic, SourceReference } from '@wow-addon/diagnostics';
 import type { ConditionDescriptor, GlobalDeclaration, ResolvedAvailability } from '@wow-addon/global-registry';
 import type { LuaAnalysisContext, LuaAnalysisResult, LuaAnalysisProfile } from '@wow-addon/lua-analysis';
-import type { TocSelectionPolicy, TocSelectionResult, ConditionEvaluationPolicy, ResolvedGlobalRegistry } from '@wow-addon/toc-metadata-adapter';
+import type { TocSelectionPolicy, TocSelectionResult, ConditionEvaluationPolicy, ConditionEvaluationResult, ResolvedGlobalRegistry } from '@wow-addon/toc-metadata-adapter';
 import type { XmlAnalysisPolicy, XmlAnalysisResult, XmlSourceMappingResult } from '@wow-addon/xml-analysis';
 import type { XmlParseResult } from '@wow-addon/xml-parser';
 
@@ -156,6 +156,7 @@ export interface SelectedSourceGraphAggregate {
     readonly ambiguousReferences: number; readonly cyclicReferences: number;
     readonly activeGuards: number; readonly inactiveGuards: number; readonly unknownGuards: number;
     readonly expandedTokenReferences: number; readonly unsupportedVariables: number;
+    readonly guardIssuesByCode: Readonly<Partial<Record<ConditionEvaluationResult['issues'][number]['code'], number>>>;
   };
   readonly inlineLua: {
     readonly discoveredBodies: number; readonly attemptedBodies: number; readonly skippedMissingContext: number;
@@ -183,6 +184,10 @@ export interface SelectedSourceGraphResult {
   readonly analyses: readonly {
     readonly analysisId: number; readonly sourcePath: string; readonly result: GraphAnalysis;
     readonly confirmedApiCalls: ConfirmedGraphApiCalls;
+  }[];
+  /** One owned original SDK evaluation per reference, including inactive and declaration-free targets. */
+  readonly guardEvaluations: readonly {
+    readonly referenceId: number; readonly evaluation: ConditionEvaluationResult;
   }[];
   readonly references: readonly {
     readonly referenceId: number; readonly parentOccurrenceId: number; readonly source: SourceReference;
@@ -236,3 +241,8 @@ declare const result: SelectedSourceGraphResult;
 // @ts-expect-error Missing candidate data must not fabricate a completed selection.
 const fabricatedSelection: TocSelectionResult = result.groups[0]!.selection;
 void fabricatedSelection;
+
+declare const parserDiagnostic: Diagnostic;
+// @ts-expect-error A parser Diagnostic cannot replace original guard issues with their sources[] shape.
+const lostGuardProvenance: ConditionEvaluationResult['issues'][number] = parserDiagnostic;
+void lostGuardProvenance;

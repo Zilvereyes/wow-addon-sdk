@@ -56,6 +56,24 @@ check('existing evaluator distinguishes active inactive and unknown supplied pat
   const unknown={...environment};delete unknown.gameType;
   assert.equal(evaluateGlobalConditions(declaration,unknown,conditionPolicy).availability,'unknown');
 });
+check('unknown path-guard issues survive separately from a declaration-free core result',()=>{
+  const noRules={...conditionPolicy,rules:[]};
+  const evaluation=evaluateGlobalConditions(first.declarations[0],environment,noRules);
+  assert.equal(evaluation.availability,'unknown');
+  assert.deepEqual(evaluation.issues.map(issue=>issue.code),['CONDEVAL0003']);
+  assert.deepEqual(evaluation.issues[0].sources,[restriction[0].source]);
+  assert.notEqual(evaluation.issues[0].sources[0],restriction[0].source);
+  const empty=analyzeLua('-- empty','Demo/Core.lua',{addonId:logicalAddonId,conditions:restriction});
+  assert.equal(empty.complete,true);assert.deepEqual(empty.declarations,[]);
+  const emptyToc=parseToc('Core.lua [AllowLoadGameType vanilla]','Demo/Demo_Vanilla.toc');
+  const emptyCandidate=candidate(emptyToc);
+  const emptyGroup={...group,candidates:[emptyCandidate]};
+  const result=resolveGlobalRegistry(environment,[{...emptyGroup,providers:[provider(empty.declarations)]}],noRules);
+  assert.equal(result.complete,true);assert.deepEqual(result.entries,[]);assert.deepEqual(result.issues,[]);
+  const control=resolveGlobalRegistry(environment,[{...emptyGroup,providers:[provider(first.declarations)]}],noRules);
+  assert.equal(control.complete,false);
+  assert.deepEqual(control.entries[0].declarations[0].evaluation.issues.map(issue=>issue.code),['CONDEVAL0003']);
+});
 check('actual Lua results own inherited restriction copies and preserve exact source labels',()=>{
   assert.equal(first.complete,true);assert.equal(second.complete,true);
   assert.equal(first.declarations[0].source.file,'Demo/Core.lua');
@@ -116,6 +134,6 @@ check('generic variadic fallback and historical nonvariadic self context disagre
   assert.equal(supplied(true).complete,true);
   assert.equal(supplied(false).diagnostics[0].code,'LUA0002');assert.deepEqual(supplied(false).declarations,[]);
 });
-assert.equal(checks.length,12);
+assert.equal(checks.length,13);
 console.log(JSON.stringify({schemaVersion:1,kind:'existing-sdk-graph-design-characterization',baselineSDKCommit:'07b79a88150804be87b3d9c041bc7f2ff23e531f',runtime:process.version,
   checks:checks.length,pass:true,graphImplemented:false,installedInputRead:false,thirdPartyExecution:false,cases:checks},null,2));
