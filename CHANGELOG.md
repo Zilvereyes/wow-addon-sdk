@@ -4,6 +4,13 @@ Changes are recorded by release. This project is in pre-1.0 development.
 
 ## [Unreleased]
 
+### v0.6.0 XML facts (source version; not published)
+
+- Add the user-approved optional xml-analysis leaf with eight beta exports (73 overall), explicit expanded-name caller policy, unknown frame candidates, unresolved Script/Include references and original-source mapped chunk/handler bodies. Preserve all seven earlier APIs and 84 existing external lock records.
+- Validate own-field option snapshots and bounded numeric array cells; deep-copy sources/maps/conditions, preserve duplicate names and fail closed on input/backend/resource errors. Reject ambiguous nested inline elements and inconsistent backend ancestry. Keep templates, `$parent`, inherited names and activation unresolved.
+- Add explicit opt-in provider corpus profiles, exact worker envelopes and per-file atomic accounting/source integrity, including warning-source validation. Syntax verdicts stay independent; inline bodies are not counted as parsed Lua and referenced files are not opened.
+- Add authored API, semantic, resource, ownership, backend, worker, corpus and distribution regressions. See the provider migration and dated acceptance record for actual results and limitations. The installed provider run awaits a prepared explicit profile; no tag, package publication or game-source modification is performed.
+
 ### Corpus tooling follow-up (issue #26; SDK contracts unchanged)
 
 - Add per-file TOC discovery/read/parser/invariant accounting and Lua invariant/discovery counters. Stage all TOC/Lua projection metrics until validation completes, so malformed late records cannot retain parsed, diagnostic, declaration or activation credit.

@@ -15,6 +15,7 @@ const allowed = new Map([
   ['toc-metadata-adapter', ['diagnostics','addon-metadata','global-registry']],
   ['lua-analysis', ['diagnostics','global-registry']],
   ['xml-parser', ['diagnostics']],
+  ['xml-analysis', ['diagnostics','global-registry','xml-parser']],
 ]);
 const external = new Map([
   ['lua-analysis', { luaparse: '0.3.1' }],

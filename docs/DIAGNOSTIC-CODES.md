@@ -79,3 +79,16 @@ All error results contain zero declarations, including an otherwise valid prefix
 Every XML error returns `complete=false`, `elements=[]` and `text=[]`, even when an earlier prefix was valid. Fixed messages never echo source text or backend error strings. The exact supplied path is preserved when usable; invalid paths retain an empty diagnostic file. Positions use original zero-based UTF-16 coordinates and exclusive ends; a point inside a CRLF is anchored at its CR. No diagnostic means syntax/provenance completeness, with no schema, FrameXML, global-declaration or loader-reachability guarantee.
 
 In corpus tooling, `XML0002` and `XML0004` are completed rejected syntax/profile verdicts. `XML0003`, `XML0001` and `XML0005` are blocked resource/backend work and do not increment `parsed.xml`; transport encoding, read, worker and invariant failures also remain separate from syntax verdicts. The aggregate `profileRejected` counter is a subset of `rejected`. Full parsing remains false until the XML provider and loader reference graph exist. See [XML migration](MIGRATION-v0.4-to-v0.5.md).
+
+## v0.6.0 XML facts
+
+| Code | Severity | Meaning |
+| --- | --- | --- |
+| `XUI0001` | error | Invalid caller text/path/policy/condition projection |
+| `XUI0002` | error | Unusable syntax backend projection or provider backend failure |
+| `XUI0003` | error | Provider option/output resource limit |
+| `XUI0004` | warning | Unknown root or ambiguous recognized construct under explicit policy |
+
+XML syntax/profile errors retain their XML codes and owned source records. XUI0001–3 return empty fact arrays. XUI0004 preserves independently extracted facts with complete=false, for example invalid virtual spelling, missing Include target, empty file target or nested elements inside recognized inline code. Expected virtual templates, inherits and unresolved `$parent` names remain retained facts without manufactured globals. Messages are fixed and private backend/option strings never enter them.
+
+Provider corpus validation requires each ambiguous element's exact warning source before committing any fact/map/diagnostic credit. Malformed projections are invariant failures; read, encoding, worker, resource and syntax rejection remain separate dispositions. Inline body facts are not Lua syntax verdicts. [Provider migration](MIGRATION-v0.5-to-v0.6.md) records the complete boundaries.

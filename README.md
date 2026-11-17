@@ -6,7 +6,7 @@
 
 WoW AddOn SDK provides reusable libraries for parsing AddOn `.toc` and XML documents, analyzing Lua 5.1 syntax and lexical globals, modeling AddOn metadata, and producing source-aware diagnostics. Syntax parsing, semantic models, symbol registries and external tooling adapters are deliberately separated.
 
-> **Status:** Pre-1.0 development preview (`v0.5.0` source milestone). Public APIs may change. This is not a published npm release and is not affiliated with Blizzard Entertainment. Source versions do not establish release readiness or local corpus acceptance.
+> **Status:** Pre-1.0 development preview (`v0.6.0` source milestone). Public APIs may change. This is not a published npm release and is not affiliated with Blizzard Entertainment. Source versions do not establish release readiness or local corpus acceptance.
 
 ## Packages
 
@@ -19,6 +19,7 @@ WoW AddOn SDK provides reusable libraries for parsing AddOn `.toc` and XML docum
 | `@wow-addon/toc-metadata-adapter` | The official AddOn metadata → global declaration translation |
 | `@wow-addon/lua-analysis` | Optional Lua 5.1 syntax and conservative lexical-global analysis, with a pinned MIT backend |
 | `@wow-addon/xml-parser` | Optional XML 1.0 syntax, namespace-aware names and decoded-value provenance, with pinned backends |
+| `@wow-addon/xml-analysis` | Optional explicit-policy frame candidates, unresolved references and mapped inline bodies |
 
 The core contains **no dependencies on VS Code, LuaLS or Continue**. Dependency boundaries are enforced in source and CI.
 
@@ -81,12 +82,14 @@ v0.4.1 adds the explicitly approved [corpus profile](docs/DESIGN-LUA-CORPUS-PROF
 
 v0.5.0 implements the explicitly approved XML A–F syntax increment. `parseXml(text, sourcePath)` returns schema 1 with flat preorder elements, original-order text, namespace-aware names and decoded-value mappings to original UTF-16 ranges. DTDs and XML 1.1 are rejected; failures return empty projections and fixed diagnostics. Namespace constraints are enabled by default; the SDK alone permits explicit `{ namespaceAware: false }`. No source is executed or referenced file fetched. The seven-package surface has 65 beta exports (14 runtime and 51 type-only). The local `--xml-analysis` opt-in uses strict UTF-8 with BOM retention, bounded reads and a supervised worker; aggregate syntax verdicts remain separate from blocked work. See [XML migration](docs/MIGRATION-v0.4-to-v0.5.md) for limits and remaining acceptance boundaries.
 
-## Non-goals (v0.5.0)
+v0.6.0 adds the approved explicit-policy XML fact provider. `analyzeXml(text, sourcePath, {addonId,policy})` returns candidate frames, unknown declarations, unresolved Script/Include references and inline chunk/handler bodies mapped to original source. It adds eight beta exports (73 overall across eight packages), depending only on xml-parser, diagnostics and global-registry. Inline bodies are not yet analyzed as Lua; file references are not traversed. See [migration](docs/MIGRATION-v0.5-to-v0.6.md) and [what a profile means](docs/XML-PROVIDER-PROFILES.md).
+
+## Non-goals (v0.6.0)
 
 This release does **not**:
 
 - Interpret Blizzard FrameXML semantics or prove the Classic Era runtime dialect from an XML/Lua grammar profile.
-- Derive XML global declarations or resolve the actual loader reference graph. Three syntax parsers alone do not establish full AddOn parsing or active-source reachability.
+- Infer active XML globals or resolve the actual loader reference graph. Unknown frame candidates and three syntax parsers do not establish full AddOn parsing or active-source reachability.
 - Resolve `$parent` frame names or infer saved-variable types.
 - Infer an automatic WoW-loader TOC/condition policy. Selection, condition evaluation and resolved views use explicit caller policies and source associations.
 - Depend on VS Code, Lua Language Server or AI tooling.
@@ -105,7 +108,8 @@ Those capabilities belong to separately versioned future adapters and analysis p
 | `0.3.5` | **Architectural Freeze**: API snapshots, environment regression coverage, migration docs, licensing and packaging gates |
 | `0.4.x` | Approved Lua syntax/provider analysis and actual local corpus tests |
 | `0.5.0` | Approved XML syntax and original-source decoded mappings; opt-in read-only corpus transport |
-| Later analysis/adapters | XML provider, reference graph and LuaLS integration |
+| `0.6.0` | Approved explicit-policy XML fact provider and mapped inline bodies |
+| Later analysis/adapters | Handler-aware inline Lua, reference graph and LuaLS integration |
 | `1.0.0` | **Consumer API Stability**, SemVer guarantees |
 
 An architectural freeze in `0.3.5` **is not** a promise of stable public APIs. See [API Policy](docs/API-POLICY.md) and [v0.3.5 roadmap](docs/ROADMAP-v0.3.5.md).
