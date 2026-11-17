@@ -19,7 +19,9 @@ Vi har allerede den tidligere valgte lokale AddOns-sti. De nødvendige tekstfile
 
 [Eksempelprofilen](../examples/xml-provider-profile.json) er selvskrevet til syntetiske eksempler med de seks konstruktioner ovenfor og **uden XML-navnerum** (`namespaceUri:null`). Den genkender kun Frame og OnLoad i denne lille vokabular. Den er ikke valgt til den installerede AddOns-mappe og er ikke en komplet Classic Era-profil. Elementer uden for den valgte vokabular bliver ikke automatisk widgets eller scripts; en ukendt rod giver XUI0004 og incomplete.
 
-Den aktuelle brugerbeslutning, 2026-11-17, er at gennemføre syntetiske provider-tests og CI nu. **Den lokale XML-providerkørsel afventer en valgt profil og er ikke kørt.** De tidligere TOC/Lua/XML-syntaksresultater beholder deres oprindelige implementeringscommit og ændres ikke til nye provider-resultater.
+Den oprindelige brugerbeslutning, 2026-11-17, var at gennemføre syntetiske provider-tests og CI, mens den lokale profil blev forberedt. Efter brugerens præcisering har assistenten forberedt og udtrykkeligt valgt en lokal analyseprofil og gennemført [den faktiske providerkørsel på 580ed8b](https://github.com/Zilvereyes/wow-addon-sdk/issues/11#issuecomment-6951837363). Den validerer 1.146 projektioner: 1.116 komplette under profilen og 30 ufuldstændige rødder; 53 syntaksafvisninger får ingen providerprojektion. Alle 1.199 XML-hashkontroller matcher. Resultatet er stadig exit1/fullParsing=false, og udækkede handler-, animations-, font- og bindingsdomæner er ikke fuld spildækning. De tidligere TOC/Lua/XML-syntaksresultater beholder deres oprindelige implementeringscommit.
+
+Kørslen udtrækker 37 chunks og 1.302 handlers, men parser ingen af dem som Lua. Det næste [forslag A–E](PROPOSAL-INLINE-LUA.md) beskriver eksplicit Lua-kontekst og mapping til oprindelige XML-kildestykker. Det er endnu ikke godkendt eller implementeret. En XML-vokabularprofil fastlægger ikke handlerens Lua-signatur.
 
 Det selvskrevne eksempel kan køres uden spilinstallationen:
 
