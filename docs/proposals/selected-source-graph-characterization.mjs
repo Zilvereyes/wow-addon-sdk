@@ -65,7 +65,8 @@ check('unknown path-guard issues survive separately from a declaration-free core
   assert.notEqual(evaluation.issues[0].sources[0],restriction[0].source);
   const empty=analyzeLua('-- empty','Demo/Core.lua',{addonId:logicalAddonId,conditions:restriction});
   assert.equal(empty.complete,true);assert.deepEqual(empty.declarations,[]);
-  const emptyToc=parseToc('Core.lua [AllowLoadGameType vanilla]','Demo/Demo_Vanilla.toc');
+  const emptyToc=parseToc('# authored\nCore.lua [AllowLoadGameType vanilla]','Demo/Demo_Vanilla.toc');
+  assert.deepEqual(descriptors(emptyToc.metadata.fileEntries[0]),restriction);
   const emptyCandidate=candidate(emptyToc);
   const emptyGroup={...group,candidates:[emptyCandidate]};
   const result=resolveGlobalRegistry(environment,[{...emptyGroup,providers:[provider(empty.declarations)]}],noRules);
