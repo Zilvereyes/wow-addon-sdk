@@ -111,6 +111,78 @@ test('expired synchronous startup and late correlated responses never gain attri
   try{assert.deepEqual(await control.inspect(['C:\\Fixture']),[{ok:true,reparsePoint:false}]);}finally{await control.close();}
 });
 
+test('approved thirty-second inspect cap is exact and the remaining operation budget still clamps it',async()=>{
+  assert.throws(()=>createWindowsPathInspector({timeoutMs:30001}),/graph-attributes-input/u);
+  for(const [remaining,arrives,accepted] of [[30000,29999,true],[30000,30000,false],[12000,11999,true],[12000,12000,false]]){
+    let now=0,next=0;const timers=new Map(),scheduled=[];
+    const setTimer=(fn,ms)=>{scheduled.push(ms);timers.set(++next,fn);return next;},clearTimer=id=>timers.delete(id);
+    const f=fake((child,request)=>{now=arrives;reply(child,request);});
+    const i=createWindowsPathInspector({spawnProcess:f.spawnProcess,now:()=>now,setTimer,clearTimer});
+    try{
+      const result=i.inspect(['C:\\Fixture'],remaining);
+      if(accepted)assert.deepEqual(await result,[{ok:true,reparsePoint:false}]);
+      else await assert.rejects(result,/graph-attributes-timeout/u);
+      assert.equal(scheduled[0],remaining);assert.equal(timers.size,0);
+    }finally{await i.close();}
+  }
+});
+
+test('thirty-second requests keep a separate ten-second bounded reap with no replacement',async()=>{
+  let next=0;const timers=new Map(),scheduled=[];
+  const setTimer=(fn,ms)=>{scheduled.push(ms);timers.set(++next,{fn,ms});return next;},clearTimer=id=>timers.delete(id);
+  const f=fake(child=>child.stdout.write('{}\n'),{automaticClose:false});
+  const i=createWindowsPathInspector({spawnProcess:f.spawnProcess,now:()=>0,setTimer,clearTimer});
+  await assert.rejects(i.inspect(['C:\\Fixture']),/graph-attributes-protocol/u);
+  assert.equal(scheduled[0],30000);
+  const closing=i.close();
+  assert.deepEqual([...timers.values()].map(value=>value.ms),[10000]);
+  [...timers.values()][0].fn();
+  try{await assert.rejects(closing,/graph-attributes-reap/u);assert.equal(f.launches.length,1);}
+  finally{for(const child of f.children)child.emit('close');await i.close();}
+});
+
+test('replacement reaping also has a separate ten-second cap and preserves the remaining inspect budget',async()=>{
+  for(const timely of [false,true]){
+    let now=0,next=0;const timers=new Map(),scheduled=[];
+    const setTimer=(fn,ms)=>{scheduled.push(ms);timers.set(++next,{fn,ms});return next;},clearTimer=id=>timers.delete(id);
+    const f=fake((child,request)=>{if(f.children.length===1)child.stdout.write('{}\n');else{now=29999;reply(child,request);}},{automaticClose:false});
+    const i=createWindowsPathInspector({spawnProcess:f.spawnProcess,now:()=>now,setTimer,clearTimer});
+    await assert.rejects(i.inspect(['C:\\Fixture']),/graph-attributes-protocol/u);
+    const replacement=i.inspect(['C:\\Fixture']);
+    try{
+      assert.deepEqual([...timers.values()].map(value=>value.ms),[10000]);
+      if(timely){
+        now=9000;f.children[0].emit('close');
+        assert.deepEqual(await replacement,[{ok:true,reparsePoint:false}]);
+        assert.equal(f.launches.length,2);assert.equal(scheduled.at(-1),21000);
+      }else{
+        [...timers.values()][0].fn();await assert.rejects(replacement,/graph-attributes-reap/u);
+        assert.equal(f.launches.length,1);
+      }
+    }finally{
+      for(const child of f.children)child.emit('close');await Promise.allSettled([replacement]);
+      const closing=i.close();for(const child of f.children)child.emit('close');await closing;
+    }
+  }
+});
+
+test('late close acknowledgements cannot beat an overdue independent reap timer',async()=>{
+  for(const phase of ['replacement','close']){
+    let now=0,next=0;const timers=new Map();
+    const setTimer=(fn,ms)=>{timers.set(++next,{fn,ms});return next;},clearTimer=id=>timers.delete(id);
+    const f=fake((child,request)=>{if(f.children.length===1)child.stdout.write('{}\n');else reply(child,request);},{automaticClose:false});
+    const i=createWindowsPathInspector({spawnProcess:f.spawnProcess,now:()=>now,setTimer,clearTimer});
+    await assert.rejects(i.inspect(['C:\\Fixture']),/graph-attributes-protocol/u);
+    const pending=phase==='replacement'?i.inspect(['C:\\Fixture']):i.close();
+    now=11000;f.children[0].emit('close');
+    try{await assert.rejects(pending,/graph-attributes-reap/u);assert.equal(f.launches.length,1);}
+    finally{
+      for(const child of f.children)child.emit('close');await Promise.allSettled([pending]);
+      const closing=i.close();for(const child of f.children)child.emit('close');await closing;
+    }
+  }
+});
+
 test('native stock Windows helper detects authored junctions and never changes source content',
   {skip:process.platform!=='win32'?'stock Windows attribute helper requires Windows':false},async()=>{
     const temporary=path.resolve(os.tmpdir()),root=fs.mkdtempSync(path.join(temporary,'wow-sdk-attributes-'));

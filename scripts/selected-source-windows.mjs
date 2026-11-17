@@ -10,8 +10,9 @@ const helper=fileURLToPath(new URL('./Inspect-SelectedSourcePath.ps1',import.met
 const cap=1024*1024;
 const exact=(value,keys)=>value!==null&&typeof value==='object'&&!Array.isArray(value)&&
   Object.keys(value).length===keys.length&&keys.every(key=>Object.hasOwn(value,key));
-export function createWindowsPathInspector({spawnProcess=spawn,timeoutMs=10000,now=()=>performance.now()}={}){
-  if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>10000)throw Error('graph-attributes-input');
+export function createWindowsPathInspector({spawnProcess=spawn,timeoutMs=30000,now=()=>performance.now(),
+  setTimer=setTimeout,clearTimer=clearTimeout}={}){
+  if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>30000)throw Error('graph-attributes-input');
   const executable=path.win32.join(process.env.SystemRoot??'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
   if(!/^[A-Za-z]:\\/u.test(executable))throw Error('graph-attributes-runtime');
   let active=null,closed=false,sequence=0,restarting=false;
@@ -19,7 +20,7 @@ export function createWindowsPathInspector({spawnProcess=spawn,timeoutMs=10000,n
   function invalidate(state,code){
     if(active===state)active=null;
     const pending=state.pending;state.pending=null;
-    if(pending){clearTimeout(pending.timer);pending.reject(Error(code));}
+    if(pending){clearTimer(pending.timer);pending.reject(Error(code));}
     if(state.child.exitCode===null&&state.child.signalCode===null)state.child.kill('SIGKILL');
   }
   function start(){
@@ -47,7 +48,7 @@ export function createWindowsPathInspector({spawnProcess=spawn,timeoutMs=10000,n
         invalidate(state,'graph-attributes-protocol');return;
       }
       const pending=state.pending;state.pending=null;state.buffer=Buffer.alloc(0);state.bytes=0;
-      clearTimeout(pending.timer);pending.resolve(response.rows);
+      clearTimer(pending.timer);pending.resolve(response.rows);
     });
     child.on('error',()=>invalidate(state,'graph-attributes-start'));
     child.stdin.on('error',()=>invalidate(state,'graph-attributes-write'));
@@ -55,7 +56,7 @@ export function createWindowsPathInspector({spawnProcess=spawn,timeoutMs=10000,n
     return state;
   }
   return{
-    inspect:async function inspect(paths,remainingMilliseconds=10000){
+    inspect:async function inspect(paths,remainingMilliseconds=30000){
       if(closed)throw Error('graph-attributes-closed');
       if(restarting||active?.pending)throw Error('graph-attributes-busy');
       let owned=[];
@@ -73,9 +74,10 @@ export function createWindowsPathInspector({spawnProcess=spawn,timeoutMs=10000,n
       if(Buffer.byteLength(payload)>cap)throw Error('graph-attributes-input');
       if(!active&&children.size){
         restarting=true;let timer;
+        const reapDeadline=Math.min(deadline,now()+10000),reapCode=reapDeadline<deadline?'graph-attributes-reap':'graph-attributes-timeout';
         try{await Promise.race([Promise.all([...children].map(state=>state.done)),new Promise((_,reject)=>{
-          timer=setTimeout(()=>reject(Error('graph-attributes-timeout')),Math.max(0,deadline-now()));
-        })]);}finally{clearTimeout(timer);restarting=false;}
+          timer=setTimer(()=>reject(Error(reapCode)),Math.max(0,reapDeadline-now()));
+        })]);if(now()>=reapDeadline)throw Error(reapCode);}finally{clearTimer(timer);restarting=false;}
       }
       if(closed)throw Error('graph-attributes-closed');
       if(deadline-now()<=0)throw Error('graph-attributes-timeout');
@@ -84,7 +86,7 @@ export function createWindowsPathInspector({spawnProcess=spawn,timeoutMs=10000,n
       const remaining=deadline-now();
       if(remaining<=0){invalidate(state,'graph-attributes-timeout');throw Error('graph-attributes-timeout');}
       return new Promise((resolve,reject)=>{
-        const timer=setTimeout(()=>invalidate(state,'graph-attributes-timeout'),remaining);
+        const timer=setTimer(()=>invalidate(state,'graph-attributes-timeout'),remaining);
         state.pending={id,rows:owned.length,timer,resolve,reject,deadline};
         try{state.child.stdin.write(payload,issue=>{if(issue)invalidate(state,'graph-attributes-write');});}
         catch{invalidate(state,'graph-attributes-write');}
@@ -93,10 +95,10 @@ export function createWindowsPathInspector({spawnProcess=spawn,timeoutMs=10000,n
     async close(){
       closed=true;const states=[...children];
       for(const state of states)invalidate(state,'graph-attributes-closed');
-      let timer;
+      let timer;const reapDeadline=now()+Math.min(timeoutMs,10000);
       try{await Promise.race([Promise.all(states.map(state=>state.done)),new Promise((_,reject)=>{
-        timer=setTimeout(()=>reject(Error('graph-attributes-reap')),timeoutMs);
-      })]);}finally{clearTimeout(timer);}
+        timer=setTimer(()=>reject(Error('graph-attributes-reap')),Math.max(0,reapDeadline-now()));
+      })]);if(now()>=reapDeadline)throw Error('graph-attributes-reap');}finally{clearTimer(timer);}
     },
   };
 }
