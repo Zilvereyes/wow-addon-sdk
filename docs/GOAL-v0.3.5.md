@@ -29,3 +29,5 @@ Lua analysis is integrated through PR #22 / `3fa9416`, with 207 tests and 4/4 po
 ## Current authorization boundary: 2026-11-17
 
 The active user instructions require separate authorization for merge, tags and package publication. This supersedes the historical routine-integration interpretation above. XML A–F approval authorizes its implementation, tests, read-only corpus work and GitHub PR maintenance. It does not authorize those separate actions. Preserve unrelated work and keep the broader provider/reference goal open. See [XML acceptance](REVIEW-XML-v0.5.0.md).
+
+On 2026-11-17 the user explicitly approved the selected instruction “Godkend merge af begge og fortsæt” for PR #25 and #27. Both were merged in dependency order after fresh supported CI, as `c0c825d` and `3c99b33`. This approval applies to those two merges and continuation within the existing project scope; it does not grant tag/publication/deployment rights or approve new XML provider/handler/graph contracts. [The next provider A–D proposal](PROPOSAL-XML-PROVIDER.md) remains a decision request, not an implemented contract.

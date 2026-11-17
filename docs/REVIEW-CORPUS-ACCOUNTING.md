@@ -1,6 +1,6 @@
 # Corpus accounting acceptance: 2026-11-17
 
-Issue [#26](https://github.com/Zilvereyes/wow-addon-sdk/issues/26) is implemented in stacked [PR #27](https://github.com/Zilvereyes/wow-addon-sdk/pull/27), based on the frozen XML PR #25 head `956ae83`. Implementation commit: `947e559ee94e4a82b01a1e0261df2af3fd59f1e3`. SDK packages, versions, 65 beta exports, declaration baselines/reports, dependencies and package payloads are unchanged. The [file-level plan](PLAN-CORPUS-ACCOUNTING.md) records scope and failure cases. Merge remains a separate user decision.
+Issue [#26](https://github.com/Zilvereyes/wow-addon-sdk/issues/26) is delivered by now-merged [PR #27](https://github.com/Zilvereyes/wow-addon-sdk/pull/27), originally stacked on XML PR #25 head `956ae83`. Implementation commit: `947e559ee94e4a82b01a1e0261df2af3fd59f1e3`; integration acceptance is recorded below. SDK packages, versions, 65 beta exports, declaration baselines/reports, dependencies and package payloads are unchanged. The [file-level plan](PLAN-CORPUS-ACCOUNTING.md) records scope and failure cases. Merge authorization was granted separately by the user.
 
 ## Verified behavior
 
@@ -53,4 +53,19 @@ The first combined run used the default generic 8 MiB byte cap and honestly repo
 
 ## Remaining work
 
-The accounting/read-bound defect is resolved in the reviewable branch; integration awaits separate authorization in dependency order (#25 before #27). Keep #26 open until integration, with its implementation/acceptance linked. The overall [#11 goal](https://github.com/Zilvereyes/wow-addon-sdk/issues/11) stays open: XML frame/template/Script/Include provider and inline-Lua mapping need a concrete approved contract, followed by read-only selected-source traversal and provider resolution. Existing TOC semantics and all explained syntax/dynamic findings remain visible. No version number or all-file verdict count closes those requirements.
+The accounting/read-bound defect is integrated as recorded below; #26 is closed. The overall [#11 goal](https://github.com/Zilvereyes/wow-addon-sdk/issues/11) stays open: XML frame/template/Script/Include provider and inline-Lua mapping need concrete approved contracts, followed by read-only selected-source traversal and provider resolution. Existing TOC semantics and all explained syntax/dynamic findings remain visible. No version number or all-file verdict count closes those requirements.
+
+## Integration accepted: 2026-11-17
+
+The user explicitly approved both merges and continuation. #25 merged first as `c0c825d`; #27 was retargeted to main and updated by a history-preserving merge to head `0b65924e2df34eb8b008da06bf682572becea905`. Its tree is identical to reviewed `524ce88` (`git diff --exit-code` returned 0). Fresh [PR CI 44094999618](https://github.com/Zilvereyes/wow-addon-sdk/actions/runs/44094999618) passes all four supported jobs before #27 merged as **`3c99b3342bc81f3529fe10cdb422ddd9f7f3d586`**. No branches were deleted or history rewritten.
+
+[Post-merge main CI 44095384117](https://github.com/Zilvereyes/wow-addon-sdk/actions/runs/44095384117) passes all four jobs on that exact merge commit:
+
+| Job | Result |
+| --- | --- |
+| Ubuntu / Node 22 — 134081026661 | 311 pass, zero fail/skip |
+| Ubuntu / Node 24 — 134081026615 | 311 pass, zero fail/skip |
+| Windows / Node 22 — 134081026196 | 310 pass, zero fail, one Linux-only FIFO skip |
+| Windows / Node 24 — 134081026568 | 310 pass, zero fail, one Linux-only FIFO skip |
+
+Each job's required steps pass locked install, `npm run check:all`, `npm run api:extractor` and `npm run check:packages`. Downloaded logs bind checkout to the exact SHA and confirm test totals, seven-package architecture, strict API Extractor and exact package payloads/licenses. The merged tree also matches `524ce88` byte-for-byte. No new installed-corpus run is claimed for the merge commit: the unchanged implementation retains the explicitly attributed `947e559` evidence above. #26 is closed as delivered; #11 remains open. The [next XML provider proposal](PROPOSAL-XML-PROVIDER.md) is unapproved; handler-aware Lua and selected-source traversal remain later decisions. No tag or package publication occurred.
