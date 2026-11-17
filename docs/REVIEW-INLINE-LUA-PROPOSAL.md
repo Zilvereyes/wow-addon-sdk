@@ -1,5 +1,7 @@
 # Inline-Lua proposal review record — 2026-11-17
 
+Historical proposal checkpoint only. The user subsequently [approved A–E](https://github.com/Zilvereyes/wow-addon-sdk/issues/11#issuecomment-6952532068). Current implementation and fresh acceptance are tracked in [the v0.7 review](REVIEW-INLINE-LUA-v0.7.0.md); the unapproved/unimplemented wording below describes only the earlier snapshot.
+
 Scope: [A–E proposal](PROPOSAL-INLINE-LUA.md), authored existing-API characterization, locally declared consumer types and dated status corrections. New context/mapper/worker functionality is **not approved or implemented**. The SDK source baseline is580ed8b42cbe24420346011d64b0ec34fcb32025; proposal head/CI identity is recorded by its focused PR after push. Main remains3c99b33 and XML-provider PR #28 remains frozen/unmerged at580ed8b.
 
 ## Evidence obtained

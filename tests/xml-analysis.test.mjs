@@ -362,6 +362,14 @@ test('caller array iterators are never consumed in place of dense own numeric se
   assert.equal(iteratorReads, 0, 'Symbol.iterator access is outside the approved own numeric-cell projection');
 });
 
+test('aggregate option entry budget is reserved before reading late over-budget condition value cells', () => {
+  let reads = 0;
+  const conditions = Array.from({ length: 50 }, () => condition({ values: Array(1000).fill('') }));
+  Object.defineProperty(conditions[49].values, 999, { get() { reads++; throw new Error('PRIVATE_AGGREGATE_CELL'); } });
+  failed('<Ui/>', options({ conditions }), 'XUI0003');
+  assert.equal(reads, 0);
+});
+
 test('consumed UTF-16 string units and output records have independent bounded failure paths', () => {
   const limit = 1024 * 1024;
   const selectorUnits = Object.values(policy()).flat().reduce((sum, value) => sum + value.localName.length + (value.namespaceUri?.length ?? 0), 0);

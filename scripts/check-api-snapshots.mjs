@@ -7,12 +7,12 @@ import ts from 'typescript';
 const root = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 const packages = ['diagnostics','addon-metadata','toc-parser','global-registry','toc-metadata-adapter','lua-analysis','xml-parser','xml-analysis'];
 const errors=[];
-// Approved per-package root surfaces. The original 65 remain unchanged; the
-// optional XML provider contributes seven interfaces and one runtime function.
+// Approved per-package beta root surfaces, including the five inline-Lua
+// additions. The existing exports and runtime/type distinction are preserved.
 const surfaces = new Map([
   ['diagnostics', [5, 0]], ['addon-metadata', [16, 4]], ['toc-parser', [2, 1]],
   ['global-registry', [11, 2]], ['toc-metadata-adapter', [18, 5]],
-  ['lua-analysis', [4, 1]], ['xml-parser', [9, 1]], ['xml-analysis', [8, 1]],
+  ['lua-analysis', [5, 1]], ['xml-parser', [9, 1]], ['xml-analysis', [12, 2]],
 ]);
 function checkSurface(name, filename) {
   const ast = ts.createSourceFile(filename, readFileSync(filename, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
@@ -49,4 +49,4 @@ for (const name of packages) {
 if (errors.length) {
   for (const error of errors) console.error(`API ERROR: ${error}`);
   process.exitCode = 1;
-} else console.log(`API snapshot PASS: ${packages.length} declaration surfaces match reviewed baselines; 73 beta exports (15 runtime, 58 type-only)`);
+} else console.log(`API snapshot PASS: ${packages.length} declaration surfaces match reviewed baselines; 78 beta exports (16 runtime, 62 type-only)`);

@@ -35,6 +35,53 @@ const packages = [
     'xml-analysis'
 ];
 
+// A successful CLI exit only proves report comparison when the reviewed entry,
+// enabled report and distinct committed/temporary destinations remain active.
+// Reject inherited settings and extra overrides as well as changed values.
+const reviewedConfig = {
+    $schema: 'https://developer.microsoft.com/json-schemas/api-extractor/v7/api-extractor.schema.json',
+    newlineKind: 'lf',
+    mainEntryPointFilePath: '<projectFolder>/dist/index.d.ts',
+    apiReport: {
+        enabled: true,
+        reportFolder: '<projectFolder>/etc',
+        reportTempFolder: '<projectFolder>/temp',
+        reportFileName: '<unscopedPackageName>'
+    },
+    docModel: { enabled: false },
+    dtsRollup: { enabled: false },
+    tsdocMetadata: { enabled: false }
+};
+
+function matchesReviewedConfig(actual, expected) {
+    if (expected === null || typeof expected !== 'object') return actual === expected;
+    if (actual === null || typeof actual !== 'object' || Array.isArray(actual)) return false;
+    const keys = Object.keys(expected);
+    return Object.keys(actual).length === keys.length && keys.every(key =>
+        Object.hasOwn(actual, key) && matchesReviewedConfig(actual[key], expected[key]));
+}
+
+// Preflight every package before invoking any CLI, including --local runs that
+// deliberately update committed reports. A later bad config must not allow an
+// earlier package's report to be rewritten first.
+const configPaths = packages.map(name => path.join(root, 'packages', name, 'api-extractor.json'));
+for (const configPath of configPaths) {
+    if (!fs.existsSync(configPath)) {
+        console.error(`Missing API Extractor configuration: ${configPath}`);
+        process.exit(1);
+    }
+    let config;
+    try { config = JSON.parse(fs.readFileSync(configPath, 'utf8')); }
+    catch {
+        console.error(`unreviewed API Extractor configuration: ${configPath}`);
+        process.exit(1);
+    }
+    if (!matchesReviewedConfig(config, reviewedConfig)) {
+        console.error(`unreviewed API Extractor configuration: ${configPath}`);
+        process.exit(1);
+    }
+}
+
 // Resolve the actual npm package CLI instead of the .cmd wrapper.
 const packageDirectory = path.join(
     root,
@@ -71,18 +118,8 @@ if (!fs.existsSync(cliPath)) {
     process.exit(1);
 }
 
-for (const name of packages) {
-    const configPath = path.join(
-        root,
-        'packages',
-        name,
-        'api-extractor.json'
-    );
-
-    if (!fs.existsSync(configPath)) {
-        console.error(`Missing API Extractor configuration: ${configPath}`);
-        process.exit(1);
-    }
+for (const [index, name] of packages.entries()) {
+    const configPath = configPaths[index];
 
     console.log(`\n=== API Extractor: ${name} ===`);
 

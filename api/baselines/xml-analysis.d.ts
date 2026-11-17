@@ -1,5 +1,5 @@
 import type { XmlValue } from '@wow-addon/xml-parser';
-import type { Diagnostic, SourceReference } from '@wow-addon/diagnostics';
+import type { Diagnostic, SourceRange, SourceReference } from '@wow-addon/diagnostics';
 import type { ConditionDescriptor, GlobalDeclaration } from '@wow-addon/global-registry';
 /** Exact expanded-name selector; null denotes no namespace. @beta */
 export interface XmlElementSelector {
@@ -69,3 +69,36 @@ export interface XmlAnalysisResult {
  * @beta
  */
 export declare function analyzeXml(content: string, sourcePath: string, options: XmlAnalysisOptions): XmlAnalysisResult;
+/** One ordered original contribution to a decoded range; points may be anchors. @beta */
+export interface XmlMappedSourcePart {
+    readonly decodedRange: SourceRange;
+    readonly kind: 'literal' | 'entity' | 'normalized' | 'anchor';
+    readonly source: SourceReference;
+}
+/** One query occurrence with disjoint source parts retained in original order. @beta */
+export interface XmlSourceMapping {
+    readonly decodedRange: SourceRange;
+    readonly parts: readonly XmlMappedSourcePart[];
+}
+/** Batch-atomic owned source mappings, independent from Lua or loader semantics. @beta */
+export interface XmlSourceMappingResult {
+    readonly schemaVersion: 1;
+    readonly complete: boolean;
+    readonly mappings: readonly XmlSourceMapping[];
+    readonly diagnostics: readonly Diagnostic[];
+}
+/**
+ * Map decoded UTF-16 ranges to ordered original XML contributions without
+ * parsing XML or Lua, executing source or resolving references. Literal parts
+ * clip by offset; entity/normalized intersections retain whole raw spans.
+ * Point seams prefer the next contribution; EOF excludes trailing raw gaps.
+ * Decoded endpoints follow Lua's CRLF canonicalization: a part boundary
+ * between CR and LF collapses to the break start without losing raw parts.
+ * Snapshot documented own fields and dense own numeric cells once. Original
+ * and decoded input are each limited to 1 Mi units, source-file strings to
+ * 1 Mi consumed and emitted units, and arrays to 50,000 cells. Combined output
+ * mappings/parts are limited to 50,000 records before allocation. Every failure
+ * returns no mappings. Native getters remain caller code, not sandboxed input.
+ * @beta
+ */
+export declare function mapXmlValueRanges(content: string, sourcePath: string, value: XmlValue, ranges: readonly SourceRange[]): XmlSourceMappingResult;

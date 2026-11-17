@@ -9,10 +9,28 @@ import { createHash } from 'node:crypto';
 const root = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 const expected = ['diagnostics','addon-metadata','toc-parser','global-registry','toc-metadata-adapter','lua-analysis','xml-parser','xml-analysis'];
 const errors = [];
+function checkDependencyFields(manifest, name) {
+  for (const field of ['optionalDependencies', 'peerDependencies', 'bundleDependencies', 'bundledDependencies']) {
+    if (Object.hasOwn(manifest, field)) errors.push(`${name}: unsupported runtime dependency field ${field}`);
+  }
+}
+function checkBackendEntry(manifest, folder, resolver, specifier, reviewedMain) {
+  // These pinned CommonJS artifacts have no conditional exports or alternate
+  // loader/bundler entry points. In particular, require.resolve alone cannot
+  // attest an added ESM-only exports.import redirect.
+  if (manifest.main !== reviewedMain || ['exports', 'module', 'browser', 'type'].some(field => Object.hasOwn(manifest, field))) {
+    errors.push(`${specifier}: unreviewed backend entry point metadata`);
+  }
+  if (resolver.resolve(specifier) !== path.join(folder, reviewedMain)) {
+    errors.push(`${specifier}: unreviewed backend entry point resolution`);
+  }
+  checkDependencyFields(manifest, specifier);
+}
 const expectedLicense = fs.readFileSync(path.join(root, 'LICENSE'));
 for (const name of expected) {
   const p = path.join(root,'packages',name,'package.json');
   const pkg = JSON.parse(fs.readFileSync(p,'utf8'));
+  checkDependencyFields(pkg, name);
   const keys = Object.keys(pkg.exports ?? {});
   if (keys.length !== 1 || keys[0] !== '.') errors.push(`${name}: exports must expose only '.'`);
   const conditions = Object.keys(pkg.exports?.['.'] ?? {});
@@ -35,6 +53,7 @@ try {
   const manifestPath = requireFromLua.resolve('luaparse/package.json');
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   const folder = path.dirname(manifestPath);
+  checkBackendEntry(manifest, folder, requireFromLua, 'luaparse', 'luaparse.js');
   const hash = file => createHash('sha256').update(fs.readFileSync(path.join(folder, file))).digest('hex');
   if (manifest.name !== 'luaparse' || manifest.version !== '0.3.1' || manifest.license !== 'MIT' ||
       Object.keys(manifest.dependencies ?? {}).length !== 0) errors.push('Lua backend manifest differs from the reviewed dependency');
@@ -55,6 +74,8 @@ try {
   const xmlcharsFolder = path.dirname(xmlcharsManifestPath);
   const saxes = JSON.parse(fs.readFileSync(saxesManifestPath, 'utf8'));
   const xmlchars = JSON.parse(fs.readFileSync(xmlcharsManifestPath, 'utf8'));
+  checkBackendEntry(saxes, saxesFolder, requireFromXml, 'saxes', 'saxes.js');
+  checkBackendEntry(xmlchars, xmlcharsFolder, requireFromXml, 'xmlchars', 'xmlchars.js');
   const hash = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
   if (saxes.name !== 'saxes' || saxes.version !== '6.0.0' || saxes.license !== 'ISC' ||
       JSON.stringify(saxes.dependencies) !== JSON.stringify({ xmlchars: '^2.2.0' })) {
@@ -65,13 +86,16 @@ try {
   if (requireFromSaxes.resolve('xmlchars/package.json') !== xmlcharsManifestPath) {
     errors.push('XML parser resolves a different character backend than its reviewed direct pin');
   }
+  // Bind the exact deep specifiers loaded by the reviewed saxes source as well
+  // as the root package. Resolution reads metadata without importing code.
+  for (const deep of ['xml/1.0/ed5', 'xml/1.1/ed2', 'xmlns/1.0/ed3']) {
+    if (requireFromSaxes.resolve(`xmlchars/${deep}`) !== path.join(xmlcharsFolder, `${deep}.js`)) {
+      errors.push(`xmlchars/${deep}: unreviewed backend entry point resolution`);
+    }
+  }
   for (const manifest of [saxes, xmlchars]) {
     if (Object.keys(manifest.scripts ?? {}).some(name => /^(preinstall|install|postinstall|prepare)$/.test(name))) {
       errors.push('XML backend has an unreviewed install lifecycle script');
-    }
-    if (Object.keys(manifest.optionalDependencies ?? {}).length || Object.keys(manifest.peerDependencies ?? {}).length ||
-        manifest.bundleDependencies?.length || manifest.bundledDependencies?.length) {
-      errors.push('XML backend has unreviewed optional, peer or bundled dependencies');
     }
   }
   const reviewedRuntime = [

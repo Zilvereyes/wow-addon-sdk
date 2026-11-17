@@ -1,6 +1,6 @@
 # Inline Lua context and original XML provenance — decision proposal
 
-Status: **A–E proposed, unapproved and unimplemented**. The approved XML provider A–D remains a separate increment in [PR #28](https://github.com/Zilvereyes/wow-addon-sdk/pull/28), frozen at 580ed8b42cbe24420346011d64b0ec34fcb32025. Its approval does not approve these new public contracts or either PR's merge. This branch changes proposal documentation/authored characterization only. Current SDK remains source0.6.0, eight packages and73 beta exports.
+Status: **A–E approved by the user on 2026-11-17 and implemented on the review branch; final acceptance is tracked in PR #29**. The explicit answer “godkendt” to the A–E question, followed by annotation “ja”, is recorded in [the decision](https://github.com/Zilvereyes/wow-addon-sdk/issues/11#issuecomment-6952532068). The approved XML provider A–D remains a separate increment in [PR #28](https://github.com/Zilvereyes/wow-addon-sdk/pull/28), frozen at580ed8b. Neither approval grants merge/tag/publication rights. Source0.7.0 retains eight packages with78 beta exports. The concrete contract below retains its proposal rationale; [migration](MIGRATION-v0.6-to-v0.7.md) describes implemented behavior and limits.
 
 ## Observed gap and measurable outcome
 
@@ -175,4 +175,4 @@ An approved implementation would advance all eight shared workspace/internal ran
 
 Primary language evidence: the [Lua5.1 manual](https://www.lua.org/manual/5.1/manual.html#2.5.9) makes parameters local and restricts vararg expressions to their own variadic function; [the reference parser](https://www.lua.org/source/5.1/lparser.c.html#simpleexp) checks the current function's flag. Those sources do not supply WoW XML handler signatures. The recommendation is additionally grounded in the pinned backend/current source and authored characterization, not a native compiler or runtime oracle.
 
-The requested decision is **A–E as one coherent context/mapping/tooling increment**. Approval authorizes implementation/tests/docs/GitHub maintenance under these contracts; it does not authorize merge of #28/this proposal, tags, publication, software installation or game writes.
+The user approved **A–E as one coherent context/mapping/tooling increment**. That approval authorizes implementation/tests/docs/GitHub maintenance under these contracts; it does not authorize merge of #28/this PR, tags, publication, software installation or game writes. Final acceptance requires the actual feature matrix above; earlier proposal-only checks are historical evidence, not implementation success.

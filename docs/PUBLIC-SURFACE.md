@@ -1,8 +1,8 @@
 # Public surface review: frozen core and approved Lua/XML extensions
 
-Core review baseline: v0.3.5 integrated at `0cee5c9`, including the user's named rule. The five core root entry points retain **52 beta declarations**. Approved v0.4.0 Lua A–E adds three and v0.4.1 adds the approved profile type (56 at that milestone). Approved v0.5.0 XML A–F adds nine (65 at that milestone). Approved v0.6.0 provider A–D adds eight, for **73 overall: 15 runtime values/functions and 58 type-only contracts** across eight workspaces. The original 30 exports and all seven earlier APIs remain unchanged. Nothing is promoted to public stability or removed merely to reduce a count.
+Core review baseline: v0.3.5 integrated at `0cee5c9`, including the user's named rule. The five core root entry points retain **52 beta declarations**. Approved Lua/profile milestones reached 56, XML syntax reached 65 and XML provider A–D reached 73. Approved v0.7.0 inline Lua A–E adds five, for **78 overall: 16 runtime values/functions and 62 type-only contracts** across the same eight workspaces. The original 30 exports, core ABI and earlier defaults remain; Lua options gain explicit optional context and XML analysis gains a separate mapper. Nothing is promoted to public stability or removed merely to reduce a count.
 
-The source inventory is 16 metadata, five diagnostics, eleven registry, two TOC parser, eighteen adapter, four Lua, nine XML syntax and eight XML provider exports, each requiring exactly one `@beta`. Source AST auditing, compiled declaration snapshots and strict API Extractor are the acceptance gates for this shape; their current-run outcomes are recorded separately. Backend objects and internal syntax-module exports do not become root API. Every root export has one consumer-purpose row below.
+The source inventory is 16 metadata, five diagnostics, eleven registry, two TOC parser, eighteen adapter, five Lua, nine XML syntax and twelve XML analysis exports, each requiring exactly one `@beta`. Source AST auditing, compiled declaration snapshots and strict API Extractor are the acceptance gates; current-run outcomes are recorded separately. Backend objects and internal syntax-module exports do not become root API. Every root export has one consumer-purpose row below.
 
 ## Diagnostics: five shared contracts
 
@@ -81,12 +81,13 @@ The source inventory is 16 metadata, five diagnostics, eleven registry, two TOC 
 | `ResolvedGlobalRegistry` | Consume selected entries, partial completeness and active names; retain |
 | `resolveGlobalRegistry` | Compose selection, evaluation and active-only conflict checks; retain |
 
-## Lua extension: four approved exports
+## Lua extension: five approved exports
 
 | Export | Consumer need / disposition |
 | --- | --- |
 | `LuaAnalysisOptions` | Supply exact caller identity and optional inherited provider restrictions; add |
 | `LuaAnalysisProfile` | Select a fixed bounded/corpus budget explicitly; defaults retain the original profile; add in v0.4.1 |
+| `LuaAnalysisContext` | Explicit chunk/function-body parameter and variadic scope without guessed host signatures; add in v0.7.0 |
 | `LuaAnalysisResult` | Inspect syntax/projection completeness, independent declaration origins and diagnostics without backend AST; add |
 | `analyzeLua` | Parse the explicit Lua 5.1 profile and derive conservative lexical globals without execution; add |
 
@@ -126,6 +127,19 @@ The user approved provider A–D on 2026-11-17. These belong only to `@wow-addon
 | `analyzeXml` | Parse namespace-aware XML and extract bounded policy facts without execution or file traversal |
 
 All seven new interfaces have readonly fields. Imported existing source/declaration types keep their original ABI. Runtime outputs are independently owned. No caller/backend extras or custom array iterators become public projection. complete describes extraction under policy, not loader participation or parsed inline Lua. See [migration and limits](MIGRATION-v0.5-to-v0.6.md).
+
+## XML original-source mapping: four additional approved exports
+
+These bring xml-analysis to twelve root exports without a Lua package import or new edge. Original XML and mapped decoded values are validated; returned occurrence sidecars do not replace existing core source fields.
+
+| Export | Consumer need / disposition |
+| --- | --- |
+| `XmlMappedSourcePart` | Preserve each ordered literal/entity/normalized contribution or point anchor |
+| `XmlSourceMapping` | Retain one query occurrence and all disjoint original parts |
+| `XmlSourceMappingResult` | Distinguish batch mapping success from syntax/lexical completeness |
+| `mapXmlValueRanges` | Validate and map a bounded batch against original content without parsing or execution |
+
+See [source0.7 migration](MIGRATION-v0.6-to-v0.7.md) for limits, point/CRLF behavior and decoder identity separation. No inherited condition source is remapped.
 
 ## Compatibility disposition
 

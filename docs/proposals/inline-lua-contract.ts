@@ -1,6 +1,6 @@
 /**
- * PROPOSAL ONLY. These declarations are not exports from the current SDK.
- * Compile this file separately to check the proposed consumer types.
+ * Frozen proposal-shape fixture, retained as historical design evidence.
+ * Implementation acceptance imports real exports in tests/contracts instead.
  */
 import type { Diagnostic, SourceRange, SourceReference } from '@wow-addon/diagnostics';
 import type { LuaAnalysisOptions, LuaAnalysisResult } from '@wow-addon/lua-analysis';

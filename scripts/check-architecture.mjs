@@ -40,6 +40,10 @@ for (const [name, permitted] of allowed) {
   if (!fs.existsSync(folder)) { errors.push(`${name}: missing package`); continue; }
   const pkg = JSON.parse(fs.readFileSync(path.join(folder,'package.json'),'utf8'));
   const tsconfig = JSON.parse(fs.readFileSync(path.join(folder,'tsconfig.json'),'utf8'));
+  // Every runtime edge must pass the single dependencies/DAG audit below.
+  for (const field of ['optionalDependencies', 'peerDependencies', 'bundleDependencies', 'bundledDependencies']) {
+    if (Object.hasOwn(pkg, field)) errors.push(`${name}: unsupported runtime dependency field ${field}`);
+  }
   if (pkg.version !== rootVersion) errors.push(`${name}: workspace version must match root version ${rootVersion}`);
   const declared = Object.keys(pkg.dependencies ?? {}).filter(dep => dep.startsWith(packagePrefix)).map(dep => dep.slice(packagePrefix.length));
   for (const [dep, version] of Object.entries(pkg.dependencies ?? {})) {

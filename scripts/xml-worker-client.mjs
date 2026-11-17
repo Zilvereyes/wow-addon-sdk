@@ -49,7 +49,8 @@ export function createXmlWorker({ timeoutMs = 10000, maxOutputBytes = 32 * 1024 
       if (response?.id !== state.pending.id || response.result?.schemaVersion !== 1 ||
           typeof response.result.complete !== 'boolean' || !Array.isArray(response.result.elements) || !Array.isArray(response.result.text) ||
           !Array.isArray(response.result.diagnostics)) { invalidate(state, 'xml-worker-protocol'); return; }
-      const expectedKeys = state.pending.providerRequested ? ['id', 'result', 'provider'] : ['id', 'result'];
+      const expectedKeys = state.pending.inlineRequested ? ['id', 'result', 'provider', 'inlineLua'] :
+        state.pending.providerRequested ? ['id', 'result', 'provider'] : ['id', 'result'];
       if (Object.keys(response).length !== expectedKeys.length || expectedKeys.some(key => !Object.hasOwn(response, key))) {
         invalidate(state, 'xml-worker-protocol'); return;
       }
@@ -63,10 +64,18 @@ export function createXmlWorker({ timeoutMs = 10000, maxOutputBytes = 32 * 1024 
           invalidate(state, 'xml-worker-protocol'); return;
         }
       }
+      if (state.pending.inlineRequested) {
+        const inline = response.inlineLua;
+        if (!inline || typeof inline !== 'object' || Array.isArray(inline) ||
+            Object.keys(inline).length !== 3 || !['schemaVersion', 'status', 'bodies'].every(key => Object.hasOwn(inline, key)) ||
+            inline.schemaVersion !== 1 || !['completed', 'rejected-before-inline', 'provider-blocked', 'resource', 'backend', 'invariant'].includes(inline.status) ||
+            !Array.isArray(inline.bodies)) { invalidate(state, 'xml-worker-protocol'); return; }
+      }
       const pending = state.pending;
       state.pending = null; state.buffer = ''; state.bytes = 0;
       clearTimeout(pending.timer);
-      pending.resolve(pending.providerRequested ? { syntax: response.result, provider: response.provider } : response.result);
+      pending.resolve(pending.inlineRequested ? { syntax: response.result, provider: response.provider, inlineLua: response.inlineLua } :
+        pending.providerRequested ? { syntax: response.result, provider: response.provider } : response.result);
     });
     child.on('error', () => invalidate(state, 'xml-worker-start'));
     child.stdin.on('error', () => invalidate(state, 'xml-worker-write'));
@@ -76,6 +85,9 @@ export function createXmlWorker({ timeoutMs = 10000, maxOutputBytes = 32 * 1024 
   return {
     analyze: function analyze(request) {
       if (closed) return Promise.reject(error('xml-worker-closed'));
+      if (request !== null && typeof request === 'object' && Object.hasOwn(request, 'inlineOptions') && !Object.hasOwn(request, 'providerOptions')) {
+        return Promise.reject(error('xml-worker-protocol'));
+      }
       if (restarting || active?.pending) return Promise.reject(error('xml-worker-busy'));
       if (!active && children.size) {
         // A kill request is not a close/reap acknowledgement. Do not overlap
@@ -92,7 +104,8 @@ export function createXmlWorker({ timeoutMs = 10000, maxOutputBytes = 32 * 1024 
       return new Promise((resolve, reject) => {
         const id = ++sequence;
         const timer = setTimeout(() => invalidate(state, 'xml-worker-timeout'), timeoutMs);
-        state.pending = { id, timer, resolve, reject, providerRequested: Object.hasOwn(request, 'providerOptions') };
+        state.pending = { id, timer, resolve, reject, providerRequested: Object.hasOwn(request, 'providerOptions'),
+          inlineRequested: Object.hasOwn(request, 'inlineOptions') };
         try {
           state.child.stdin.write(JSON.stringify({ ...request, id }) + '\n', issue => {
             if (issue) invalidate(state, 'xml-worker-write');

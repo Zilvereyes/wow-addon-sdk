@@ -7,11 +7,15 @@
 import type { ConditionDescriptor } from '@wow-addon/global-registry';
 import type { Diagnostic } from '@wow-addon/diagnostics';
 import type { GlobalDeclaration } from '@wow-addon/global-registry';
+import type { SourceRange } from '@wow-addon/diagnostics';
 import type { SourceReference } from '@wow-addon/diagnostics';
 import type { XmlValue } from '@wow-addon/xml-parser';
 
 // @beta
 export function analyzeXml(content: string, sourcePath: string, options: XmlAnalysisOptions): XmlAnalysisResult;
+
+// @beta
+export function mapXmlValueRanges(content: string, sourcePath: string, value: XmlValue, ranges: readonly SourceRange[]): XmlSourceMappingResult;
 
 // @beta
 export interface XmlAnalysisOptions {
@@ -103,6 +107,36 @@ export interface XmlInlineScript {
     readonly kind: 'chunk' | 'handler';
     // (undocumented)
     readonly source: SourceReference;
+}
+
+// @beta
+export interface XmlMappedSourcePart {
+    // (undocumented)
+    readonly decodedRange: SourceRange;
+    // (undocumented)
+    readonly kind: 'literal' | 'entity' | 'normalized' | 'anchor';
+    // (undocumented)
+    readonly source: SourceReference;
+}
+
+// @beta
+export interface XmlSourceMapping {
+    // (undocumented)
+    readonly decodedRange: SourceRange;
+    // (undocumented)
+    readonly parts: readonly XmlMappedSourcePart[];
+}
+
+// @beta
+export interface XmlSourceMappingResult {
+    // (undocumented)
+    readonly complete: boolean;
+    // (undocumented)
+    readonly diagnostics: readonly Diagnostic[];
+    // (undocumented)
+    readonly mappings: readonly XmlSourceMapping[];
+    // (undocumented)
+    readonly schemaVersion: 1;
 }
 
 // (No @packageDocumentation comment for this package)

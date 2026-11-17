@@ -8,6 +8,7 @@ import { createLuaWorker } from './lua-worker-client.mjs';
 import { createXmlWorker } from './xml-worker-client.mjs';
 import { readBoundedFile } from './read-bounded-file.mjs';
 import { XML_PROVIDER_ADDON_ID, validateXmlProviderProfile, verifyXmlProvider } from './xml-provider-validation.mjs';
+import { validateXmlInlineProfile, verifyXmlInlineLua } from './xml-inline-lua-validation.mjs';
 import { parseToc } from '@wow-addon/toc-parser';
 import { selectTocVariant, toGlobalDeclarations, evaluateGlobalConditions, resolveGlobalRegistry } from '@wow-addon/toc-metadata-adapter';
 
@@ -22,6 +23,7 @@ let selectionProfilePath = null;
 let conditionProfilePath = null;
 let resolutionProfilePath = null;
 let xmlProviderProfilePath = null;
+let xmlInlineProfilePath = null;
 let valid = Boolean(rootArgument && !rootArgument.startsWith('--'));
 while (args.length && valid) {
   const flag = args.shift();
@@ -40,6 +42,12 @@ while (args.length && valid) {
     const value = args.shift();
     if (xmlProviderProfilePath !== null || !value || value.startsWith('--')) { valid = false; break; }
     xmlProviderProfilePath = value;
+    continue;
+  }
+  if (flag === '--xml-inline-lua-profile') {
+    const value = args.shift();
+    if (xmlInlineProfilePath !== null || !value || value.startsWith('--')) { valid = false; break; }
+    xmlInlineProfilePath = value;
     continue;
   }
   if (flag === '--lua-input-profile') {
@@ -71,8 +79,9 @@ while (args.length && valid) {
   if (!value || !/^[1-9][0-9]*$/u.test(value) || !Number.isSafeInteger(Number(value))) { valid = false; break; }
   limits[flag] = Number(value);
 }
-if (!valid || (luaInputProfile !== null && !luaEnabled) || (xmlProviderProfilePath !== null && !xmlEnabled)) {
-  console.error('Usage: node scripts/inspect-addon-corpus.mjs <AddOns-directory> [--max-entries N] [--max-file-bytes N] [--lua-analysis] [--lua-input-profile corpus-files] [--xml-analysis] [--xml-provider-profile <JSON-file>] [--require-all-parsers] [--selection-profile <JSON-file>] [--condition-profile <JSON-file>] [--resolution-profile <JSON-file>]');
+if (!valid || (luaInputProfile !== null && !luaEnabled) || (xmlProviderProfilePath !== null && !xmlEnabled) ||
+    (xmlInlineProfilePath !== null && (!xmlEnabled || xmlProviderProfilePath === null))) {
+  console.error('Usage: node scripts/inspect-addon-corpus.mjs <AddOns-directory> [--max-entries N] [--max-file-bytes N] [--lua-analysis] [--lua-input-profile corpus-files] [--xml-analysis] [--xml-provider-profile <JSON-file>] [--xml-inline-lua-profile <JSON-file>] [--require-all-parsers] [--selection-profile <JSON-file>] [--condition-profile <JSON-file>] [--resolution-profile <JSON-file>]');
   process.exit(2);
 }
 
@@ -115,6 +124,21 @@ if (xmlProviderProfilePath !== null) report.xmlProvider = {
   checkedSourceReferences: 0, checkedDecodedMappings: 0, inputBytes: 0, diagnosticsByCode: {},
 };
 if (xmlProviderProfilePath !== null) report.missingFullParsingCapabilities = ['xml-inline-lua-analysis', 'loader-reference-graph'];
+if (xmlInlineProfilePath !== null) {
+  report.missingFullParsingCapabilities = ['loader-reference-graph'];
+  report.xmlInlineLua = {
+    requested: true, complete: false, discoveryComplete: false, association: 'caller-owned-inventory', resolvedProviderParticipation: false,
+    discoveredFiles: 0, attemptedFiles: 0, submittedFiles: 0, completedFiles: 0, validatedFiles: 0,
+    rejectedBeforeInline: 0, blockedFiles: 0, skippedFiles: 0, skippedOversized: 0,
+    readFailures: 0, encodingRejected: 0, inputLimitRejected: 0, workerFailures: 0, backendFailures: 0,
+    invariantFailures: 0, resourceRejected: 0, providerBlockedBeforeInline: 0,
+    discoveredBodies: 0, eligibleBodies: 0, skippedMissingContext: 0, attemptedBodies: 0,
+    syntaxAccepted: 0, syntaxRejected: 0, resourceBlockedBodies: 0, backendBlockedBodies: 0,
+    lexicalComplete: 0, lexicalIncomplete: 0, mappingValidated: 0, declarations: 0,
+    queriedRecords: 0, originalParts: 0, checkedSourceReferences: 0, diagnosticsByCode: {},
+    sourceIntegrity: { checked: 0, matching: 0, changed: 0, verificationFailures: 0 },
+  };
+}
 if (luaEnabled) report.luaAnalysis = {
   complete: true, discoveryComplete: false, attempted: 0, submitted: 0, completed: 0,
   syntaxAccepted: 0, syntaxRejected: 0, incompleteFiles: 0,
@@ -138,6 +162,8 @@ let resolutionProfile = null;
 let resolutionReady = true;
 let xmlProviderPolicy = null;
 let xmlProviderReady = true;
+let xmlInlineProfile = null;
+let xmlInlineReady = true;
 const sourceLineLengths = new Map();
 function readProfile(filename) {
   const maximum = 1024 * 1024;
@@ -161,6 +187,10 @@ function readProfile(filename) {
 if (xmlProviderProfilePath !== null) {
   try { xmlProviderPolicy = validateXmlProviderProfile(readProfile(xmlProviderProfilePath)); }
   catch { fail('xml-provider-profile-invalid'); xmlProviderReady = false; }
+}
+if (xmlInlineProfilePath !== null) {
+  try { xmlInlineProfile = validateXmlInlineProfile(readProfile(xmlInlineProfilePath)); }
+  catch { fail('xml-inline-lua-profile-invalid'); xmlInlineReady = false; }
 }
 if (selectionProfilePath !== null) {
   report.selection = {
@@ -396,7 +426,7 @@ function walk(folder, depth = 0) {
 }
 
 try {
-  if (selectionReady && conditionReady && resolutionReady && xmlProviderReady) {
+  if (selectionReady && conditionReady && resolutionReady && xmlProviderReady && xmlInlineReady) {
     const rootStat = fs.lstatSync(root);
     if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) failDiscovery('invalid-root', false);
     else { discoveryComplete = true; walk(root); }
@@ -416,6 +446,11 @@ if (report.xmlProvider) {
   report.xmlProvider.discoveryComplete = discoveryComplete;
   report.xmlProvider.complete = discoveryComplete;
   report.xmlProvider.discovered = report.xmlAnalysis.discovered;
+}
+if (report.xmlInlineLua) {
+  report.xmlInlineLua.discoveryComplete = discoveryComplete;
+  report.xmlInlineLua.complete = discoveryComplete;
+  report.xmlInlineLua.discoveredFiles = report.xmlAnalysis.discovered;
 }
 if (luaEnabled) {
   const counts = report.luaAnalysis;
@@ -440,20 +475,7 @@ if (luaEnabled) {
           counts.inputLimitRejected++; counts.resourceRejected++; counts.complete = false;
           fail('lua-input-limit', true); continue;
         }
-        const fd = fs.openSync(filename, 'r');
-        let bytes;
-        try {
-          const buffer = Buffer.alloc(stat.size + 1);
-          let total = 0;
-          while (total < buffer.length) {
-            const read = fs.readSync(fd, buffer, total, buffer.length - total, total);
-            if (read === 0) break;
-            total += read;
-          }
-          const after = fs.fstatSync(fd);
-          if (total !== stat.size || after.size !== stat.size || after.mtimeMs !== stat.mtimeMs) throw new Error('Changed input');
-          bytes = buffer.subarray(0, total);
-        } finally { fs.closeSync(fd); }
+        const bytes = readBoundedFile(filename, Math.min(limits['--max-file-bytes'], 4 * maximumUnits));
         counts.inputBytes += bytes.length;
         try { content = decoder.decode(bytes); if (expanded) counts.transport.strictUtf8++; }
         catch {
@@ -554,6 +576,7 @@ if (luaEnabled) {
 if (xmlEnabled) {
   const counts = report.xmlAnalysis;
   const providerCounts = report.xmlProvider;
+  const inlineCounts = report.xmlInlineLua;
   const maximumUnits = 1024 * 1024;
   const maximumBytes = Math.min(limits['--max-file-bytes'], 4 * maximumUnits);
   const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
@@ -562,24 +585,8 @@ if (xmlEnabled) {
     const stat = fs.lstatSync(filename);
     if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('xml-read-failure');
     if (stat.size > maximumBytes) throw new Error('xml-input-limit');
-    const fd = fs.openSync(filename, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0));
-    try {
-      const opened = fs.fstatSync(fd);
-      if (!opened.isFile() || opened.dev !== stat.dev || opened.ino !== stat.ino || opened.size !== stat.size ||
-          opened.mtimeMs !== stat.mtimeMs) throw new Error('xml-read-failure');
-      const bytes = Buffer.alloc(stat.size + 1);
-      let total = 0;
-      while (total < bytes.length) {
-        const size = fs.readSync(fd, bytes, total, bytes.length - total, total);
-        if (size === 0) break;
-        total += size;
-      }
-      const after = fs.fstatSync(fd);
-      if (total !== stat.size || after.size !== stat.size || after.mtimeMs !== stat.mtimeMs ||
-          after.ctimeMs !== stat.ctimeMs) throw new Error('xml-read-failure');
-      const content = bytes.subarray(0, total);
-      return { bytes: content, digest: createHash('sha256').update(content).digest('hex') };
-    } finally { fs.closeSync(fd); }
+    const bytes = readBoundedFile(filename, maximumBytes);
+    return { bytes, digest: createHash('sha256').update(bytes).digest('hex') };
   }
   function verifyXml(result, content, filename) {
     const metrics = { checkedSourceReferences: 0, checkedDecodedMappings: 0 };
@@ -693,11 +700,19 @@ if (xmlEnabled) {
     return metrics;
   }
   try {
-    for (const { filename, relative } of xmlFiles) {
+    for (const [fileOrdinal, { filename, relative }] of xmlFiles.entries()) {
       counts.attempted++;
       if (providerCounts) providerCounts.attempted++;
+      if (inlineCounts) inlineCounts.attemptedFiles++;
       let providerProjection = null, providerDisposition = 'blocked', providerComplete = false;
+      let inlineProjection = null, inlineDisposition = 'blocked';
       const providerErrors = new Set();
+      const inlineErrors = new Set();
+      function inlineFailure(field, reason) {
+        if (!inlineCounts) return;
+        if (!inlineErrors.has(field)) { inlineCounts[field]++; inlineErrors.add(field); }
+        inlineCounts.complete = false; fail(reason, true);
+      }
       function providerFailure(field, reason) {
         if (!providerCounts) return;
         if (!providerErrors.has(field)) { providerCounts[field]++; providerErrors.add(field); }
@@ -720,6 +735,12 @@ if (xmlEnabled) {
             providerFailure('inputLimitRejected', 'xml-provider-input-limit');
           } else { providerCounts.blocked++; providerFailure('readFailures', 'xml-provider-read-failure'); }
         }
+        if (inlineCounts) {
+          if (error.message === 'xml-input-limit') {
+            inlineCounts.skippedFiles++; inlineCounts.skippedOversized++;
+            inlineFailure('resourceRejected', 'xml-inline-lua-input-limit'); inlineFailure('inputLimitRejected', 'xml-inline-lua-input-limit');
+          } else { inlineCounts.blockedFiles++; inlineFailure('readFailures', 'xml-inline-lua-read-failure'); }
+        }
         continue;
       }
       try {
@@ -727,28 +748,34 @@ if (xmlEnabled) {
         try { content = decoder.decode(input.bytes); }
         catch {
           counts.encodingRejected++; counts.complete = false; fail('xml-invalid-utf8', true);
-          providerFailure('encodingRejected', 'xml-provider-invalid-utf8'); continue;
+          providerFailure('encodingRejected', 'xml-provider-invalid-utf8');
+          inlineFailure('encodingRejected', 'xml-inline-lua-invalid-utf8'); continue;
         }
         if (content.length > maximumUnits) {
           counts.inputLimitRejected++; counts.resourceRejected++; counts.complete = false; fail('xml-input-limit', true);
           providerFailure('inputLimitRejected', 'xml-provider-input-limit');
-          providerFailure('resourceRejected', 'xml-provider-input-limit'); continue;
+          providerFailure('resourceRejected', 'xml-provider-input-limit');
+          inlineFailure('inputLimitRejected', 'xml-inline-lua-input-limit'); inlineFailure('resourceRejected', 'xml-inline-lua-input-limit'); continue;
         }
-        let result, providerReply;
+        let result, providerReply, inlineReply;
         try {
           counts.submitted++;
           if (providerCounts) providerCounts.submitted++;
+          if (inlineCounts) inlineCounts.submittedFiles++;
           const response = await worker.analyze({ content, sourcePath: relative,
-            ...(providerCounts ? { providerOptions: { addonId: XML_PROVIDER_ADDON_ID, policy: xmlProviderPolicy } } : {}) });
+            ...(providerCounts ? { providerOptions: { addonId: XML_PROVIDER_ADDON_ID, policy: xmlProviderPolicy } } : {}),
+            ...(inlineCounts ? { inlineOptions: { profile: xmlInlineProfile, fileOrdinal } } : {}) });
           counts.completed++;
           if (providerCounts) {
             providerCounts.completed++; result = response.syntax; providerReply = response.provider;
             if (providerReply.attempted) providerCounts.projectionAttempted++;
           }
           else result = response;
+          if (inlineCounts) { inlineCounts.completedFiles++; inlineReply = response.inlineLua; }
         } catch {
           counts.workerFailures++; counts.complete = false; fail('xml-worker-failure', true);
-          providerFailure('workerFailures', 'xml-provider-worker-failure'); continue;
+          providerFailure('workerFailures', 'xml-provider-worker-failure');
+          inlineFailure('workerFailures', 'xml-inline-lua-worker-failure'); continue;
         }
         let syntaxValid = false, codes;
         try {
@@ -779,6 +806,7 @@ if (xmlEnabled) {
         } catch {
           counts.invariantFailures++; counts.complete = false; fail('xml-invariant-failure', true);
           providerFailure('invariantFailures', 'xml-provider-syntax-invariant-failure');
+          inlineFailure('invariantFailures', 'xml-inline-lua-syntax-invariant-failure');
         }
         if (providerCounts && syntaxValid) {
           if (codes.has('XML0001') || codes.has('XML0005')) providerFailure('backendFailures', 'xml-provider-syntax-backend-failure');
@@ -795,21 +823,51 @@ if (xmlEnabled) {
             } catch { providerFailure('invariantFailures', 'xml-provider-invariant-failure'); }
           }
         }
+        if (inlineCounts && syntaxValid) {
+          if (codes.has('XML0001') || codes.has('XML0005')) inlineFailure('backendFailures', 'xml-inline-lua-syntax-backend-failure');
+          else if (codes.has('XML0003')) inlineFailure('resourceRejected', 'xml-inline-lua-syntax-resource-limit');
+          else if (!result.complete) {
+            if (inlineReply?.status === 'rejected-before-inline' && Array.isArray(inlineReply.bodies) && inlineReply.bodies.length === 0) inlineDisposition = 'rejected';
+            else inlineFailure('invariantFailures', 'xml-inline-lua-invariant-failure');
+          } else if (providerDisposition !== 'validated') {
+            inlineFailure('providerBlockedBeforeInline', 'xml-inline-lua-provider-blocked');
+            if (providerErrors.has('invariantFailures')) inlineFailure('invariantFailures', 'xml-inline-lua-provider-invariant-failure');
+            else if (providerErrors.has('resourceRejected')) inlineFailure('resourceRejected', 'xml-inline-lua-provider-resource-limit');
+            else inlineFailure('backendFailures', 'xml-inline-lua-provider-backend-failure');
+          } else try {
+            inlineProjection = verifyXmlInlineLua(inlineReply, content, relative, result, providerReply.result,
+              xmlProviderPolicy, xmlInlineProfile, fileOrdinal);
+            if (inlineProjection.status === 'completed') inlineDisposition = 'validated';
+            else {
+              const field = inlineProjection.status === 'resource' ? 'resourceRejected' : inlineProjection.status === 'backend' ? 'backendFailures' : 'invariantFailures';
+              inlineFailure(field, `xml-inline-lua-${inlineProjection.status}-failure`);
+              inlineProjection = null;
+            }
+          } catch { inlineProjection = null; inlineFailure('invariantFailures', 'xml-inline-lua-invariant-failure'); }
+        }
       } finally {
         // Re-read with the same fixed bounds; only aggregate equality escapes.
         // This detects source changes without writing or publishing source hashes.
         try {
           const after = readXml(filename); counts.sourceIntegrity.checked++;
-          if (input.digest === after.digest) counts.sourceIntegrity.matching++;
+          if (inlineCounts) inlineCounts.sourceIntegrity.checked++;
+          if (input.digest === after.digest) {
+            counts.sourceIntegrity.matching++;
+            if (inlineCounts) inlineCounts.sourceIntegrity.matching++;
+          }
           else {
             counts.sourceIntegrity.changed++; counts.complete = false; fail('xml-source-changed', true);
             providerFailure('readFailures', 'xml-provider-source-changed');
             providerDisposition = 'blocked'; providerProjection = null;
+            if (inlineCounts) inlineCounts.sourceIntegrity.changed++;
+            inlineFailure('readFailures', 'xml-inline-lua-source-changed'); inlineDisposition = 'blocked'; inlineProjection = null;
           }
         } catch {
           counts.sourceIntegrity.verificationFailures++; counts.readFailures++; counts.complete = false; fail('xml-integrity-read-failure', true);
           providerFailure('readFailures', 'xml-provider-integrity-read-failure');
           providerDisposition = 'blocked'; providerProjection = null;
+          if (inlineCounts) inlineCounts.sourceIntegrity.verificationFailures++;
+          inlineFailure('readFailures', 'xml-inline-lua-integrity-read-failure'); inlineDisposition = 'blocked'; inlineProjection = null;
         }
         if (providerCounts) {
           if (providerDisposition === 'syntax-rejected') {
@@ -825,6 +883,23 @@ if (xmlEnabled) {
             addCounts(providerCounts.diagnosticsByCode, providerProjection.metrics.diagnosticsByCode);
           }
         }
+        if (inlineCounts) {
+          if (inlineDisposition === 'rejected') { inlineCounts.rejectedBeforeInline++; inlineCounts.complete = false; }
+          else if (inlineDisposition === 'validated') {
+            inlineCounts.validatedFiles++;
+            const metrics = inlineProjection.metrics;
+            for (const [field, value] of Object.entries(metrics)) {
+              if (field === 'diagnosticsByCode') addCounts(inlineCounts.diagnosticsByCode, value);
+              else inlineCounts[field] += value;
+            }
+            if (!inlineProjection.complete) inlineCounts.complete = false;
+            if (metrics.skippedMissingContext) fail('xml-inline-lua-missing-context', true);
+            if (metrics.syntaxRejected) fail('xml-inline-lua-syntax-errors');
+            if (metrics.lexicalIncomplete) fail('xml-inline-lua-lexical-incomplete');
+            if (metrics.resourceBlockedBodies) fail('xml-inline-lua-body-resource-limit', true);
+            if (metrics.backendBlockedBodies) fail('xml-inline-lua-body-backend-failure', true);
+          } else { inlineCounts.blockedFiles++; inlineCounts.complete = false; }
+        }
       }
     }
   } finally { await worker.close(); }
@@ -832,6 +907,10 @@ if (xmlEnabled) {
   if (providerCounts) providerCounts.diagnosticsByCode = Object.fromEntries(Object.entries(providerCounts.diagnosticsByCode).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
   if (providerCounts && providerCounts.validated === 0) {
     providerCounts.complete = false; fail('xml-provider-no-validated-inputs', true);
+  }
+  if (inlineCounts) {
+    inlineCounts.diagnosticsByCode = Object.fromEntries(Object.entries(inlineCounts.diagnosticsByCode).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
+    if (inlineCounts.validatedFiles === 0) { inlineCounts.complete = false; fail('xml-inline-lua-no-validated-files', true); }
   }
 }
 if (selectionProfile !== null && selectionReady) {

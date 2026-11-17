@@ -92,3 +92,11 @@ In corpus tooling, `XML0002` and `XML0004` are completed rejected syntax/profile
 XML syntax/profile errors retain their XML codes and owned source records. XUI0001–3 return empty fact arrays. XUI0004 preserves independently extracted facts with complete=false, for example invalid virtual spelling, missing Include target, empty file target or nested elements inside recognized inline code. Expected virtual templates, inherits and unresolved `$parent` names remain retained facts without manufactured globals. Messages are fixed and private backend/option strings never enter them.
 
 Provider corpus validation requires each ambiguous element's exact warning source before committing any fact/map/diagnostic credit. Malformed projections are invariant failures; read, encoding, worker, resource and syntax rejection remain separate dispositions. Inline body facts are not Lua syntax verdicts. [Provider migration](MIGRATION-v0.5-to-v0.6.md) records the complete boundaries.
+
+## v0.7.0 explicit inline contexts and mapping
+
+No diagnostic codes are added. Invalid Lua context/parameters or function-body `allowShebang:true` produce LUA0001; forbidden function-body BOM/hashbang and unavailable root varargs produce LUA0002. Context budget failures produce LUA0003. Existing chunk defaults and fixed message identities remain unchanged.
+
+`mapXmlValueRanges` uses XUI0001 for invalid source/value/query projections and XUI0003 for bounded input/output failure. It returns no mapping prefix on failure. An over-limit path has an empty diagnostic file rather than a truncated identity; an in-budget path is retained on cumulative budget failure. Original and decoded coordinates follow zero-based UTF-16/exclusive-end conventions, including existing CRLF canonicalization. See [mapping and failure examples](MIGRATION-v0.6-to-v0.7.md).
+
+Corpus inline diagnostics retain decoded sources and independently checked original-source sidecars. Missing context is a skip/incomplete disposition, not a fabricated syntax error. Syntax verdicts, lexical incompleteness and technical failures remain separate.

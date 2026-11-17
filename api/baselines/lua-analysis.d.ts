@@ -6,6 +6,14 @@ import type { ConditionDescriptor, GlobalDeclaration } from '@wow-addon/global-r
  * @beta
  */
 export type LuaAnalysisProfile = 'bounded' | 'corpus';
+/** Explicit entry scope; host parameters and variadic permission are never inferred. @beta */
+export type LuaAnalysisContext = {
+    readonly kind: 'chunk';
+} | {
+    readonly kind: 'function-body';
+    readonly parameters: readonly string[];
+    readonly variadic: boolean;
+};
 /**
  * Caller-owned source association and optional inherited restrictions.
  * This package never discovers files or infers TOC reachability. Conditions
@@ -18,6 +26,7 @@ export interface LuaAnalysisOptions {
     readonly conditions?: readonly ConditionDescriptor[];
     readonly profile?: LuaAnalysisProfile;
     readonly allowShebang?: boolean;
+    readonly context?: LuaAnalysisContext;
 }
 /**
  * Lua 5.1 syntax plus a conservative lexical declaration projection.
@@ -41,6 +50,12 @@ export interface LuaAnalysisResult {
  * profile allows 32 Mi units, 4,000,000 nodes and depth 1,024; these are not a
  * CPU/memory sandbox. Callers own process/stack/heap/deadline supervision.
  * Hashbang preprocessing requires allowShebang:true; defaults stay strict.
+ * Omitted/chunk context preserves file behavior. Explicit function-body uses
+ * at most128 supplied ASCII parameter cells/16Ki context string units, checks
+ * its own variadic permission and returns only unknown global activation.
+ * Host signatures are never inferred. Function-body leading BOM/hashbangs
+ * are syntax errors; allowShebang:true is invalid for that context. New
+ * context fields are owned snapshots; duplicate parameter names stay local.
  * Direct chunk bindings retain static unconditional/inherited-conditional
  * flags; other flow/function assignments remain unknown. Dynamic environment
  * access makes the projection incomplete and all returned bindings unknown.

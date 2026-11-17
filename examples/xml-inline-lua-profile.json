@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "chunkContext": { "kind": "chunk" },
+  "handlers": [
+    {
+      "element": { "namespaceUri": null, "localName": "OnLoad" },
+      "context": {
+        "kind": "function-body",
+        "parameters": ["self"],
+        "variadic": false
+      }
+    }
+  ]
+}
