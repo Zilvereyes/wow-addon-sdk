@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "authored/selected-sources",
+  "pathPolicy": {
+    "separators": "slash-and-backslash",
+    "caseComparison": "ascii-insensitive-unique",
+    "containment": "addons-root",
+    "links": "reject",
+    "variables": {
+      "kind": "explicit-tokens",
+      "tokens": [{ "token": "[Branch]", "replacement": "Era" }]
+    }
+  },
+  "addons": [
+    {
+      "logicalAddonId": "authored/demo",
+      "directory": "Demo",
+      "addonBaseName": "Demo",
+      "tocPaths": ["Demo/Demo_Vanilla.toc", "Demo/Demo_Mainline.toc"]
+    }
+  ]
+}
