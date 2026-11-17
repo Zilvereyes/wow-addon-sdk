@@ -14,8 +14,12 @@ const allowed = new Map([
   ['global-registry', ['diagnostics']],
   ['toc-metadata-adapter', ['diagnostics','addon-metadata','global-registry']],
   ['lua-analysis', ['diagnostics','global-registry']],
+  ['xml-parser', ['diagnostics']],
 ]);
-const external = new Map([['lua-analysis', { luaparse: '0.3.1' }]]);
+const external = new Map([
+  ['lua-analysis', { luaparse: '0.3.1' }],
+  ['xml-parser', { saxes: '6.0.0', xmlchars: '2.2.0' }],
+]);
 const errors = [];
 const pkgNames = [...allowed.keys()];
 const packagePrefix = '@wow-addon/';

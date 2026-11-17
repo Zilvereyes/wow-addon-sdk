@@ -65,3 +65,17 @@ These fixed messages do not echo policy/argument values. Root issue sources and 
 | `LUA0005` | error | Backend failure or unavailable validated AST projection |
 
 All error results contain zero declarations, including an otherwise valid prefix before a syntax failure. Dynamic-environment warnings retain supported occurrences with static unknown activation and complete=false. Supported flow/function assignments can independently be unknown without a warning; analysis completeness is not runtime availability. Messages are fixed and do not echo raw source/backend errors. Original UTF-16 source points/ranges are retained; invalid API arguments without a usable path retain an empty file string rather than a fabricated filename. Tooling encoding/worker/read/input preflight failures have separate aggregate reasons and are not counted as completed syntax verdicts.
+
+## v0.5.0 XML syntax
+
+| Code | Severity | Meaning |
+| --- | --- | --- |
+| `XML0001` | error | Invalid caller text/path/options projection |
+| `XML0002` | error | Invalid XML 1.0 syntax or enabled namespace constraints |
+| `XML0003` | error | Fixed input/record/depth/decoded-output or parser stack resource limit |
+| `XML0004` | error | DTD or XML declaration version forbidden by the XML 1.0 profile |
+| `XML0005` | error | Backend failure or unavailable validated source/value projection |
+
+Every XML error returns `complete=false`, `elements=[]` and `text=[]`, even when an earlier prefix was valid. Fixed messages never echo source text or backend error strings. The exact supplied path is preserved when usable; invalid paths retain an empty diagnostic file. Positions use original zero-based UTF-16 coordinates and exclusive ends; a point inside a CRLF is anchored at its CR. No diagnostic means syntax/provenance completeness, with no schema, FrameXML, global-declaration or loader-reachability guarantee.
+
+In corpus tooling, `XML0002` and `XML0004` are completed rejected syntax/profile verdicts. `XML0003`, `XML0001` and `XML0005` are blocked resource/backend work and do not increment `parsed.xml`; transport encoding, read, worker and invariant failures also remain separate from syntax verdicts. The aggregate `profileRejected` counter is a subset of `rejected`. Full parsing remains false until the XML provider and loader reference graph exist. See [XML migration](MIGRATION-v0.4-to-v0.5.md).

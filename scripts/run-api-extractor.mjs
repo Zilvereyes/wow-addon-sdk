@@ -30,7 +30,8 @@ const packages = [
     'toc-parser',
     'global-registry',
     'toc-metadata-adapter',
-    'lua-analysis'
+    'lua-analysis',
+    'xml-parser'
 ];
 
 // Resolve the actual npm package CLI instead of the .cmd wrapper.

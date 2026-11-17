@@ -1,12 +1,12 @@
 # Proposed XML syntax increment
 
-Status: **pending user decision**. This document preserves A–F from [the original proposal](https://github.com/Zilvereyes/wow-addon-sdk/issues/11#issuecomment-6923154054); it does not approve or implement that contract. Existing Lua approvals remain valid.
+Status: **approved by the user on 2026-11-17** ("Godkendt" in the active chat), recorded in [issue #11](https://github.com/Zilvereyes/wow-addon-sdk/issues/11#issuecomment-6947486320). This document preserves A–F from [the original proposal](https://github.com/Zilvereyes/wow-addon-sdk/issues/11#issuecomment-6923154054); the implementation and fresh acceptance evidence are tracked in [the XML review](REVIEW-XML-v0.5.0.md). Existing Lua approvals remain valid.
 
-Current starting point: main `1bb97e11d0a70da538b438279cb227bbc99da877`, source 0.4.1, six packages, 56 beta exports and 221 tests. PR #23 and post-merge CI 43938710029 pass all four supported jobs. XML SDK parsing remains absent. In the historical proposal below, references to remaining Lua blocks describe the earlier bounded-profile baseline; the approved opt-in Lua profile now yields all 5,242 verdicts with one explained syntax rejection and no encoding/resource blocks.
+Historical starting point before approval: main `1bb97e11d0a70da538b438279cb227bbc99da877`, source 0.4.1, six packages, 56 beta exports and 221 tests. PR #23 and post-merge CI 43938710029 pass all four supported jobs. XML SDK parsing remains absent. In the historical proposal below, references to remaining Lua blocks describe the earlier bounded-profile baseline; the approved opt-in Lua profile now yields all 5,242 verdicts with one explained syntax rejection and no encoding/resource blocks.
 
 ## Next contract proposal: XML syntax + exact decoded-source provenance (A–F)
 
-**Decision pending; no XML SDK implementation/dependency has been added.** This is the next parsing increment after reviewed Lua integration, not completion of the full provider/reference-graph goal. It introduces a new package/dialect/source-map contract, so the goal's explicit contract-decision gate applies. Existing Lua A–E and routine green integration remain authorized.
+**A–F approved; the optional XML syntax package is implemented on the review branch.** This is the next parsing increment after reviewed Lua integration, not completion of the full provider/reference-graph goal. It introduces a new package/dialect/source-map contract, so the goal's explicit contract-decision gate applies. Existing Lua A–E remains approved; the current user instructions require separate merge authorization.
 
 ### A — Optional package and audited backend
 
@@ -31,7 +31,7 @@ Syntax, namespace, profile, invalid-input, backend or resource failure returns `
 
 ### C — Nine named beta exports, no backend objects
 
-Proposed root surface (all fields readonly; zero-based UTF-16, end-exclusive SourceReference):
+Approved root surface (all fields readonly; zero-based UTF-16, end-exclusive SourceReference):
 1. `XmlParseOptions`: optional boolean namespaceAware, default true.
 2. `XmlName`: qualifiedName, localName, prefix (string|null), namespaceUri (string|null). In non-namespace mode localName is the full qualified name, prefix/URI null; namespace mode distinguishes unprefixed attributes from default-namespaced elements.
 3. `XmlMappedSpan`: decodedStart, decodedEnd, kind (literal|normalized|entity), original source.
@@ -65,18 +65,18 @@ Metadata-only measurement of the current XML corpus: **1,199 files, 1,541,465 by
 5. Test document/input isolation, deterministic recovery after errors/resources, prototype-owned options, output ownership and worker deadline/crash/protocol cleanup.
 6. Extend architecture/API/export/hash/notice/exact package gates for only this approved optional boundary; preserve old core/Lua APIs and pins.
 7. Run actual read-only XML analysis against all 1,199 inputs, reconcile counts and classify every failure privately; commit only authored fixtures and aggregate evidence.
-8. Require full local gates, exact-head Ubuntu/Windows × Node 22/24 CI and review, fix findings, then integrate under existing routine authorization.
+8. Require full local gates, exact-head Ubuntu/Windows × Node 22/24 CI and review, fix findings, then present the exact reviewed head for separate merge authorization.
 9. Continue XML frame/Script/Include projection, decoded inline Lua, selected-TOC reference graph and all-provider resolution as explicit remaining #11 work. Do not close #11 or the overall goal on syntax alone.
 
 Primary specifications checked 2026-11-16: [XML 1.0 fifth edition](https://www.w3.org/TR/REC-xml/) and [Namespaces 1.0 third edition](https://www.w3.org/TR/xml-names/). Grammar standard, chosen restricted profile, candidate documentation and actual SDK/corpus evidence remain separate.
 
-## Implementation sequence after approval; no steps below are complete
+## Approved implementation sequence
 
-The following file-level plan elaborates the original F sequence without approving A–F or changing the proposed public semantics. Proposed file names are implementation organization, not new package-root exports. Build the syntax/mapping increment before provider or filesystem traversal code. Do not substitute a source scan or inventory for parsing.
+The following file-level plan elaborates the original F sequence without changing the approved public semantics. Proposed file names are implementation organization, not new package-root exports. Build the syntax/mapping increment before provider or filesystem traversal code. Do not substitute a source scan or inventory for parsing.
 
 | Order / deliverable | Proposed write surface | Dependency and acceptance evidence |
 | --- | --- | --- |
-| 1. Record the user's A–F decision | This document, issue #11 and the existing decision record | A real user decision is required. A goal continuation, issue text, candidate result or green Lua CI does not approve XML. Until then, keep the SDK dependency graph and public APIs unchanged. |
+| 1. Record the user's A–F decision | This document, issue #11 and the existing decision record | Completed: real user approval is recorded above. Candidate results, goal continuations and green Lua CI were not used as authorization. |
 | 2. Characterize the already pinned candidate | Authored XML catalog and private candidate harness only | Existing candidate evidence covers all 27 vectors and all 1,199 installed inputs, but does not prove SDK projection/ranges. Revalidate exact artifact/notices against A before any approved install. Stop on an unmet binding requirement. |
 | 3. Demonstrate missing public behavior | `tests/xml-parser.test.mjs`, `tests/contracts/xml-parser.ts` | Nine missing exports/type options fail for the intended absence. Exercise the existing 27 XML catalog rows, three XML golden raw spans, default namespace rules and explicit namespaceAware:false separately from DTD profile rejection. No installed snippets. |
 | 4. Add only the approved optional package | `packages/xml-parser/package.json`, `tsconfig.json`, `api-extractor.json`, package LICENSE; root build references/manifests/lock | Pin the two approved external versions and license bytes; preserve every unrelated lock record and original six package edges. Keep backend/parser helpers private. No filesystem, process, editor or network import inside the SDK. |
@@ -95,4 +95,4 @@ The actual SDK corpus pass must account for every eligible XML input as an accep
 
 - [Authored candidate characterization](https://github.com/Zilvereyes/wow-addon-sdk/issues/11#issuecomment-6923429559): all 27 catalog vectors on separate axes. Namespace metadata is incomplete at the candidate's early attribute event and must be projected only after the completed opening-tag event. The forced XML 1.0 option alone does not reject an XML 1.1 declaration; the SDK needs its explicit profile check.
 - [Read-only candidate corpus preflight](https://github.com/Zilvereyes/wow-addon-sdk/issues/11#issuecomment-6923576417): all 1,199 files, no codec/read/budget/process failures, and matching hashes on reanalysis. Candidate-only execution used the local Node 26 runtime; supported SDK Node 22/24 behavior and decoded-source mapping remain unverified until implementation.
-- Current source `1bb97e1` has no xml-parser package or exports. The proposed surface, dependency pins, worker preset, API reports and package-content expectations in this document are not installed or validated by the current SDK gates.
+- Historical source `1bb97e1` had no xml-parser package or exports. The proposed surface, dependency pins, worker preset, API reports and package-content expectations in this document were not installed or validated at that historical baseline; see the current review for implemented acceptance.

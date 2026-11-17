@@ -37,7 +37,7 @@ test('whitespace-only CSV cell reports the position after whitespace', () => {
 });
 // Execute the actual audit on a synthetic workspace, including the approved
 // optional Lua extension without changing the five core dependency boundaries.
-const packages = ['diagnostics','addon-metadata','toc-parser','global-registry','toc-metadata-adapter','lua-analysis'];
+const packages = ['diagnostics','addon-metadata','toc-parser','global-registry','toc-metadata-adapter','lua-analysis','xml-parser'];
 function auditWithSource(packageName, contents, dependencies) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wow-sdk-audit-'));
   try {
@@ -53,7 +53,8 @@ function auditWithSource(packageName, contents, dependencies) {
       const folder = path.join(root,'packages',name);
       fs.mkdirSync(path.join(folder,'src'),{recursive:true});
       fs.writeFileSync(path.join(folder,'package.json'),JSON.stringify({name:'@wow-addon/'+name,
-        dependencies: name === packageName && dependencies !== undefined ? dependencies : name === 'lua-analysis' ? { luaparse: '0.3.1' } : {} }));
+        dependencies: name === packageName && dependencies !== undefined ? dependencies : name === 'lua-analysis' ? { luaparse: '0.3.1' }
+          : name === 'xml-parser' ? { saxes: '6.0.0', xmlchars: '2.2.0' } : {} }));
       fs.writeFileSync(path.join(folder,'tsconfig.json'),JSON.stringify({references:[]}));
       fs.writeFileSync(path.join(folder,'src','index.ts'),name === packageName ? contents : 'export {};');
     }
@@ -101,6 +102,87 @@ test('Lua backend version ranges and undeclared backends fail closed', () => {
     const result = auditWithSource('lua-analysis', 'export {};', dependencies);
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /exact version|forbidden declared external dependency/);
+  }
+});
+
+test('XML backend pins are optional-extension-only and cannot add a core/Lua reverse edge', () => {
+  assert.equal(auditWithSource('xml-parser', "import { SaxesParser } from 'saxes'; import * as chars from 'xmlchars';").status, 0);
+  for (const name of ['diagnostics', 'toc-parser', 'lua-analysis']) {
+    const result = auditWithSource(name, "import { parseXml } from '@wow-addon/xml-parser';");
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /cannot import|must not import/);
+  }
+  for (const name of ['toc-parser', 'lua-analysis']) {
+    const result = auditWithSource(name, "import { SaxesParser } from 'saxes';");
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /forbidden external module/);
+  }
+  for (const module of ['node:fs', 'node:child_process', 'node:http', '@wow-addon/global-registry']) {
+    const result = auditWithSource('xml-parser', `import '${module}';`);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /forbidden external module|cannot import/);
+  }
+});
+
+test('XML dependency ranges, omissions and extra runtime dependencies fail closed', () => {
+  for (const dependencies of [
+    {}, { saxes: '6.0.0' }, { saxes: '^6.0.0', xmlchars: '2.2.0' },
+    { saxes: '6.0.0', xmlchars: '^2.2.0' }, { saxes: '6.0.0', xmlchars: '2.2.0', luaparse: '0.3.1' },
+  ]) {
+    const result = auditWithSource('xml-parser', 'export {};', dependencies);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /exact version|forbidden declared external dependency/);
+  }
+});
+
+// Copy the established gate and reviewed small dependency artifacts into a
+// synthetic workspace. Corruption tests never modify the installed dependencies.
+function auditPublicExports(mutate = () => {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wow-sdk-export-audit-'));
+  try {
+    fs.mkdirSync(path.join(root, 'scripts'));
+    fs.copyFileSync('scripts/check-public-exports.mjs', path.join(root, 'scripts/check-public-exports.mjs'));
+    fs.copyFileSync('LICENSE', path.join(root, 'LICENSE'));
+    fs.copyFileSync('package-lock.json', path.join(root, 'package-lock.json'));
+    fs.writeFileSync(path.join(root, 'package.json'), '{"type":"module"}');
+    for (const name of packages) {
+      const target = path.join(root, 'packages', name);
+      fs.mkdirSync(target, { recursive: true });
+      for (const file of ['package.json', 'LICENSE', ...(name === 'xml-parser' ? ['THIRD-PARTY-NOTICES.txt'] : [])]) {
+        fs.copyFileSync(path.join('packages', name, file), path.join(target, file));
+      }
+    }
+    fs.mkdirSync(path.join(root, 'node_modules'));
+    for (const name of ['luaparse', 'saxes', 'xmlchars']) {
+      fs.cpSync(path.join('node_modules', name), path.join(root, 'node_modules', name), { recursive: true });
+    }
+    mutate(root);
+    return spawnSync(process.execPath, [path.join(root, 'scripts/check-public-exports.mjs')], { cwd: root, encoding: 'utf8' });
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+test('public export gate verifies complete XML notices, exact lock artifacts and executable backend bytes', () => {
+  const valid = auditPublicExports();
+  assert.equal(valid.status, 0, valid.stderr);
+  const notice = auditPublicExports(root => {
+    fs.appendFileSync(path.join(root, 'packages/xml-parser/THIRD-PARTY-NOTICES.txt'), '\nchanged notice');
+  });
+  assert.notEqual(notice.status, 0);
+  assert.match(notice.stderr, /complete reviewed license bytes/);
+  const lock = auditPublicExports(root => {
+    const file = path.join(root, 'package-lock.json');
+    const value = JSON.parse(fs.readFileSync(file, 'utf8'));
+    value.packages['node_modules/saxes'].integrity = 'sha512-unreviewed';
+    fs.writeFileSync(file, JSON.stringify(value));
+  });
+  assert.notEqual(lock.status, 0);
+  assert.match(lock.stderr, /lock artifact differs from reviewed saxes/);
+  for (const file of ['saxes/saxes.js', 'xmlchars/xml/1.0/ed5.js', 'xmlchars/xmlns/1.0/ed3.js']) {
+    const source = auditPublicExports(root => fs.appendFileSync(path.join(root, 'node_modules', file), '\n// changed artifact'));
+    assert.notEqual(source.status, 0);
+    assert.match(source.stderr, /XML backend source differs from reviewed bytes/);
   }
 });
 

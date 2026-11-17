@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
-const names = ['diagnostics', 'addon-metadata', 'toc-parser', 'global-registry', 'toc-metadata-adapter', 'lua-analysis'];
+const names = ['diagnostics', 'addon-metadata', 'toc-parser', 'global-registry', 'toc-metadata-adapter', 'lua-analysis', 'xml-parser'];
 const expectedFiles = ['LICENSE', 'dist/index.d.ts', 'dist/index.js', 'package.json'];
 
 export function validatePackageContents(listing, version) {
@@ -16,14 +16,15 @@ export function validatePackageContents(listing, version) {
     listing = Object.values(listing);
   }
   if (!Array.isArray(listing)) return ['npm pack did not return an array'];
-  if (listing.length !== names.length) errors.push('expected six workspace packages');
+  if (listing.length !== names.length) errors.push('expected seven workspace packages');
   for (const name of names) {
     const matches = listing.filter(item => item.name === `@wow-addon/${name}`);
     if (matches.length !== 1) { errors.push(`${name}: expected exactly one package`); continue; }
     const item = matches[0];
     if (item.version !== version) errors.push(`${name}: package version differs from root`);
     const files = (item.files ?? []).map(file => file.path).sort();
-    const allowedFiles = name === 'lua-analysis' ? [...expectedFiles, 'dist/syntax.js', 'dist/syntax.d.ts'] : expectedFiles;
+    const allowedFiles = name === 'lua-analysis' ? [...expectedFiles, 'dist/syntax.js', 'dist/syntax.d.ts']
+      : name === 'xml-parser' ? [...expectedFiles, 'THIRD-PARTY-NOTICES.txt'] : expectedFiles;
     for (const expected of allowedFiles) if (!files.includes(expected)) errors.push(`${name}: missing ${expected}`);
     for (const file of files) if (!allowedFiles.includes(file)) errors.push(`${name}: unexpected ${file}`);
     if (new Set(files).size !== files.length) errors.push(`${name}: duplicate file paths`);
@@ -49,7 +50,7 @@ if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === imp
         const manifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
         const errors = validatePackageContents(JSON.parse(result.stdout), manifest.version);
         if (errors.length) { errors.forEach(error => console.error(`PACKAGE ERROR: ${error}`)); process.exitCode = 1; }
-        else console.log('Package contents PASS: five four-file core packages and one six-file Lua extension, all including LICENSE');
+        else console.log('Package contents PASS: five four-file core packages, one six-file Lua extension and one five-file XML extension, all including LICENSE');
       } catch (error) { console.error(`Package validation failed: ${error.message}`); process.exitCode = 1; }
     }
   }
