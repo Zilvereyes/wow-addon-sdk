@@ -32,7 +32,8 @@ export function validateXmlProviderProfile(profile) {
 }
 
 /** Validate the whole provider result before returning any aggregate credit. */
-export function verifyXmlProvider(result, syntax, content, filename, policy) {
+export function verifyXmlProvider(result, syntax, content, filename, policy,
+  association = { addonId: XML_PROVIDER_ADDON_ID, conditions: [] }) {
   assert.deepEqual(JSON.parse(JSON.stringify(result)), result);
   assert.ok(ownKeys(result, ['schemaVersion', 'complete', 'frames', 'references', 'scripts', 'declarations', 'diagnostics']));
   assert.equal(result.schemaVersion, 1);
@@ -64,7 +65,9 @@ export function verifyXmlProvider(result, syntax, content, filename, policy) {
   function visit(value) {
     if (!value || typeof value !== 'object') return;
     if (Object.hasOwn(value, 'file') && Object.hasOwn(value, 'range')) { offsets(value); return; }
-    for (const child of Object.values(value)) visit(child);
+    // Inherited sources belong to the caller's validated TOC, not this XML.
+    // They are checked by exact equality below, never accepted as arbitrary files.
+    for (const [key, child] of Object.entries(value)) if (key !== 'conditions') visit(child);
   }
   visit(result);
   const codes = new Set(), warningSources = new Set();
@@ -93,7 +96,8 @@ export function verifyXmlProvider(result, syntax, content, filename, policy) {
     const list = texts.get(text.parentIndex) ?? []; list.push(text.value); texts.set(text.parentIndex, list);
   }
   for (const element of elements) if (element.parentIndex !== null) children.add(element.parentIndex);
-  let records = result.frames.length + result.references.length + result.scripts.length + result.declarations.length;
+  let records = result.frames.length + result.references.length + result.scripts.length + result.declarations.length +
+    result.declarations.length * association.conditions.reduce((sum, condition) => sum + 1 + condition.values.length, 0);
   function mapped(actual, expected) {
     assert.deepEqual(actual, expected);
     records += actual.mappings.length;
@@ -111,8 +115,9 @@ export function verifyXmlProvider(result, syntax, content, filename, policy) {
       const declares = name !== null && name.value.length > 0 && !name.value.includes('$') && (virtual === null || virtual.value === 'false');
       expectedFrames.push({ elementIndex: index, name, virtual, inherits, source: element.source,
         declarationIndex: declares ? expectedDeclarations.length : null });
-      if (declares) expectedDeclarations.push({ name: name.value, addonId: XML_PROVIDER_ADDON_ID, kind: 'frame',
-        activationState: 'unknown', source: name.source });
+      if (declares) expectedDeclarations.push({ name: name.value, addonId: association.addonId, kind: 'frame',
+        activationState: 'unknown', source: name.source,
+        ...(association.conditions.length ? { conditions: association.conditions } : {}) });
       if (virtual !== null && !['true', 'false'].includes(virtual.value)) warning(element);
     }
     let kind;

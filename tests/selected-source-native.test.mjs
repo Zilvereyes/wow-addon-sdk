@@ -142,7 +142,10 @@ test('changed root identity and lower retained-record/string limits stop before 
   try{changed=true;assert.equal((await host.resolvePath('Demo/Core.lua')).status,'blocked');assert.equal(opens,0);}finally{await host.close();}
   for(const limits of [{retainedRecords:1},{retainedStringUnits:1}]){
     let bounded;
-    try{await assert.rejects(createGraphFileHost(root,context(p=>p.profile.limits=limits)).then(value=>{bounded=value;return value;}),/graph-native-budget/u);}
+    // This assertion isolates retained-memory denial, not stock helper startup.
+    // Actual Windows reparse/helper checks retain their separate native fixtures.
+    const inspectorFactory=()=>({inspect:async paths=>paths.map(()=>({ok:true,reparsePoint:false})),close:async()=>{}});
+    try{await assert.rejects(createGraphFileHost(root,context(p=>p.profile.limits=limits),{inspectorFactory}).then(value=>{bounded=value;return value;}),/graph-native-budget/u);}
     finally{await bounded?.close();}
   }
 }));
