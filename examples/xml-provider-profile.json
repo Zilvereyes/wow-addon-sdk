@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "policy": {
+    "roots": [{ "namespaceUri": null, "localName": "Ui" }],
+    "frameElements": [{ "namespaceUri": null, "localName": "Frame" }],
+    "includeElements": [{ "namespaceUri": null, "localName": "Include" }],
+    "scriptElements": [{ "namespaceUri": null, "localName": "Script" }],
+    "handlerContainers": [{ "namespaceUri": null, "localName": "Scripts" }],
+    "handlerElements": [{ "namespaceUri": null, "localName": "OnLoad" }]
+  }
+}

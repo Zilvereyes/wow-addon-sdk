@@ -22,6 +22,8 @@ The five original core packages retain no third-party runtime dependency. The se
 
 The user approved XML A–F on 2026-11-17. The seventh workspace, `@wow-addon/xml-parser`, directly pins `saxes` 6.0.0 (ISC) and `xmlchars` 2.2.0 (MIT), alongside the SDK diagnostics package. Saxes declares `xmlchars: ^2.2.0`; the direct exact pin and lockfile retain the reviewed resolution. Existing core/Lua packages gain no dependency. No backend source is bundled, vendored or patched.
 
+The approved v0.6.0 `@wow-addon/xml-analysis` eighth leaf adds only internal xml-parser/diagnostics/global-registry dependencies. It adds no third-party artifact or backend copy; the existing 84 external lock records and retained notices/hashes stay unchanged. Its payload includes the byte-identical SDK MIT LICENSE and only its reviewed package manifest and compiled index pair.
+
 The saxes npm artifact omits its upstream LICENSE file. The XML workspace's `THIRD-PARTY-NOTICES.txt` therefore retains the complete notice from pinned upstream revision `211fa0ebec9b628affc09219199639887174bfc3`: both ISC notices and the historical Mathias Bynens notice, followed by xmlchars' original MIT license. Preserve the complete file when redistributing this workspace. Its own `LICENSE` still licenses only SDK-authored material. The XML package payload adds this notice to the usual manifest, SDK license and two compiled entry-point files; actual pack-list acceptance is checked separately.
 
 `scripts/check-public-exports.mjs` encodes the exact backend versions, dependency resolution, lifecycle restrictions, registry integrity strings, installed runtime source hashes and retained notice bytes. In particular:

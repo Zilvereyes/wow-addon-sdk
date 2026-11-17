@@ -232,3 +232,62 @@ test('the output counter resets per complete request while correlation continues
     assert.equal(seam.launches.length, 1);
   } finally { await client.close(); }
 });
+
+const providerPolicy = {
+  roots: [{ namespaceUri: null, localName: 'Ui' }], frameElements: [{ namespaceUri: null, localName: 'Frame' }],
+  includeElements: [], scriptElements: [{ namespaceUri: null, localName: 'Script' }], handlerContainers: [], handlerElements: [],
+};
+const providerRequest = content => ({ ...request(content), providerOptions: { addonId: 'corpus-xml', policy: providerPolicy } });
+const emptyProvider = () => ({ schemaVersion: 1, complete: true, frames: [], references: [], scripts: [], declarations: [], diagnostics: [] });
+
+test('optional provider worker replies preserve syntax verdicts and never analyze syntax-rejected XML', async () => {
+  const client = createXmlWorker();
+  try {
+    const valid = await client.analyze(providerRequest('<Ui><Frame name="Example"/><Script>A&amp;B</Script></Ui>'));
+    assert.equal(valid.syntax.complete, true);
+    assert.equal(valid.provider.attempted, true);
+    assert.equal(valid.provider.result.complete, true);
+    assert.equal(valid.provider.result.declarations[0].activationState, 'unknown');
+    assert.equal(valid.provider.result.declarations[0].addonId, 'corpus-xml');
+    assert.equal(valid.provider.result.scripts[0].body.value, 'A&B');
+    assert.equal(valid.provider.result.scripts[0].body.source.file, 'Å\\Original.xml');
+    const rejected = await client.analyze(providerRequest('<Ui><Frame></Ui>'));
+    assert.equal(rejected.syntax.complete, false);
+    assert.deepEqual(rejected.provider, { attempted: false, result: null });
+    assert.deepEqual(await client.analyze(providerRequest('<Ui><Frame name="Example"/><Script>A&amp;B</Script></Ui>')), valid);
+    // Reusing the same child without requesting provider mode keeps the old API.
+    const syntaxOnly = await client.analyze(request('<r/>'));
+    assert.equal(syntaxOnly.complete, true);
+    assert.equal(Object.hasOwn(syntaxOnly, 'syntax'), false);
+  } finally { await client.close(); }
+});
+
+test('provider mode requires an exact correlated envelope and cannot alter fixed worker limits', async () => {
+  const seam = fakeSpawner((child, message) => child.stdout.write(JSON.stringify({ id: message.id, result: emptyResult(),
+    provider: { attempted: true, result: emptyProvider() } }) + '\n'));
+  const client = createXmlWorker({ spawnProcess: seam.spawnProcess });
+  try {
+    const response = await client.analyze({ ...providerRequest('<Ui/>'), heap: 999999, timeoutMs: 999999 });
+    assert.deepEqual(response, { syntax: emptyResult(), provider: { attempted: true, result: emptyProvider() } });
+    assert.equal(seam.launches[0].args[0], '--max-old-space-size=256');
+    assert.equal(seam.launches[0].options.shell, false);
+  } finally { await client.close(); }
+  for (const provider of [undefined, {}, { attempted: false, result: null }, { attempted: true, result: [] },
+    { attempted: true, result: emptyProvider(), extra: true }]) {
+    const invalid = fakeSpawner((child, message) => child.stdout.write(JSON.stringify({ id: message.id, result: emptyResult(), provider }) + '\n'));
+    const malformed = createXmlWorker({ spawnProcess: invalid.spawnProcess });
+    try { await assert.rejects(malformed.analyze(providerRequest('<Ui/>')), /xml-worker-protocol/); }
+    finally { await malformed.close(); }
+  }
+});
+
+test('provider projection validation remains independent from the transport envelope and parser-only mode rejects unsolicited provider output', async () => {
+  const badProjection = { schemaVersion: 999, complete: true, frames: [], references: [], scripts: [], declarations: [], diagnostics: [] };
+  const seam = fakeSpawner((child, message) => child.stdout.write(JSON.stringify({ id: message.id, result: emptyResult(),
+    provider: { attempted: true, result: badProjection } }) + '\n'));
+  const client = createXmlWorker({ spawnProcess: seam.spawnProcess });
+  try {
+    assert.deepEqual((await client.analyze(providerRequest('<Ui/>'))).syntax, emptyResult());
+    await assert.rejects(client.analyze(request('<Ui/>')), /xml-worker-protocol/);
+  } finally { await client.close(); }
+});

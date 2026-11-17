@@ -1,8 +1,8 @@
 # Public surface review: frozen core and approved Lua/XML extensions
 
-Core review baseline: v0.3.5 integrated at `0cee5c9`, including the user's named rule. The five core root entry points retain **52 beta declarations**. Approved v0.4.0 Lua A–E adds three and v0.4.1 adds the approved profile type (56 at that milestone). Approved v0.5.0 XML A–F adds nine, for **65 overall: 14 runtime values/functions and 51 type-only contracts** across seven workspaces. The original 30 exports are retained by requirement. Nothing is promoted to public stability or removed merely to reduce a count.
+Core review baseline: v0.3.5 integrated at `0cee5c9`, including the user's named rule. The five core root entry points retain **52 beta declarations**. Approved v0.4.0 Lua A–E adds three and v0.4.1 adds the approved profile type (56 at that milestone). Approved v0.5.0 XML A–F adds nine (65 at that milestone). Approved v0.6.0 provider A–D adds eight, for **73 overall: 15 runtime values/functions and 58 type-only contracts** across eight workspaces. The original 30 exports and all seven earlier APIs remain unchanged. Nothing is promoted to public stability or removed merely to reduce a count.
 
-The source inventory is 16 metadata, five diagnostics, eleven registry, two TOC parser, eighteen adapter, four Lua and nine XML exports, each requiring exactly one `@beta`. Source AST auditing, compiled declaration snapshots and strict API Extractor are the acceptance gates for this shape; their current-run outcomes are recorded separately. Backend objects and internal syntax-module exports do not become root API. Every root export has one consumer-purpose row below.
+The source inventory is 16 metadata, five diagnostics, eleven registry, two TOC parser, eighteen adapter, four Lua, nine XML syntax and eight XML provider exports, each requiring exactly one `@beta`. Source AST auditing, compiled declaration snapshots and strict API Extractor are the acceptance gates for this shape; their current-run outcomes are recorded separately. Backend objects and internal syntax-module exports do not become root API. Every root export has one consumer-purpose row below.
 
 ## Diagnostics: five shared contracts
 
@@ -41,7 +41,7 @@ The source inventory is 16 metadata, five diagnostics, eleven registry, two TOC 
 | --- | --- |
 | `ActivationState` | Type declaration-time unconditional/conditional/unknown flags; retain |
 | `ResolvedAvailability` | Type derived active/inactive/unknown independently; retain |
-| `GlobalKind` | Type saved-variable/frame/Lua declarations; retain, the Lua provider exists while the XML/frame provider remains unimplemented |
+| `GlobalKind` | Type saved-variable/frame/Lua declarations; retain, including the optional XML provider's unknown frame candidates |
 | `GlobalScope` | Type registry scope independently of TOC metadata; retain |
 | `ConditionDescriptor` | Supply opaque condition provenance from any provider; retain |
 | `GlobalDeclaration` | Construct provider outputs without parser/metadata dependencies; retain |
@@ -109,6 +109,23 @@ The user approved XML A–F on 2026-11-17 ([decision](https://github.com/Zilvere
 | `parseXml` | Parse bounded XML 1.0 documents without executing source or fetching references; add |
 
 All eight types expose readonly contracts, with independently owned per-call records and no runtime freeze. `complete` concerns accepted syntax and provenance only. DTDs/XML 1.1 are rejected; every failure empties both element and text projections. Namespaces are checked by default; `{ namespaceAware: false }` is an explicit direct-API grammar choice and makes no game-loader claim. The fixed budgets, decoded-map interpretation and remaining XML provider/reference-graph work are described in [XML migration](MIGRATION-v0.4-to-v0.5.md). Neither saxes/xmlchars objects nor worker controls become public API.
+
+## XML fact extension: eight approved exports
+
+The user approved provider A–D on 2026-11-17. These belong only to `@wow-addon/xml-analysis`; syntax-only consumers retain their existing dependencies/API.
+
+| Export | Consumer need / disposition |
+| --- | --- |
+| `XmlElementSelector` | Select exact namespace URI/local name pairs |
+| `XmlAnalysisPolicy` | Supply disjoint explicit vocabularies and structural roles |
+| `XmlAnalysisOptions` | Associate caller identity, policy and inherited conditions |
+| `XmlFrameCandidate` | Retain literal, virtual, inherited and unresolved name facts with declaration indices |
+| `XmlFileReference` | Inspect unresolved Include/Script targets and exact value maps |
+| `XmlInlineScript` | Inspect chunk/handler body text with original disjoint decoded maps |
+| `XmlAnalysisResult` | Handle independent schema 1, owned ordered facts, unknown declarations and diagnostics |
+| `analyzeXml` | Parse namespace-aware XML and extract bounded policy facts without execution or file traversal |
+
+All seven new interfaces have readonly fields. Imported existing source/declaration types keep their original ABI. Runtime outputs are independently owned. No caller/backend extras or custom array iterators become public projection. complete describes extraction under policy, not loader participation or parsed inline Lua. See [migration and limits](MIGRATION-v0.5-to-v0.6.md).
 
 ## Compatibility disposition
 

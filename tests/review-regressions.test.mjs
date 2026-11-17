@@ -37,7 +37,7 @@ test('whitespace-only CSV cell reports the position after whitespace', () => {
 });
 // Execute the actual audit on a synthetic workspace, including the approved
 // optional Lua extension without changing the five core dependency boundaries.
-const packages = ['diagnostics','addon-metadata','toc-parser','global-registry','toc-metadata-adapter','lua-analysis','xml-parser'];
+const packages = ['diagnostics','addon-metadata','toc-parser','global-registry','toc-metadata-adapter','lua-analysis','xml-parser','xml-analysis'];
 function auditWithSource(packageName, contents, dependencies, mutate = () => {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wow-sdk-audit-'));
   try {
@@ -156,6 +156,26 @@ test('XML dependency ranges, omissions and extra runtime dependencies fail close
   }
 });
 
+test('XML provider only permits its three approved internal edges and no reverse, tooling or backend imports', () => {
+  const dependencies = { '@wow-addon/diagnostics': '1.0.0', '@wow-addon/global-registry': '1.0.0', '@wow-addon/xml-parser': '1.0.0' };
+  const source = Object.keys(dependencies).map(name => `import '${name}';`).join('\n');
+  const valid = auditWithSource('xml-analysis', source, dependencies);
+  assert.equal(valid.status, 0, valid.stderr);
+  for (const name of packages.filter(name => name !== 'xml-analysis')) {
+    const reverse = auditWithSource(name, "import '@wow-addon/xml-analysis';");
+    assert.notEqual(reverse.status, 0, name);
+    assert.match(reverse.stderr, /cannot import|must not import/);
+  }
+  for (const name of ['node:fs', 'node:child_process', 'node:https', 'saxes', 'xmlchars', 'luaparse', '@wow-addon/lua-analysis', '@wow-addon/toc-parser']) {
+    const forbidden = auditWithSource('xml-analysis', `import '${name}';`, dependencies);
+    assert.notEqual(forbidden.status, 0, name);
+    assert.match(forbidden.stderr, /cannot import|forbidden external module/);
+  }
+  const declared = auditWithSource('xml-analysis', 'export {};', { ...dependencies, saxes: '6.0.0' });
+  assert.notEqual(declared.status, 0);
+  assert.match(declared.stderr, /forbidden declared external dependency saxes/);
+});
+
 // Copy the established gate and reviewed small dependency artifacts into a
 // synthetic workspace. Corruption tests never modify the installed dependencies.
 function auditPublicExports(mutate = () => {}) {
@@ -197,6 +217,69 @@ test('public export gate rejects additional conditional entry points under the p
     assert.notEqual(result.status, 0, `unexpectedly accepted ${condition} entry point`);
     assert.match(result.stderr, /root export conditions must be exactly types and default/);
   }
+});
+
+test('XML provider root exports and SDK license remain part of the eight-package gate', () => {
+  const extra = auditPublicExports(root => {
+    const file = path.join(root, 'packages/xml-analysis/package.json');
+    const manifest = JSON.parse(fs.readFileSync(file, 'utf8'));
+    manifest.exports['./internal'] = './dist/index.js';
+    fs.writeFileSync(file, JSON.stringify(manifest));
+  });
+  assert.notEqual(extra.status, 0);
+  assert.match(extra.stderr, /xml-analysis: exports must expose only/);
+  const license = auditPublicExports(root => fs.appendFileSync(path.join(root, 'packages/xml-analysis/LICENSE'), '\nchanged'));
+  assert.notEqual(license.status, 0);
+  assert.match(license.stderr, /xml-analysis: workspace LICENSE differs/);
+});
+
+function auditApiSnapshots(mutate = () => {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wow-sdk-api-audit-'));
+  try {
+    fs.mkdirSync(path.join(root, 'scripts'));
+    fs.copyFileSync('scripts/check-api-snapshots.mjs', path.join(root, 'scripts/check-api-snapshots.mjs'));
+    fs.writeFileSync(path.join(root, 'package.json'), '{"type":"module"}');
+    fs.mkdirSync(path.join(root, 'node_modules'));
+    fs.symlinkSync(fs.realpathSync('node_modules/typescript'), path.join(root, 'node_modules/typescript'),
+      process.platform === 'win32' ? 'junction' : 'dir');
+    fs.mkdirSync(path.join(root, 'api/baselines'), { recursive: true });
+    for (const name of packages) {
+      const declarations = name === 'xml-analysis' ?
+        ['XmlElementSelector', 'XmlAnalysisPolicy', 'XmlAnalysisOptions', 'XmlFrameCandidate',
+          'XmlFileReference', 'XmlInlineScript', 'XmlAnalysisResult']
+          .map(name => `/** @beta */\nexport interface ${name} {}`).join('\n') +
+          '\n/** @beta */\nexport declare function analyzeXml(): unknown;\n' :
+        fs.readFileSync(path.join('api/baselines', `${name}.d.ts`), 'utf8');
+      fs.mkdirSync(path.join(root, 'packages', name, 'dist'), { recursive: true });
+      fs.writeFileSync(path.join(root, 'packages', name, 'dist/index.d.ts'), declarations);
+      fs.writeFileSync(path.join(root, 'api/baselines', `${name}.d.ts`), declarations);
+    }
+    mutate(root);
+    return spawnSync(process.execPath, [path.join(root, 'scripts/check-api-snapshots.mjs')], { cwd: root, encoding: 'utf8' });
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+}
+
+test('API gate preserves 73 beta exports and the provider runtime/type split even if copied baselines are changed too', () => {
+  const valid = auditApiSnapshots();
+  assert.equal(valid.status, 0, valid.stderr);
+  assert.match(valid.stdout, /73 beta exports \(15 runtime, 58 type-only\)/);
+  for (const alter of [
+    declarations => declarations.replace('@beta', '@public'),
+    declarations => declarations + '/** @beta */\nexport interface UnreviewedProviderExport {}\n',
+    declarations => declarations.replace('export declare function analyzeXml(): unknown;', 'export interface analyzeXml {}'),
+  ]) {
+    const result = auditApiSnapshots(root => {
+      for (const file of ['packages/xml-analysis/dist/index.d.ts', 'api/baselines/xml-analysis.d.ts']) {
+        const filename = path.join(root, file);
+        fs.writeFileSync(filename, alter(fs.readFileSync(filename, 'utf8')));
+      }
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /public API surface for xml-analysis must retain 8 beta exports \(1 runtime\)/);
+  }
+  const missing = auditApiSnapshots(root => fs.unlinkSync(path.join(root, 'api/baselines/xml-analysis.d.ts')));
+  assert.notEqual(missing.status, 0);
+  assert.match(missing.stderr, /missing compiled or baseline API for xml-analysis/);
 });
 
 test('public export gate verifies complete XML notices, exact lock artifacts and executable backend bytes', () => {

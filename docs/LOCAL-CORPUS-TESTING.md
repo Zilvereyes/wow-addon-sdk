@@ -200,3 +200,39 @@ The user approved XML A–F on 2026-11-17. `--xml-analysis` now calls the actual
 `xmlAnalysis` separates discovered/attempted/submitted/completed, accepted/rejected, profile/resource/encoding rejection, read/worker/backend/invariant failures and source/mapping checks. `profileRejected` is a subset of rejected. Only accepted or syntax/profile-rejected documents increment `parsed.xml`; blocked work never counts as a parse verdict. Disabled parsers are now listed separately from missing providers/reference capabilities. Both syntax opt-ins can run together, but fullParsing remains false and --require-all-parsers still fails until those capabilities and diagnostic acceptance exist.
 
 The fresh XML-focused run produced 1,199 actual verdicts (1,146 accepted, 53 XML0002 rejections), zero codec/resource/read/worker/backend/invariant blocks and all 1,199 source hashes unchanged. It checked 281,315 original source references and 85,212 decoded mappings. Private classification explained 52 namespace-only cases and one multiple-root document without waiving either. The full command exited 1, retaining existing TOC errors, disabled Lua and missing provider/reference work. See [exact commands, snapshot and remaining acceptance](REVIEW-XML-v0.5.0.md). Older Lua/candidate results above remain historical evidence for their respective snapshots.
+
+## Approved v0.6.0 XML fact provider
+
+The user approved provider A–D on 2026-11-17. [Profiles explained in Danish](XML-PROVIDER-PROFILES.md) describes the configuration without requiring the user to author JSON. The caller supplies an explicit `{schemaVersion:1,policy}` file; there is no automatic installed vocabulary or namespace fallback. The profile read is bounded to 1 MiB and validated before source discovery. Repeated/missing/invalid profiles and a provider flag without `--xml-analysis` fail explicitly.
+
+Authored runnable example:
+
+```powershell
+node scripts/inspect-addon-corpus.mjs examples/xml-provider --xml-analysis --xml-provider-profile examples/xml-provider-profile.json
+```
+
+The optional worker provider stage processes the same original XML text under namespace-aware syntax. It returns candidate frames/declarations, unresolved Include/Script references and mapped chunk/handler bodies. The fixed identity `corpus-xml` is labelled caller-owned inventory association; resolvedProviderParticipation=false. No selected-TOC resolver participation, path traversal or Lua body parsing is inferred. Source comments, entities, CDATA and gaps retain exact decoded/raw maps.
+
+`xmlProvider` is omitted by default. Requested runs expose:
+
+| Field | Meaning |
+| --- | --- |
+| requested / discoveryComplete / complete | Explicit opt-in and independent discovery/projection acceptance |
+| discovered / attempted | Found XML files and file-processing attempts |
+| submitted / completed | Combined worker request/response envelopes; syntax-rejected requests may still complete |
+| eligible / projectionAttempted | Syntax-accepted files / worker-reported provider-stage attempts |
+| validated | Whole provider results that pass invariant checks; excludes resource/backend/invariant blocks |
+| projectionComplete / projectionIncomplete | Validated extractions under policy, split by complete flag |
+| rejectedBeforeProjection | Completed XML syntax/profile rejections; no provider parse credit |
+| blocked / skippedOversized | Remaining disjoint per-file dispositions |
+| readFailures / encodingRejected / inputLimitRejected / workerFailures / backendFailures / invariantFailures / resourceRejected | Distinct failure causes; overlapping causes are not summed as disjoint files |
+| frameCandidates / declarations / references / inlineChunks / inlineHandlers | Fact occurrences, preserving duplicates; no unique active-name or parsed-Lua claim |
+| checkedSourceReferences / checkedDecodedMappings / diagnosticsByCode / inputBytes | Validated aggregate provenance, diagnostics and bytes actually read |
+
+For fully traversed requested runs, discovered = rejectedBeforeProjection + validated + blocked + skippedOversized. validated = projectionComplete + projectionIncomplete. Preflight/discovery failures keep completeness false; zero validated inputs cannot pass provider acceptance. `parsed.xml` remains syntax verdicts and is never incremented again for provider facts. Inline bodies never increment parsed.lua.
+
+The CLI validates the full provider projection against original syntax, maps and exact warning sources before committing any metrics. It then requires the bounded source-integrity reread to match. Late malformed declarations/maps/warnings or changed sources leave no provider fact/verdict/diagnostic prefix credit. XML syntax source/map/diagnostic credit is also staged until the entire syntax result validates; native read/worker/resource outcomes remain separate.
+
+Provider mode reports missing `xml-inline-lua-analysis` and `loader-reference-graph` capabilities; parser-only capability reporting stays unchanged. `--require-all-parsers` therefore continues to fail honestly. A passing authored inventory run with fullParsing=false proves only this requested fact projection, not game loading or all-provider acceptance.
+
+The actual installed provider run is **not run in this increment**: the user selected synthetic tests/CI while a concrete local profile is prepared. The already authorized AddOns directory remains available as read-only evidence for later vocabulary preparation; the user does not need to create JSON. Historical installed syntax/corpus counts above and in the aggregate evidence retain their original source snapshots.

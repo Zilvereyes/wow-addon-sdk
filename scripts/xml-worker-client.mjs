@@ -49,10 +49,24 @@ export function createXmlWorker({ timeoutMs = 10000, maxOutputBytes = 32 * 1024 
       if (response?.id !== state.pending.id || response.result?.schemaVersion !== 1 ||
           typeof response.result.complete !== 'boolean' || !Array.isArray(response.result.elements) || !Array.isArray(response.result.text) ||
           !Array.isArray(response.result.diagnostics)) { invalidate(state, 'xml-worker-protocol'); return; }
+      const expectedKeys = state.pending.providerRequested ? ['id', 'result', 'provider'] : ['id', 'result'];
+      if (Object.keys(response).length !== expectedKeys.length || expectedKeys.some(key => !Object.hasOwn(response, key))) {
+        invalidate(state, 'xml-worker-protocol'); return;
+      }
+      if (state.pending.providerRequested) {
+        const provider = response.provider;
+        if (!provider || typeof provider !== 'object' || Array.isArray(provider) ||
+            Object.keys(provider).length !== 2 || !Object.hasOwn(provider, 'attempted') || !Object.hasOwn(provider, 'result') ||
+            typeof provider.attempted !== 'boolean' || provider.attempted !== response.result.complete ||
+            (!provider.attempted && provider.result !== null) ||
+            (provider.result !== null && (typeof provider.result !== 'object' || Array.isArray(provider.result)))) {
+          invalidate(state, 'xml-worker-protocol'); return;
+        }
+      }
       const pending = state.pending;
       state.pending = null; state.buffer = ''; state.bytes = 0;
       clearTimeout(pending.timer);
-      pending.resolve(response.result);
+      pending.resolve(pending.providerRequested ? { syntax: response.result, provider: response.provider } : response.result);
     });
     child.on('error', () => invalidate(state, 'xml-worker-start'));
     child.stdin.on('error', () => invalidate(state, 'xml-worker-write'));
@@ -78,7 +92,7 @@ export function createXmlWorker({ timeoutMs = 10000, maxOutputBytes = 32 * 1024 
       return new Promise((resolve, reject) => {
         const id = ++sequence;
         const timer = setTimeout(() => invalidate(state, 'xml-worker-timeout'), timeoutMs);
-        state.pending = { id, timer, resolve, reject };
+        state.pending = { id, timer, resolve, reject, providerRequested: Object.hasOwn(request, 'providerOptions') };
         try {
           state.child.stdin.write(JSON.stringify({ ...request, id }) + '\n', issue => {
             if (issue) invalidate(state, 'xml-worker-write');

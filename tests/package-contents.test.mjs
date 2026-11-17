@@ -2,17 +2,30 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validatePackageContents } from '../scripts/check-package-contents.mjs';
 
-const names = ['diagnostics', 'addon-metadata', 'toc-parser', 'global-registry', 'toc-metadata-adapter', 'lua-analysis', 'xml-parser'];
+const names = ['diagnostics', 'addon-metadata', 'toc-parser', 'global-registry', 'toc-metadata-adapter', 'lua-analysis', 'xml-parser', 'xml-analysis'];
 const listing = () => names.map(name => ({
   name: `@wow-addon/${name}`, version: '0.3.0',
   files: ['LICENSE', 'dist/index.d.ts', 'dist/index.js', 'package.json',
     ...(name === 'lua-analysis' ? ['dist/syntax.js', 'dist/syntax.d.ts'] : []),
     ...(name === 'xml-parser' ? ['THIRD-PARTY-NOTICES.txt'] : [])].map(path => ({ path })),
 }));
-test('package gate accepts five frozen core payloads and the approved Lua/XML extensions', () => {
+test('package gate accepts five frozen core payloads and the approved Lua/XML syntax/provider extensions', () => {
   assert.deepEqual(validatePackageContents(listing(), '0.3.0'), []);
   assert.deepEqual(validatePackageContents(Object.fromEntries(listing().map(item => [item.name, item])), '0.3.0'), []);
   assert.ok(validatePackageContents({ invalid: listing()[0] }, '0.3.0').length > 0);
+});
+
+test('XML provider requires its exact four-file payload without helper, backend or source leakage', () => {
+  const absent = listing().filter(item => item.name !== '@wow-addon/xml-analysis');
+  assert.match(validatePackageContents(absent, '0.3.0').join('\n'), /expected eight|xml-analysis: expected exactly one package/);
+  for (const file of ['LICENSE', 'dist/index.js', 'dist/index.d.ts']) {
+    const missing = listing(); missing[7].files = missing[7].files.filter(item => item.path !== file);
+    assert.match(validatePackageContents(missing, '0.3.0').join('\n'), /xml-analysis: missing/);
+  }
+  for (const path of ['dist/helper.js', 'dist/index.js.map', 'src/index.ts', 'saxes.js', 'private-source.xml']) {
+    const extra = listing(); extra[7].files.push({ path });
+    assert.ok(validatePackageContents(extra, '0.3.0').includes(`xml-analysis: unexpected ${path}`));
+  }
 });
 
 test('XML package must retain complete third-party notices without vendoring backend or game sources', () => {

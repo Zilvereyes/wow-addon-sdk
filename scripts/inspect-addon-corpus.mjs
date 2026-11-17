@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { createLuaWorker } from './lua-worker-client.mjs';
 import { createXmlWorker } from './xml-worker-client.mjs';
 import { readBoundedFile } from './read-bounded-file.mjs';
+import { XML_PROVIDER_ADDON_ID, validateXmlProviderProfile, verifyXmlProvider } from './xml-provider-validation.mjs';
 import { parseToc } from '@wow-addon/toc-parser';
 import { selectTocVariant, toGlobalDeclarations, evaluateGlobalConditions, resolveGlobalRegistry } from '@wow-addon/toc-metadata-adapter';
 
@@ -20,6 +21,7 @@ let luaInputProfile = null;
 let selectionProfilePath = null;
 let conditionProfilePath = null;
 let resolutionProfilePath = null;
+let xmlProviderProfilePath = null;
 let valid = Boolean(rootArgument && !rootArgument.startsWith('--'));
 while (args.length && valid) {
   const flag = args.shift();
@@ -32,6 +34,12 @@ while (args.length && valid) {
   if (flag === '--xml-analysis') {
     if (xmlEnabled) { valid = false; break; }
     xmlEnabled = true;
+    continue;
+  }
+  if (flag === '--xml-provider-profile') {
+    const value = args.shift();
+    if (xmlProviderProfilePath !== null || !value || value.startsWith('--')) { valid = false; break; }
+    xmlProviderProfilePath = value;
     continue;
   }
   if (flag === '--lua-input-profile') {
@@ -63,8 +71,8 @@ while (args.length && valid) {
   if (!value || !/^[1-9][0-9]*$/u.test(value) || !Number.isSafeInteger(Number(value))) { valid = false; break; }
   limits[flag] = Number(value);
 }
-if (!valid || (luaInputProfile !== null && !luaEnabled)) {
-  console.error('Usage: node scripts/inspect-addon-corpus.mjs <AddOns-directory> [--max-entries N] [--max-file-bytes N] [--lua-analysis] [--lua-input-profile corpus-files] [--xml-analysis] [--require-all-parsers] [--selection-profile <JSON-file>] [--condition-profile <JSON-file>] [--resolution-profile <JSON-file>]');
+if (!valid || (luaInputProfile !== null && !luaEnabled) || (xmlProviderProfilePath !== null && !xmlEnabled)) {
+  console.error('Usage: node scripts/inspect-addon-corpus.mjs <AddOns-directory> [--max-entries N] [--max-file-bytes N] [--lua-analysis] [--lua-input-profile corpus-files] [--xml-analysis] [--xml-provider-profile <JSON-file>] [--require-all-parsers] [--selection-profile <JSON-file>] [--condition-profile <JSON-file>] [--resolution-profile <JSON-file>]');
   process.exit(2);
 }
 
@@ -96,6 +104,17 @@ if (xmlEnabled) report.xmlAnalysis = {
   sourceIntegrity: { checked: 0, matching: 0, changed: 0, verificationFailures: 0 },
   diagnosticsByCode: {}, resolvedProviderParticipation: false,
 };
+if (xmlProviderProfilePath !== null) report.xmlProvider = {
+  requested: true, complete: false, discoveryComplete: false,
+  association: 'caller-owned-inventory', resolvedProviderParticipation: false,
+  discovered: 0, eligible: 0, attempted: 0, submitted: 0, completed: 0, projectionAttempted: 0,
+  validated: 0, projectionComplete: 0, projectionIncomplete: 0, rejectedBeforeProjection: 0,
+  blocked: 0, skippedOversized: 0, readFailures: 0, encodingRejected: 0, inputLimitRejected: 0,
+  workerFailures: 0, backendFailures: 0, invariantFailures: 0, resourceRejected: 0,
+  frameCandidates: 0, declarations: 0, references: 0, inlineChunks: 0, inlineHandlers: 0,
+  checkedSourceReferences: 0, checkedDecodedMappings: 0, inputBytes: 0, diagnosticsByCode: {},
+};
+if (xmlProviderProfilePath !== null) report.missingFullParsingCapabilities = ['xml-inline-lua-analysis', 'loader-reference-graph'];
 if (luaEnabled) report.luaAnalysis = {
   complete: true, discoveryComplete: false, attempted: 0, submitted: 0, completed: 0,
   syntaxAccepted: 0, syntaxRejected: 0, incompleteFiles: 0,
@@ -117,6 +136,8 @@ let conditionProfile = null;
 let conditionReady = true;
 let resolutionProfile = null;
 let resolutionReady = true;
+let xmlProviderPolicy = null;
+let xmlProviderReady = true;
 const sourceLineLengths = new Map();
 function readProfile(filename) {
   const maximum = 1024 * 1024;
@@ -136,6 +157,10 @@ function readProfile(filename) {
     if (size > maximum) throw new Error('Oversized profile');
     return JSON.parse(bytes.subarray(0, size).toString('utf8'));
   } finally { fs.closeSync(descriptor); }
+}
+if (xmlProviderProfilePath !== null) {
+  try { xmlProviderPolicy = validateXmlProviderProfile(readProfile(xmlProviderProfilePath)); }
+  catch { fail('xml-provider-profile-invalid'); xmlProviderReady = false; }
 }
 if (selectionProfilePath !== null) {
   report.selection = {
@@ -371,7 +396,7 @@ function walk(folder, depth = 0) {
 }
 
 try {
-  if (selectionReady && conditionReady && resolutionReady) {
+  if (selectionReady && conditionReady && resolutionReady && xmlProviderReady) {
     const rootStat = fs.lstatSync(root);
     if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) failDiscovery('invalid-root', false);
     else { discoveryComplete = true; walk(root); }
@@ -386,6 +411,11 @@ if (luaEnabled) {
 if (xmlEnabled) {
   report.xmlAnalysis.discoveryComplete = discoveryComplete;
   report.xmlAnalysis.complete = discoveryComplete;
+}
+if (report.xmlProvider) {
+  report.xmlProvider.discoveryComplete = discoveryComplete;
+  report.xmlProvider.complete = discoveryComplete;
+  report.xmlProvider.discovered = report.xmlAnalysis.discovered;
 }
 if (luaEnabled) {
   const counts = report.luaAnalysis;
@@ -523,6 +553,7 @@ if (luaEnabled) {
 // referenced files for this tooling adapter.
 if (xmlEnabled) {
   const counts = report.xmlAnalysis;
+  const providerCounts = report.xmlProvider;
   const maximumUnits = 1024 * 1024;
   const maximumBytes = Math.min(limits['--max-file-bytes'], 4 * maximumUnits);
   const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
@@ -551,6 +582,7 @@ if (xmlEnabled) {
     } finally { fs.closeSync(fd); }
   }
   function verifyXml(result, content, filename) {
+    const metrics = { checkedSourceReferences: 0, checkedDecodedMappings: 0 };
     assert.deepEqual(JSON.parse(JSON.stringify(result)), result);
     assert.equal(result.schemaVersion, 1);
     assert.equal(typeof result.complete, 'boolean');
@@ -577,14 +609,14 @@ if (xmlEnabled) {
     function visit(value) {
       if (!value || typeof value !== 'object') return;
       if (Object.hasOwn(value, 'file') && Object.hasOwn(value, 'range')) {
-        offsets(value); counts.checkedSourceReferences++; return;
+        offsets(value); metrics.checkedSourceReferences++; return;
       }
       for (const child of Object.values(value)) visit(child);
     }
     visit(result);
     if (!result.complete) {
       assert.equal(result.elements.length, 0); assert.equal(result.text.length, 0);
-      return;
+      return metrics;
     }
     assert.ok(result.elements.length > 0);
     let records = result.elements.length + result.text.length, decodedUnits = 0;
@@ -615,7 +647,7 @@ if (xmlEnabled) {
             assert.equal(projected, String.fromCodePoint(Number.parseInt(match[2] ?? match[3], match[1] ? 16 : 10)));
           }
         }
-        counts.checkedDecodedMappings++; decoded = mapping.decodedEnd; raw = stop;
+        metrics.checkedDecodedMappings++; decoded = mapping.decodedEnd; raw = stop;
       }
       assert.equal(decoded, value.value.length); assert.equal(raw, end);
     }
@@ -658,37 +690,82 @@ if (xmlEnabled) {
       mapped(text.value, false, text.kind === 'cdata');
     }
     assert.ok(records <= 50000 && decodedUnits <= 2 * 1024 * 1024);
+    return metrics;
   }
   try {
     for (const { filename, relative } of xmlFiles) {
       counts.attempted++;
+      if (providerCounts) providerCounts.attempted++;
+      let providerProjection = null, providerDisposition = 'blocked', providerComplete = false;
+      const providerErrors = new Set();
+      function providerFailure(field, reason) {
+        if (!providerCounts) return;
+        if (!providerErrors.has(field)) { providerCounts[field]++; providerErrors.add(field); }
+        providerCounts.complete = false;
+        fail(reason, true);
+      }
       let input;
-      try { input = readXml(filename); counts.inputBytes += input.bytes.length; }
+      try {
+        input = readXml(filename); counts.inputBytes += input.bytes.length;
+        if (providerCounts) providerCounts.inputBytes += input.bytes.length;
+      }
       catch (error) {
         counts.complete = false;
         if (error.message === 'xml-input-limit') { counts.inputLimitRejected++; counts.resourceRejected++; fail('xml-input-limit', true); }
         else { counts.readFailures++; fail('xml-read-failure', true); }
+        if (providerCounts) {
+          if (error.message === 'xml-input-limit') {
+            providerCounts.skippedOversized++;
+            providerFailure('resourceRejected', 'xml-provider-input-limit');
+            providerFailure('inputLimitRejected', 'xml-provider-input-limit');
+          } else { providerCounts.blocked++; providerFailure('readFailures', 'xml-provider-read-failure'); }
+        }
         continue;
       }
       try {
         let content;
         try { content = decoder.decode(input.bytes); }
-        catch { counts.encodingRejected++; counts.complete = false; fail('xml-invalid-utf8', true); continue; }
-        if (content.length > maximumUnits) {
-          counts.inputLimitRejected++; counts.resourceRejected++; counts.complete = false; fail('xml-input-limit', true); continue;
+        catch {
+          counts.encodingRejected++; counts.complete = false; fail('xml-invalid-utf8', true);
+          providerFailure('encodingRejected', 'xml-provider-invalid-utf8'); continue;
         }
-        let result;
-        try { counts.submitted++; result = await worker.analyze({ content, sourcePath: relative }); counts.completed++; }
-        catch { counts.workerFailures++; counts.complete = false; fail('xml-worker-failure', true); continue; }
+        if (content.length > maximumUnits) {
+          counts.inputLimitRejected++; counts.resourceRejected++; counts.complete = false; fail('xml-input-limit', true);
+          providerFailure('inputLimitRejected', 'xml-provider-input-limit');
+          providerFailure('resourceRejected', 'xml-provider-input-limit'); continue;
+        }
+        let result, providerReply;
         try {
-          verifyXml(result, content, relative);
-          const codes = new Set();
+          counts.submitted++;
+          if (providerCounts) providerCounts.submitted++;
+          const response = await worker.analyze({ content, sourcePath: relative,
+            ...(providerCounts ? { providerOptions: { addonId: XML_PROVIDER_ADDON_ID, policy: xmlProviderPolicy } } : {}) });
+          counts.completed++;
+          if (providerCounts) {
+            providerCounts.completed++; result = response.syntax; providerReply = response.provider;
+            if (providerReply.attempted) providerCounts.projectionAttempted++;
+          }
+          else result = response;
+        } catch {
+          counts.workerFailures++; counts.complete = false; fail('xml-worker-failure', true);
+          providerFailure('workerFailures', 'xml-provider-worker-failure'); continue;
+        }
+        let syntaxValid = false, codes;
+        try {
+          const metrics = verifyXml(result, content, relative);
+          codes = new Set();
+          const diagnosticsByCode = {};
           for (const diagnostic of result.diagnostics) {
             assert.ok(['XML0001', 'XML0002', 'XML0003', 'XML0004', 'XML0005'].includes(diagnostic.code));
             assert.equal(diagnostic.severity, 'error');
             codes.add(diagnostic.code);
-            counts.diagnosticsByCode[diagnostic.code] = (counts.diagnosticsByCode[diagnostic.code] ?? 0) + 1;
+            diagnosticsByCode[diagnostic.code] = (diagnosticsByCode[diagnostic.code] ?? 0) + 1;
           }
+          // Syntax projections and diagnostics form one validation transaction.
+          // A late invalid map/code cannot retain an earlier metric prefix.
+          counts.checkedSourceReferences += metrics.checkedSourceReferences;
+          counts.checkedDecodedMappings += metrics.checkedDecodedMappings;
+          addCounts(counts.diagnosticsByCode, diagnosticsByCode);
           if (codes.has('XML0001') || codes.has('XML0005')) { counts.backendFailures++; fail('xml-backend-failure', true); }
           else if (codes.has('XML0003')) { counts.resourceRejected++; fail('xml-resource-limit', true); }
           else {
@@ -698,19 +775,64 @@ if (xmlEnabled) {
             else counts.accepted++;
           }
           if (!result.complete) counts.complete = false;
-        } catch { counts.invariantFailures++; counts.complete = false; fail('xml-invariant-failure', true); }
+          syntaxValid = true;
+        } catch {
+          counts.invariantFailures++; counts.complete = false; fail('xml-invariant-failure', true);
+          providerFailure('invariantFailures', 'xml-provider-syntax-invariant-failure');
+        }
+        if (providerCounts && syntaxValid) {
+          if (codes.has('XML0001') || codes.has('XML0005')) providerFailure('backendFailures', 'xml-provider-syntax-backend-failure');
+          else if (codes.has('XML0003')) providerFailure('resourceRejected', 'xml-provider-syntax-resource-limit');
+          else if (!result.complete) providerDisposition = 'syntax-rejected';
+          else {
+            providerCounts.eligible++;
+            if (providerReply.result === null) providerFailure('backendFailures', 'xml-provider-backend-failure');
+            else try {
+              providerProjection = verifyXmlProvider(providerReply.result, result, content, relative, xmlProviderPolicy);
+              if (providerProjection.outcome === 'resource') providerFailure('resourceRejected', 'xml-provider-resource-limit');
+              else if (providerProjection.outcome === 'backend') providerFailure('backendFailures', 'xml-provider-backend-failure');
+              else { providerDisposition = 'validated'; providerComplete = providerReply.result.complete; }
+            } catch { providerFailure('invariantFailures', 'xml-provider-invariant-failure'); }
+          }
+        }
       } finally {
         // Re-read with the same fixed bounds; only aggregate equality escapes.
         // This detects source changes without writing or publishing source hashes.
         try {
           const after = readXml(filename); counts.sourceIntegrity.checked++;
           if (input.digest === after.digest) counts.sourceIntegrity.matching++;
-          else { counts.sourceIntegrity.changed++; counts.complete = false; fail('xml-source-changed', true); }
-        } catch { counts.sourceIntegrity.verificationFailures++; counts.readFailures++; counts.complete = false; fail('xml-integrity-read-failure', true); }
+          else {
+            counts.sourceIntegrity.changed++; counts.complete = false; fail('xml-source-changed', true);
+            providerFailure('readFailures', 'xml-provider-source-changed');
+            providerDisposition = 'blocked'; providerProjection = null;
+          }
+        } catch {
+          counts.sourceIntegrity.verificationFailures++; counts.readFailures++; counts.complete = false; fail('xml-integrity-read-failure', true);
+          providerFailure('readFailures', 'xml-provider-integrity-read-failure');
+          providerDisposition = 'blocked'; providerProjection = null;
+        }
+        if (providerCounts) {
+          if (providerDisposition === 'syntax-rejected') {
+            providerCounts.rejectedBeforeProjection++; providerCounts.complete = false;
+          } else if (providerDisposition === 'validated') {
+            providerCounts.validated++;
+            if (providerComplete) providerCounts.projectionComplete++;
+            else { providerCounts.projectionIncomplete++; providerCounts.complete = false; fail('xml-provider-incomplete'); }
+          } else { providerCounts.blocked++; providerCounts.complete = false; }
+          if (providerProjection) {
+            for (const field of ['frameCandidates', 'declarations', 'references', 'inlineChunks', 'inlineHandlers',
+              'checkedSourceReferences', 'checkedDecodedMappings']) providerCounts[field] += providerProjection.metrics[field];
+            addCounts(providerCounts.diagnosticsByCode, providerProjection.metrics.diagnosticsByCode);
+          }
+        }
       }
     }
   } finally { await worker.close(); }
   counts.diagnosticsByCode = Object.fromEntries(Object.entries(counts.diagnosticsByCode).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
+  if (providerCounts) providerCounts.diagnosticsByCode = Object.fromEntries(Object.entries(providerCounts.diagnosticsByCode).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
+  if (providerCounts && providerCounts.validated === 0) {
+    providerCounts.complete = false; fail('xml-provider-no-validated-inputs', true);
+  }
 }
 if (selectionProfile !== null && selectionReady) {
   for (const [base, candidates] of selectionGroups) {

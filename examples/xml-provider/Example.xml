@@ -1,0 +1,7 @@
+<Ui>
+  <Frame name="AuthoredFrame">
+    <Scripts><OnLoad>self:SetAlpha(1)</OnLoad></Scripts>
+  </Frame>
+  <Include file="NotTraversed.xml"/>
+  <Script>AuthoredGlobal = 1</Script>
+</Ui>

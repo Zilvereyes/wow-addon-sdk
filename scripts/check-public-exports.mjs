@@ -7,7 +7,7 @@ import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 
 const root = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
-const expected = ['diagnostics','addon-metadata','toc-parser','global-registry','toc-metadata-adapter','lua-analysis','xml-parser'];
+const expected = ['diagnostics','addon-metadata','toc-parser','global-registry','toc-metadata-adapter','lua-analysis','xml-parser','xml-analysis'];
 const errors = [];
 const expectedLicense = fs.readFileSync(path.join(root, 'LICENSE'));
 for (const name of expected) {

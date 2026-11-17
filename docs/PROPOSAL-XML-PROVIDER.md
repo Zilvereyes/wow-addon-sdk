@@ -1,6 +1,6 @@
 # XML provider facts and inline-source projection — decision proposal
 
-Status: **proposed, not approved or implemented**. Prepared after the user's explicit merge approval for #25 and #27 on 2026-11-17. Existing XML A–F, Lua A–E and corpus-profile A–E approvals remain binding. This document requests only the new A–D choices below; it grants no merge, tag, publication or installation rights.
+Status: **A–D approved by the user on 2026-11-17 and implemented on the review branch**. Explicit instruction: “Godkendt A–D. Fortsæt implementeringen af XML-provider, kør tests og hold GitHub opdateret.” Prepared after the separate merge approval for #25 and #27. Existing XML A–F, Lua A–E and corpus-profile A–E approvals remain binding. The approved contract below grants no merge, tag, publication or installation rights. Historical proposal wording is retained as design rationale; [implementation acceptance](REVIEW-XML-PROVIDER-v0.6.0.md) records actual checks and remaining limitations.
 
 ## Observed gap and next deliverable
 
