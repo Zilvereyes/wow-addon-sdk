@@ -95,10 +95,22 @@ export type GraphIssueCode = 'SGRAPH0001' | 'SGRAPH0002' | 'SGRAPH0003' | 'SGRAP
   'SGRAPH0005' | 'SGRAPH0006' | 'SGRAPH0007' | 'SGRAPH0008';
 export interface GraphLanguageAggregate {
   readonly eligibleSourceFiles: number;
+  /** Metadata-discovered files outside the requested candidate/reachable set; no parser credit. */
+  readonly notRequestedSourceFiles: number;
   readonly uniqueFilesRead: number;
   readonly syntaxVerdictFiles: number;
   readonly syntaxAcceptedFiles: number;
   readonly syntaxRejectedFiles: number;
+  /** Disjoint unique eligible files without a validated syntax verdict, not request/event totals. */
+  readonly skippedBeforeSyntaxVerdict: {
+    readonly notAttempted: number;
+    readonly readRejected: number;
+    readonly encodingRejected: number;
+    readonly resourceRejected: number;
+    readonly workerRejected: number;
+    readonly backendRejected: number;
+    readonly invariantRejected: number;
+  };
   readonly sourceRequestsSubmitted: number;
   readonly sourceRequestsCompleted: number;
   readonly sourceRequestsFailed: number;
@@ -131,6 +143,9 @@ export interface SelectedSourceGraphAggregate {
   readonly selection: {
     readonly requestedGroups: number; readonly selected: number; readonly noMatch: number;
     readonly unresolved: number; readonly ambiguous: number; readonly invalid: number; readonly notInvoked: number;
+    /** Candidate rows, including repeated physical TOCs associated with separate logical groups. */
+    readonly explicitCandidateRows: number; readonly selectedCandidateRows: number;
+    readonly nonSelectedCandidateRows: number; readonly undecidedCandidateRows: number;
   };
   readonly languages: Readonly<Record<SourceLanguage, GraphLanguageAggregate>>;
   readonly confirmedApiCalls: ConfirmedGraphApiCalls;

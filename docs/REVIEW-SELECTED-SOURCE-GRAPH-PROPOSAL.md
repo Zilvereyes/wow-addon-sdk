@@ -18,6 +18,8 @@ No production/test/manifest/lock/API-report/CI configuration changes are intende
 
 Parent source/design inspection clarified Windows reparse-attribute capability versus Node link checks, stale directory/case decisions, bounded explicit path tokens, raw source hull versus semantic TOC filename, SDK-call versus analysis-request counts, automatic SavedVariables origin indices and missing-candidate/no-match outcomes. These are proposal refinements, not reproduced defects in a graph implementation that does not yet exist. Independent AI review has **not** been run or claimed.
 
+Subsequent parent review found two concrete proposal inconsistencies at e53b75b: the two-environment acceptance row prohibited all unselected content reads even though section A requires parsing every candidate TOC; and section E promised candidate/skip partitions absent from the declared aggregate type. The revised proposal permits explicit candidate TOC reads while prohibiting unselected descendant Lua/XML reads, adds candidate-row and per-language excluded/no-verdict fields, and specifies disjoint equations with an authored seven-found/four-eligible example and failure-priority rules. These corrections refine an unapproved design; no runtime defect, new graph implementation or executable acceptance is claimed. Supported CI for e53b75b remains historical evidence until the new head's checks finish.
+
 ## Specification versus proposals
 
 Already approved: five core boundaries; exact opaque logical/variant/source identities; selection before resolution; provider condition descriptors; duplicate/order/ownership guarantees; Lua/XML dialect, budgets and fixed diagnostics; explicit inline contexts/disjoint mapping; read-only installed input; separate merge/tag/publication rights.
