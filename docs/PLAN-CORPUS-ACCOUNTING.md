@@ -1,6 +1,6 @@
 # Corpus accounting and bounded TOC reads: issue #26
 
-Status: implementation and focused checks are complete on a separate branch from XML PR #25; full acceptance is in progress. Starting point: `956ae83d7f7a919b198968d5fe1b43861e7fac8a`. The previous goal turn delivered XML syntax and evidence; merge of that PR remains a separate user decision. This increment addresses the existing acceptance requirement for honest per-language coverage. It changes tooling only, not the seven SDK packages, 65 beta exports, parser grammar, source coordinates, encoding policy or dependency graph.
+Status: implementation, local gates, actual combined corpus and supported implementation-head CI are verified; final-head review/integration is tracked in [the acceptance record](REVIEW-CORPUS-ACCOUNTING.md). Starting point: `956ae83d7f7a919b198968d5fe1b43861e7fac8a`. The previous goal turn delivered XML syntax and evidence; merge of that PR remains a separate user decision. This increment addresses the existing acceptance requirement for honest per-language coverage. It changes tooling only, not the seven SDK packages, 65 beta exports, parser grammar, source coordinates, encoding policy or dependency graph.
 
 ## Observable defects and acceptance
 
@@ -32,4 +32,4 @@ The new JSON report fields are additive tooling observations. No SDK schema or g
 - A combined actual corpus run with the default generic 8 MiB cap parsed all 434 TOCs and 1,199 XML files, but only 5,235 of 5,242 Lua files; seven oversized inputs correctly remained blocked. It had zero read/backend/invariant failures. Private before/after checks matched all 6,875 source hashes. The intended expanded run now supplies an explicit generic byte cap within the existing CLI controls; its exact command and results must be recorded separately rather than relabeling the first run.
 - Independent read-only reviews checked transactional metric ordering and the bounded-reader failure paths. A FIFO replacement observation led to nonblocking open where supported; bigint stat values retain exact inode/device/time comparisons. This is bounded manual review, not a sealed security scan or an immutable-filesystem guarantee.
 
-Native Linux FIFO behavior, final full local gates, exact-head supported CI, final review and intended combined-corpus verdict equality remain pending until their actual results are linked from the focused PR. No merge, tag or publication is implied by this plan.
+Native Linux FIFO behavior, final full local gates and intended combined-corpus verdict equality are now verified in [the acceptance record](REVIEW-CORPUS-ACCOUNTING.md). Final-head CI/review is linked from the focused PR; integration remains separately authorized. No merge, tag or publication is implied by this plan.
