@@ -59,7 +59,7 @@ function fixturesForTiming() {
   const declarations = count => Array.from({length: count}, (_, i) => 'do local item=' + i + '; Summary=item end').join('\r\n');
   const sources = ['local token = 1; Tiny = token', declarations(220), declarations(1_100), sizedComment(615_025)];
   const rotation = [1, 0, 1, 2, 1, 0, 1, 3];
-  const sequence = [...rotation, ...rotation, ...rotation, 1];
+  const sequence = [...rotation, ...rotation, ...rotation, ...rotation];
   return sequence.map((type, index) => fixture('timing', index + 1, sources[type]));
 }
 
@@ -89,7 +89,7 @@ function collectWorkerEvidence(children, queue, mode) {
       if (event.type === 'worker-start') {
         assert.equal(live, null, mode + ' started a Worker before the previous exit');
         assert.ok(!all.has(threadId), mode + ' duplicated a thread identity');
-        const group = {ids: [], units: 0, rssPeak: 0, heapPeak: 0, closed: false};
+        const group = {ids: [], units: 0, rssPeak: 0, heapPeak: 0, rssAtExit: null};
         all.set(threadId, group);
         groups.push(group);
         live = threadId;
@@ -110,7 +110,8 @@ function collectWorkerEvidence(children, queue, mode) {
         group.heapPeak = Math.max(group.heapPeak, event.heapUsed);
       } else {
         assert.equal(live, threadId, mode + ' acknowledged a Worker other than the live Worker');
-        all.get(threadId).closed = true;
+        assert.ok(Number.isSafeInteger(event.launcherRss) && event.launcherRss > 0, mode + ' RSS at acknowledged exit');
+        all.get(threadId).rssAtExit = event.launcherRss;
         live = null;
       }
     }
@@ -118,7 +119,7 @@ function collectWorkerEvidence(children, queue, mode) {
   }
   assert.deepEqual(sampleIds, queue.map((_, i) => i + 1), mode + ' trace correlation');
   for (const group of groups) {
-    assert.ok(group.closed && group.ids.length >= 1);
+    assert.ok(group.rssAtExit !== null && group.ids.length >= 1);
     if (mode === 'stock') assert.equal(group.ids.length, 1);
     else {
       assert.ok(group.ids.length <= 8, mode + ' request budget');
@@ -129,9 +130,9 @@ function collectWorkerEvidence(children, queue, mode) {
     }
   }
   return {
-    launchers: children.length, workerStarts: groups.length, workerExits: groups.filter(group => group.closed).length,
+    launchers: children.length, workerStarts: groups.length, workerExits: groups.filter(group => group.rssAtExit !== null).length,
     heapLimits: [...heapLimits].sort((a, b) => a - b),
-    groups: groups.map(({closed, ...group}) => group),
+    groups,
   };
 }
 
@@ -211,7 +212,7 @@ try {
         const observed = await run(mode === 'stock' ? createStock : createCandidate, queue, mode);
         if (baseline === undefined) baseline = observed.results;
         else assert.deepEqual(observed.results, baseline);
-        assert.equal(observed.evidence.workerStarts, mode === 'stock' ? 25 : 4);
+        assert.equal(observed.evidence.workerStarts, mode === 'stock' ? 32 : 4);
         pair[mode] = summarizeTiming(observed);
       }
       assert.deepEqual(pair.candidate.heapLimits, pair.stock.heapLimits);

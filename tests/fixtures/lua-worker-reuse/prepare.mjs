@@ -17,6 +17,10 @@ import {writeSync} from 'node:fs';
 import {getHeapStatistics} from 'node:v8';
 import {threadId} from 'node:worker_threads';
 const emit = (type, threadId, fields = {}) => writeSync(2, JSON.stringify({type, threadId, ...fields}) + '\\n');
+function observeWorker(type, id) {
+  if (type === 'worker-exit') emit(type, id, {launcherRss: process.memoryUsage.rss()});
+  else emit(type, id);
+}
 function sample(request) {
   const {heapUsed, rss} = process.memoryUsage();
   emit('worker-sample', threadId, {id: request.id, units: request.content.length, heapUsed, rss,
@@ -39,7 +43,7 @@ function workerSources(source) {
   let stock = change(common, originalEntry, sampleFresh);
   stock = change(stock, '        try {\n          reply', `        const ownedId = thread.threadId;
         emit('worker-start', ownedId);
-        thread.once('exit', () => emit('worker-exit', ownedId));
+        thread.once('exit', () => observeWorker('worker-exit', ownedId));
         try {
           reply`);
   const serve = `if (!isMainThread) {
@@ -53,7 +57,7 @@ function workerSources(source) {
   candidate = change(candidate, '  let requests = 0;', `  const pool = corpusLauncher ? createLuaThreadPool({
     spawnThread: () => new Worker(new URL(import.meta.url), {execArgv: [],
       resourceLimits: {maxOldGenerationSizeMb: 2048, stackSizeMb: 8}}),
-    observe: emit,
+    observe: observeWorker,
     onFault: () => { process.exitCode = 2; input.close(); },
   }) : null;
   let requests = 0;`);
