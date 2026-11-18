@@ -1,6 +1,6 @@
 # Proposal for bounded parser launcher reuse
 
-Status: proposed for an authored prototype and review. The runtime follows [the approved graph contract](PROPOSAL-SELECTED-SOURCE-GRAPH.md) and its [corpus Lua amendment](REVIEW-SELECTED-SOURCE-ANALYSIS.md#approved-corpus-lua-launcher-lifetime). [PR #30](https://github.com/Zilvereyes/wow-addon-sdk/pull/30) tracks the work.
+The isolated authored comparison was approved and has Windows prototype measurements. Production lifecycle adoption is a separate decision. [PR #30](https://github.com/Zilvereyes/wow-addon-sdk/pull/30) tracks the work. The runtime follows [the approved graph contract](PROPOSAL-SELECTED-SOURCE-GRAPH.md) and its [corpus Lua amendment](REVIEW-SELECTED-SOURCE-ANALYSIS.md#approved-corpus-lua-launcher-lifetime).
 
 ## Dependency and measured problem
 
@@ -35,3 +35,35 @@ The isolated authored prerequisite on Windows Node 24.22.3 matched XML depth 255
 2. Verify both rotation boundaries, the two-child ceiling, one active parser, thread exit before emission, invalid IDs, late and idle output, deadline and output-limit behavior, and an unreaped process while the other closes. Require the existing fixed failure classes, no partial projection and no replacement while either child remains unacknowledged.
 3. Review those results before a production change. If separately approved, scope implementation to `scripts/selected-source-analysis-client.mjs`, `scripts/selected-source-analysis-worker.mjs` and their integration tests. Run build, architecture, dependencies, API baselines, strict API Extractor, exports, licenses and package contents, with the full supported CI matrix on the reviewed revision.
 4. Re-run the full local corpus with the original selection, limits and profiles. Record discovered, submitted, parsed, skipped, diagnostic and invariant counts by language, including separately classified transport failures. Verify source integrity after all reads. Keep Stage 7 open if the operation reaches its deadline or if acceptance evidence is incomplete.
+
+## Isolated prototype results
+
+The fixture runner at [`a3d3b05`](https://github.com/Zilvereyes/wow-addon-sdk/tree/a3d3b0545d0f3984eda718cec01a93330f26c73a/tests/fixtures/launcher-reuse-prototype) applies the proposed worker and supervisor patch to a temporary copy of the `5bb1917` runtime. Its sources are authored fixtures. The [experiment CI matrix](https://github.com/Zilvereyes/wow-addon-sdk/actions/runs/44326124063) passed the comparison fixture, ten fault controls, memory observation and project gates on Windows and Ubuntu with Node 22 and 24. Every workload pair returned the same 66 validated responses per model and recorded 37 stock and four candidate starts.
+
+| CI platform | Stock time | Candidate time | Sampled stock RSS | Sampled candidate RSS |
+| --- | ---: | ---: | ---: | ---: |
+| Windows Node 22.23.4 | 7,348 ms | 6,118 ms | 65,892 KiB | 119,700 KiB |
+| Windows Node 24.22.2 | 4,902 ms | 3,847 ms | 74,876 KiB | 158,748 KiB |
+| Ubuntu Node 22.23.4 | 4,719 ms | 4,563 ms | 85,936 KiB | 174,168 KiB |
+| Ubuntu Node 24.22.2 | 2,969 ms | 3,236 ms | 89,920 KiB | 207,772 KiB |
+
+On Windows Node 24.22.3, host session 86822 ran the full stock–candidate–candidate–stock comparison and exited 0. Across 264 calls all full responses and API receipts matched by source. The workload contained 33 Lua, 16 TOC and 17 XML inputs in each series. It covered duplicate declarations and references, an inherited unknown condition, astral UTF-16 positions, malformed Lua and XML, deep XML and an XML projection with 240 references and 32 inline Lua calls. A preliminary stock smoke run encountered a TOC timeout before its first reply.
+
+| Series | Elapsed | Child starts and acknowledged closes | Maximum live children |
+| --- | ---: | ---: | ---: |
+| Stock 1 | 104,628 ms | 37 | 1 |
+| Candidate 1 | 27,633 ms | 4 | 2 |
+| Candidate 2 | 13,790 ms | 4 | 2 |
+| Stock 2 | 26,819 ms | 37 | 1 |
+
+The candidate closed each pool at call 32 before crediting the reply. Call 33 started a replacement. The device produced widely different timings at equal work. The counts establish the reduced number of starts in this fixture. They do not establish full-corpus throughput.
+
+The separate Windows memory observation exited 0 with six identical full responses per model, including an accepted 2,066,065-byte XML reply, accepted depth 256 and the expected XML depth-limit diagnostic at 257. It verified distinct fresh parser thread IDs and confirmed each thread joined before its frame. Effective V8 heap limits observed in the candidate were 2,240 MiB for Lua and 448 MiB for TOC/XML, including V8 overhead. Stack settings were 8 and 4 MiB. Peak sampled combined child RSS was 74,604 KiB for stock and 147,160 KiB for the candidate using the most recent sample from each live child. This is a sampled observation for this authored input.
+
+Ten fault controls passed on Windows Node 24.22.3. They cover invalid IDs, adjacent trailing output, oversized output, exact call deadlines, late idle output during a pending sibling request, blocked replacement, bounded Lua exclusivity, nonzero graceful exit and a shared reap deadline that is not renewed after a fault. The first boundary control used a non-clean mock close while expecting clean closure. The corrected control uses exit 0 and a separate control asserts rejection for a nonzero graceful exit.
+
+The isolated candidate also passed three existing authored native CLI controls after the Windows helper registration was included in the scratch copy. They verify complete TOC, Lua and XML analysis with matching source bytes, an honest incomplete aggregate and fixed failure text at an exhausted resource budget. These controls cover the native host composition used for the approved local experiment.
+
+The two earlier installed runs supply an order proxy for estimating process starts. The private first-read ledgers each reconciled with submission counts and all recorded rejected paths at their respective submission indices. For the 185-call prefix on `7d4ab84`, the proxy models 102 stock starts and seven candidate starts in the clean case. Forcing both candidate pools to retire at each recorded rejection gives 34. The 342-call prefix on `e5931e2` models 155 stock starts and 12 or 14 candidate starts under those same assumptions. The proxy records no observed child starts and fixes the prefix and rejection positions across models.
+
+Before a production decision, review the reply boundary and memory tradeoff. The stock supervisor waits for the one-shot TOC/XML child to close before crediting its frame. The candidate validates a complete frame during a continuing process lifetime. Later idle output retires both retained processes. If it arrives after a result was delivered, that result has already been credited. The prototype verifies an internal shared 10-second close schedule. An integrated host must propagate any tighter applicable cleanup allowance. An isolated read-only replay has been approved with the original profiles and limits. Full Stage 7 acceptance still requires evidence from the integrated build and the original local corpus traversal through final integrity.
