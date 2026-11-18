@@ -10,7 +10,9 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const fixture = fileURLToPath(new URL('./fixtures/launcher-reuse-prototype/', import.meta.url));
 
 function run(executable, args, cwd) {
-  const result = spawnSync(executable, args, {cwd, stdio: 'inherit', windowsHide: true});
+  const env = {...process.env};
+  delete env.NODE_TEST_CONTEXT;
+  const result = spawnSync(executable, args, {cwd, env, stdio: 'inherit', windowsHide: true});
   if (result.error) throw result.error;
   assert.equal(result.signal, null);
   return result.status;
