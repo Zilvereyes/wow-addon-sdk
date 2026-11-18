@@ -437,3 +437,31 @@ node --test --test-concurrency=1 tests/toc-selection-probe.test.mjs tests/lua-an
 
 - The Lua review read the full analysis and syntax source, backend declaration, manifest and API report. It checked original UTF-16 ranges, input and parser budgets, owned options and conditions, explicit Lua 5.1 semantics and the related contract and profile tests. The backend-default snapshot still starts after a warm-up call, leaving first-load behavior uncovered by that assertion.
 - The XML review read the full XML analysis and mapping source and checked exact policy selectors, copied conditions, unresolved references, owned XML spans and atomic UTF-16 source mapping. It cross-checked the provider and source-mapping fixtures. Neither read found a reproducible runtime defect within these scopes. Runtime and installed evidence are recorded separately.
+
+## Current review delta at `6943a8a`
+
+The tracked tree has 250 files. Comparing it with the 235-file inventory above adds 15 paths and removes none. The table records a bounded check on each added path. The original matrix retains its source identities and the unchanged review queues remain open.
+
+| Added path | Check recorded |
+| --- | --- |
+| `docs/EDITOR-CONSUMERS.md` | Pinned 0.7.0 SDK source and three public API calls. Filesystem lookup and generated editor state belong to the extension. |
+| `docs/REVIEW-COVERAGE-2026-11-18.md` | Inventory identity, review scopes and open acceptance criteria checked against the current delta. |
+| `docs/evidence/selected-source-cli-aggregate-corpus-2026-11-18.json` | `d17bfea`, exit 1, operation deadline. Port counts and retention accompany an unavailable final aggregate. |
+| `docs/evidence/selected-source-compact-corpus-2026-11-18.json` | `3aaf42c`, exit 1, unavailable final aggregate. |
+| `docs/evidence/selected-source-operation-failure-2026-11-18.json` | `e0fd1a1`, exit 1, unavailable final aggregate. |
+| `docs/evidence/selected-source-phase-profile-2026-11-18.json` | `9180a62`, exit 1, unavailable final aggregate. |
+| `docs/evidence/selected-source-reused-launcher-corpus-2026-11-18.json` | `d64ce3b`, exit 1, unavailable final aggregate. |
+| `docs/evidence/selected-source-single-provider-corpus-2026-11-18.json` | `e47a973`, exit 1, unavailable final aggregate. |
+| `docs/evidence/selected-source-worker-corpus-2026-11-18.json` | `2b99f2c`, exit 1, unavailable final aggregate. |
+| `tests/lua-option-ownership.test.mjs` | Retains requester association, duplicate declarations and UTF-16 provenance. |
+| `tests/selected-source-analysis-close.test.mjs` | Controls acknowledged close inside the bounded reap interval. |
+| `tests/selected-source-corpus-launcher.test.mjs` | Covers 32-request rotation, correlated replies and process reaping. Per-file worker-thread creation is verified by source inspection. |
+| `tests/selected-source-native-cache-pressure.test.mjs` | Controls retention ownership, copy rejection and cumulative I/O in composed tests. |
+| `tests/selected-source-worker-imports.test.mjs` | Checks which SDK modules each worker mode initializes and when imports occur. |
+| `tests/test-node.mjs` | Owns finite child deadlines, errors and strict TypeScript contract compiler invocation. |
+
+**Q1 package and lock review.** All eight workspace manifests and nine license/notice files match their reviewed Git blobs. All nine TypeScript configs point to the approved workspace targets. Exact public baselines contain 78 beta exports. The current v3 lock has 101 records comprising the root, eight workspaces, eight workspace links and 84 registry packages. Their installed manifest identities, registry URLs and SHA-512 integrity records match the installed lock. The reviewed freeze snapshot's 81 registry records persist. The three additions are `luaparse`, `saxes` and `xmlchars`. No installed external package declares a preinstall, install or postinstall hook. The six reviewed backend runtime files, two installed dependency licenses and combined XML notice match their registered hashes. This was a static metadata and byte review.
+
+**Q1 remaining gate checks.** The export audit checks conditional root targets but omits the manifest's top-level `type`, `main` and `types` values. It checks XML lock versions and integrities but omits Lua's lock record and the three exact registry URLs. The reviewed current values are correct. Add focused negative controls alongside a check against those reviewed values.
+
+**Q3 remaining fixture checks.** All 51 runtime test paths match discovery. Verify each staged probe TOC against its precise marker path, scenario and client variant. The current tests check membership and distinct marker IDs. Run the tracked Classic Era selection example through the normal positive CLI fixture. The current tests supply equivalent inline JSON. The per-file fresh Lua thread requirement also needs a lifecycle assertion beyond child-process rotation. These are static coverage findings.

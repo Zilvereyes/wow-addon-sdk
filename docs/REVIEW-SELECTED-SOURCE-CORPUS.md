@@ -307,3 +307,30 @@ The same host also timed larger authored XML replies on Node 24.22.3. An initial
 | 250 frames, 25 scripts | 154.9 | 37.3 | 21.3 | 41.8 | 69.9 | 21.9 | 57.3 | 61.8 |
 
 Worker startup varies across these local attempts. Larger replies add measurable independent validation time. The next authored controls should time larger standalone Lua replies and isolate unused inline-query construction from the range and declaration checks. The native comparison establishes a reduction in helper requests at equal work. The installed corpus gain and Stage 7 remain unverified.
+
+### Installed Lua timing sample
+
+Windows Node 24.22.3 read a deterministic sample from the 564 Lua paths opened by the previous traversal. It took the 16 largest files by prior byte length and 48 evenly spaced positions in the remaining size-ordered list. It used the native file port and the ordinary supervised corpus Lua profile with a fixed diagnostic association and no inherited conditions. Every initial file hash matched the prior traversal. The probe reopened each source for integrity verification.
+
+| Diagnostic run on `6943a8a` | Files with verified syntax | Syntax rejections | Diagnostics | Skips | Supervised median | Maximum |
+| --- | ---: | ---: | --- | ---: | ---: | ---: |
+| Stock analyzer, host 49028 | 64 | 0 | 80 `LUA0004` | 0 | 169 ms | 1,168 ms |
+| Numeric backend instrumentation, host 16912 | 64 | 0 | 80 `LUA0004` | 0 | 141 ms | 711 ms |
+
+Both probes exited 1 because of the lexical projection warnings. Both recorded 128 read-only opens and 64 matching integrity comparisons. The stock probe used 26,360 ms overall and the instrumented probe used 20,652 ms. These runs had different host timings.
+
+The instrumented worker recorded only the distinct global count and elapsed time of the pinned backend's AST call. All 64 complete timings had at most 42 backend global names. The median AST phase was 13 ms and the maximum was 167 ms. SDK output held at most ten distinct declaration names in one file. The authored quadratic name-table case remains reproducible, but this size-based sample gives no evidence of that scale in the prior traversal prefix. Stage 7 still uses the full reference graph and the original associations and policies.
+
+### Full replay after coalescing adjacent Windows root checks
+
+The full request on `6943a8a43d20079eed7501f5111d27a45172b30a` used the same four profile files, 100 groups, 227 candidate rows and work ceilings as the preceding `d17bfea` run. Windows Node 24.22.3 host 77306 exited 1 after 900,298 ms. It opened 1,989 distinct sources read-only and reached at least one candidate open in 54 groups. All 741 input hashes from the preceding run matched current first reads. The observer compared 13 tracked runtime file hashes with the tested checkout. [Reconciled phase receipt](evidence/selected-source-native-root-corpus-2026-11-18.json)
+
+| Language | Opened | Analyzer submissions | Port replies | Port rejections | Analyzer wall time |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| TOC | 117 | 117 | 117 | 0 | 35,834 ms |
+| Lua | 1,439 | 1,439 | 1,438 | 1 | 407,822 ms |
+| XML | 433 | 433 | 433 | 0 | 194,849 ms |
+
+The first time denial held 354,667 of 1,000,000 records and 46,987,414 of 67,108,864 UTF-16 units. Final source and directory verification never started. The aggregate and final parser verdicts, diagnostics, skips and invariant counts are unavailable. List and read calls occupied 249.0 seconds. Within the native phases, the Windows helper spent 160.0 seconds across 70,823 requests. Helper duration overlaps the native wall time and is recorded separately.
+
+The installed replays ran under varying measured conditions. The equal-work synthetic comparison remains the evidence for the Windows change. This observation places standalone Lua at the largest analyzer wall-time share, followed by XML. The 64-file probe found low backend name cardinality. Measure SDK module initialization in fresh Lua parser threads and one-shot TOC/XML processes with authored mixed workloads. Require exact SDK replies and API receipts, and preserve fresh threads, case policies and resource ceilings. Stage 7 requires final integrity checks for the full selected request.
