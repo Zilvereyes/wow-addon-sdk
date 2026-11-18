@@ -158,3 +158,13 @@ On Windows host 32523 the focused command below exited 0 with 90 passes, zero fa
 ```powershell
 node --test --test-concurrency=1 tests/gate-hardening.test.mjs tests/review-regressions.test.mjs tests/selected-source-analysis.test.mjs tests/selected-source-worker-imports.test.mjs tests/xml-inline-lua-validation.test.mjs tests/xml-worker.test.mjs tests/xml-inline-lua-worker.test.mjs tests/selected-source-graph.test.mjs
 ```
+
+The eight Windows/Ubuntu × Node 22/24 jobs at `e47a973` each recorded 586 tests and zero failures, with one Ubuntu or four Windows skips. Build, architecture, dependencies, 78 beta exports, strict API Extractor and actual licensed package contents passed. Synthetic PR merge `e239aa77d99860c8d373b1e2384db6cd313c3a46` has the main and feature parents and matching tree `7fe017af20e61faf178bf3dedb7e73a02a08714e`. [Push checks](https://github.com/Zilvereyes/wow-addon-sdk/actions/runs/44238061388) · [PR checks](https://github.com/Zilvereyes/wow-addon-sdk/actions/runs/44238067839)
+
+### Installed request after removing repeated XML checks
+
+Windows host 33178 ran `e47a973` with the same 100 groups, 227 candidate rows and four byte-identical profiles. It reached the 900-second operation deadline and exited 1 after 900,396 ms. The 961 read-only opens were distinct inputs: 36 TOC, 692 Lua and 233 XML. The analyzer port returned 36 TOC, 691 Lua and 233 XML replies. Its last Lua request was rejected. Final source and directory verification never started. The run yielded no aggregate, skip counts, final syntax verdicts, diagnostic counts or invariant results. [Aggregate phase receipt](evidence/selected-source-single-provider-corpus-2026-11-18.json)
+
+The analyzer port took 731.8 seconds across the three languages. Native listing and reading took 157.5 seconds, which includes 121.3 seconds of Windows helper work. The first deadline denial held 928,401 records under the 1,000,000 cap. Removing cached source text left 908,188 records. The preceding run on `3aaf42c` stopped after 343 replies. The two runs differ in host timing and how far they reached, so their durations cannot isolate the XML change's effect.
+
+The next authored control should reproduce late-traversal memory pressure. Measure the scopes that retain records from analysis through final verification and composition, including temporary composition input and results. Compare full graphs under reduced test caps and require identical provenance, diagnostics and failures. Use a short fixed Node/TOC/Lua/XML timing probe to characterize the host before committing time to another full run. Keep the four profiles, full request and approved time and record limits in force. Stage 7 still requires the final integrity phase and the per-language aggregate.
