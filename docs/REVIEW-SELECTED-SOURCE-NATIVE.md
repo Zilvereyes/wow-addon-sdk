@@ -89,3 +89,9 @@ The authored root-change regression first verifies the original source, then cha
 The two added controls failed as expected on the unmodified `95e2220` native module with exit 1 and two empty observation lists. On Windows Node 24.22.3, `node --test --test-concurrency=1 tests/selected-source-native.test.mjs tests/selected-source-windows.test.mjs tests/selected-source-cli.test.mjs` exited 0 with 41 passes and one Linux-specific skip (host session 35988).
 
 For another authorized installed trial, retain the first fixed record with elapsed time and the number of parser submissions, then aggregate by operation, outcome, code and check. Keep the original 100 groups, 227 candidate rows, selected profiles, read-only guard, parser limits and 900-second ceiling. Reconcile successful source reopens independently of false verification results. A full, integrity-verified aggregate is still required for Stage 7.
+
+## Windows helper output-channel failures
+
+Two authored pipe error controls reproduced the review finding on `9faaacd` with exit 1. The helper forwarded process and input errors through its controlled failure path. Its output streams had no error listeners, so either pipe error escaped with the original text. The helper now sends both output errors through its existing `graph-attributes-exit` path. The controls require a fixed rejection and an acknowledged close before a replacement starts.
+
+On Windows Node 24.22.3, `node --test --test-concurrency=1 tests/selected-source-native.test.mjs tests/selected-source-windows.test.mjs tests/selected-source-cli.test.mjs` exited 0 with 43 passes and one Linux-specific skip (host session 6779). The two output channels both passed.

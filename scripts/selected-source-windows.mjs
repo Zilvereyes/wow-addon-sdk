@@ -30,6 +30,9 @@ export function createWindowsPathInspector({spawnProcess=spawn,timeoutMs=30000,n
       {stdio:['pipe','pipe','pipe'],shell:false,windowsHide:true});
     const state={child,pending:null,buffer:Buffer.alloc(0),bytes:0,done:null};children.add(state);
     state.done=new Promise(resolve=>child.once('close',()=>{children.delete(state);resolve();}));
+    const lostOutput=()=>invalidate(state,'graph-attributes-exit');
+    child.stdout.on('error',lostOutput);
+    child.stderr.on('error',lostOutput);
     child.stderr.resume();
     child.stdout.on('data',chunk=>{
       if(active!==state)return;
@@ -52,7 +55,7 @@ export function createWindowsPathInspector({spawnProcess=spawn,timeoutMs=30000,n
     });
     child.on('error',()=>invalidate(state,'graph-attributes-start'));
     child.stdin.on('error',()=>invalidate(state,'graph-attributes-write'));
-    child.on('exit',()=>invalidate(state,'graph-attributes-exit'));
+    child.on('exit',lostOutput);
     return state;
   }
   return{

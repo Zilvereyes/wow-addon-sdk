@@ -100,6 +100,30 @@ test('helper startup, exit, write errors and trailing frames produce fixed error
   }
 });
 
+for(const pipe of ['stdout','stderr']){
+  test('helper '+pipe+' errors reject the inspection and wait for close before replacement',async()=>{
+    const f=fake((child,request)=>{if(f.children.length>1)reply(child,request);},{automaticClose:false});
+    const inspector=createWindowsPathInspector({spawnProcess:f.spawnProcess});
+    const paths=['C:\\Fixture'];
+    try{
+      const pending=inspector.inspect(paths);
+      pending.catch(()=>{});
+      assert.doesNotThrow(()=>f.children[0][pipe].emit('error',Error('Private pipe error')));
+      await assert.rejects(pending,{message:'graph-attributes-exit'});
+      const replacement=inspector.inspect(paths);
+      await new Promise(resolve=>setImmediate(resolve));
+      assert.equal(f.launches.length,1);
+      f.children[0].emit('close');
+      assert.deepEqual(await replacement,[{ok:true,reparsePoint:false}]);
+      assert.equal(f.launches.length,2);
+    }finally{
+      const closing=inspector.close();
+      for(const child of f.children)child.emit('close');
+      await closing;
+    }
+  });
+}
+
 test('expired synchronous startup and late correlated responses never gain attribute credit',async()=>{
   for(const phase of ['startup','response']){
     let now=0;const f=fake((child,request)=>{if(phase==='response')now=101;reply(child,request);});
