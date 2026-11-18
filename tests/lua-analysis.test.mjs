@@ -81,6 +81,20 @@ test('table fields, member writes and method declarations never invent direct-na
   assert.deepEqual(names(result), ['Global']);
 });
 
+test('field names and shadowing leave only the nonlocal environment read with its original UTF-16 range', () => {
+  const line = 'Title="😀"; Box._G=1; Box:getfenv(); Meta={load=1}; local require = require';
+  const result = analyze(line + '\r\nMeta = 2');
+  const column = line.lastIndexOf('require');
+  assert.equal(result.complete, false);
+  assert.deepEqual(names(result), ['Title', 'Meta', 'Meta']);
+  assert.ok(result.declarations.every(declaration => declaration.activationState === 'unknown'));
+  assert.deepEqual(result.declarations[2].source.range, { start: { line: 1, column: 0 }, end: { line: 1, column: 4 } });
+  assert.deepEqual(codes(result), ['LUA0004']);
+  assert.deepEqual(result.diagnostics[0].source.range, {
+    start: { line: 0, column }, end: { line: 0, column: column + 'require'.length },
+  });
+});
+
 test('non-direct statements remain runtime-unknown and nested functions never become active by inference', () => {
   const result = analyze('if flag then A = 1 end; do B = 1 end; while flag do C = 1 end; function F() D = 1 end; E = function() G = 1 end');
   assert.deepEqual(names(result), ['A', 'B', 'C', 'F', 'D', 'E', 'G']);

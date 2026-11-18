@@ -91,8 +91,9 @@ export function parseSyntax(content: string, limits: { maxNodes: number; maxDept
   let created = 0;
   try {
     const adapted = profileBody(body);
+    // The SDK annotates lexical references below and maps offsets on the original text.
     root = luaparse.parse(adapted, {
-      wait: false, comments: true, scope: true, ranges: true, locations: true,
+      wait: false, comments: true, scope: false, ranges: true, locations: false,
       luaVersion: '5.1', encodingMode: 'none', extendedIdentifiers: false,
       onCreateScope: null, onDestroyScope: null, onLocalDeclaration: null,
       onCreateNode: (node: unknown) => {
@@ -132,8 +133,7 @@ export function parseSyntax(content: string, limits: { maxNodes: number; maxDept
       nodes.push(value as SyntaxNode);
       childDepth++;
     }
-    // Scope globals can reference identifier objects already in the tree.
-    // Visit body before globals; count each object once and never recurse in JS.
+    // Count each backend object once and keep the range walk iterative.
     const children = Object.values(value);
     for (let i = children.length - 1; i >= 0; i--) stack.push({ value: children[i], depth: childDepth });
   }

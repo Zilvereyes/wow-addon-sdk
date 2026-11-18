@@ -161,3 +161,22 @@ An authored Windows Node 24.22.3 comparison transpiled the baseline and final ca
 Earlier two-table alternatives were sensitive to dense line breaks or single-line inputs. The selected implementation stores only line ends and bounds the raw index. The measurements cover mapper calls, including validation of original source spelling. The full selected AddOn graph has its own acceptance requirement. [Current graph and CI](https://github.com/Zilvereyes/wow-addon-sdk/pull/30)
 
 The Windows Node 24.22.3 build (`tsc -b --pretty false`) and focused mapper, XML provider, inline Lua and graph analyzer suite exited 0 (host session 7281, 60 passed). The added regression covers a partial UTF-16 surrogate span and literal U+2028 before CRLF. A relocated span pointing to the same text on a later line fails atomically.
+
+## Lua backend offsets
+
+The Lua backend now supplies AST ranges and comments. The SDK uses them to compute lexical scope and original UTF-16 source positions. This removes the pinned backend's duplicate scope and line/column calculations. The public result, Lua 5.1 profile and parser limits retain their existing definitions. The regression exercises a global initializer alongside field names, a local shadow, duplicate declarations, CRLF and astral text.
+
+The Windows Node 24.22.3 forced build (`tsc -b --force --pretty false`, host session 73808) exited 0. From that build of the change on base `04a90772ebf0c3a34ddcfc626f21c90883c1bf4f`, `node docs/proposals/lua-backend-projection-benchmark.mjs` (host session 74605) exited 0. The harness reconstructs all four combinations of backend scope and location flags from the same build. It compares complete API results in 76 authored cases and rotates the order for seven measurements per mode.
+
+| Authored Lua | UTF-16 units | Previous wall median | Offsets-only wall median | Previous / offsets-only CPU median |
+| --- | ---: | ---: | ---: | ---: |
+| Repeated statements | 209,998 | 1,177.9 ms | 517.8 ms | 1,124 / 469 ms |
+| Nested local bindings | 55,389 | 200.9 ms | 97.0 ms | 125 / 63 ms |
+| 900 distinct names | 14,179 | 116.0 ms | 54.1 ms | 31 / 32 ms |
+| 4,500 distinct names | 78,779 | 1,052.5 ms | 86.3 ms | 843 / 94 ms |
+
+These measurements cover in-process `analyzeLua` calls. Host scheduling and garbage collection can affect the wall medians. The distinct-name stress cases exceed the observed scope in the prior 64-file installed sample. The complete installed corpus, launcher startup and final native integrity need separate evidence.
+
+On the same build, the first serial Node test run (host session 55195, exit 1) reported a timeout in the existing worker crash fixture, which starts a script containing only `process.exit(7)`. The expanded serial run (host session 65186, exit 0) passed all 138 tests across the Lua API, option ownership, entry context, corpus profile, worker, XML inline Lua worker and validation, selected-source analysis, worker imports and corpus launcher.
+
+A separate Windows Node 24.22.3 startup probe (host session 50788, exit 0) tried moving the `readline` import into the launcher branch. Four series of 16 authored requests returned identical replies. The eager series had thread-entry CPU medians of 93 and 93 ms, and the lazy series had 108 and 93 ms. The measured lazy mode did not improve series elapsed time. The production launcher retains its existing import and lifecycle.
