@@ -80,3 +80,20 @@ The mixed runs recorded six switch-related launcher retirements through acknowle
 The checked-in benchmark path reran successfully on the same runtime sources. Grouped totals were 2,374 and 2,495 ms, while mixed totals were 2,617 and 2,729 ms. Launcher counts and all reply bytes matched the earlier observation. Switch retirements completed in 13–14 ms in these two mixed series. These lower times show how strongly the first series varied with host conditions.
 
 The next private observer records actual language transitions and launcher starts under the existing policy. It reports only counts and phase timings. This will establish the frequency of this cost in the installed request and show whether the next review should focus on Lua launcher lifetime or one-shot startup. A change to the approved process lifetime or concurrency requires a separate design decision. Stage 7 still requires the original full request, final integrity and policy-bound accounting.
+
+## Larger authored phase comparison
+
+Windows Node 24.22.3 at `d6941a7b33101e64a3f0ba0de66f73bb4003641b`. The stock and temporary instrumented supervisors produced 14 identical full replies and API receipts across six Lua, six XML and two TOC inputs. Lua inputs ranged from 58,459 to 235,821 bytes. Three XML inputs had 420 Includes each and produced 1,102,216-byte replies. Three had 48 inline scripts each. All 144 inline Lua calls and original-range maps were observed.
+
+| Phase | Events | Sum |
+| --- | ---: | ---: |
+| Spawn to first worker marker | 9 | 10,856 ms |
+| Spawn to first response frame | 9 | 16,229 ms |
+| Standalone Lua analysis | 6 | 431 ms |
+| XML syntax / policy analysis | 6 each | 431 / 741 ms |
+| XML inline Lua analysis / range mapping | 144 each | 282 / 123 ms |
+| XML parent JSON decoding / projection validation | 6 each | 109 / 1,558 ms |
+
+The first two rows overlap. The worker marker follows static imports. An initial trace lost one Worker stderr event. Synchronous diagnostic writes restored exact event counts. The combined corrected probe exited 1 after completing the equality check because a 100 ms synthetic timeout also limited close. A follow-up used 100 ms of per-call time and the normal close budget. It exited 0 and confirmed `graph-analysis-timeout`, `graph-analysis-invariant`, `graph-analysis-exit` and `graph-analysis-output-limit`. All four controls confirmed close and returned no call receipt. The three XML failures in the installed replay remain unclassified.
+
+A separate V8 heap probe exited 0 on the same Node build. Without a launcher old-generation flag, Workers requesting 256 and 2,048 MiB showed effective heap limits of 448 and 2,240 MiB. With `--max-old-space-size=256`, both showed 448 MiB. With `--max-old-space-size=2048`, both showed 2,240 MiB. `Worker.resourceLimits` still reported the requested values in all cases. These V8 heap statistics include overhead and measure no process RSS. [Launcher reuse proposal](PROPOSAL-SELECTED-SOURCE-LAUNCHER-REUSE.md)
