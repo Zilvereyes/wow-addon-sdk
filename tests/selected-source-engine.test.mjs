@@ -109,8 +109,10 @@ test('depth/analysis denial precedes descendant content reads and cache eviction
     assert.equal(trace.groups[0].resolutionEligible, false); assert.equal(trace.issues.some(row => row.code === 'SGRAPH0005'), true);
     assert.deepEqual(fixture.reads, ['Demo/Demo_Vanilla.toc', 'Demo/Demo_Mainline.toc']);
   }
-  const fixture = memoryHost(simple()), trace = await traceSelectedSources(context(row => row.profile.limits = {textCacheBytes: 512}), fixture.host);
+  const fixture = memoryHost(simple()), trace = await traceSelectedSources(context(row => row.profile.limits = {textCacheBytes: 256}), fixture.host);
   assert.equal(trace.groups[0].resolutionEligible, true); assert.equal(trace.analyses.length, 5);
+  assert.ok(fixture.reads.filter(name => name === 'Demo/Demo_Vanilla.toc').length > 1,
+    'eviction must force a source reread');
   assert.equal(fixture.calls.filter(row => row.language === 'lua').length, 1);
   assert.equal(trace.budget.metrics().textCacheBytes, 0);
 });

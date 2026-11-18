@@ -1,5 +1,7 @@
 # Approved selected-source graph implementation checkpoints
 
+Stages 1–6 are implemented in PR #30. Stage 7 remains open. The full Windows run on `9180a62` reached the operation deadline before integrity verification. The measured phase costs now prioritize analysis worker profiling with authored inputs before changing process lifetime or filesystem check order. See the [latest corpus evidence](REVIEW-SELECTED-SOURCE-CORPUS.md#graph-line-index-correction-and-profiling).
+
 A–F was explicitly approved at afdf86ec0c171dab1ccd3f73e515bcf8d1a5c74a; [decision](https://github.com/Zilvereyes/wow-addon-sdk/pull/30#issuecomment-6957138420). The [binding contract](PROPOSAL-SELECTED-SOURCE-GRAPH.md) and [independent review reconciliation](REVIEW-SELECTED-SOURCE-GRAPH-INDEPENDENT.md) remain the specification. Main7b01bd0 supplies the unchanged SDK0.7.0/eight packages/78beta. No graph acceptance or merge/release right is inferred from this checkpoint.
 
 | Stage | Concrete files / deliverable | Required acceptance / dependencies |
