@@ -11,7 +11,7 @@ const projectionError = () => Object.assign(Error('Invalid graph owned projectio
 export function createGraphBudget(context, {now = () => performance.now(), accountContext = true} = {}) {
   const request = getGraphRequest(context), limits = request.profile.limits;
   const counters = Object.fromEntries(Object.keys(limits).filter(key => !['operationMilliseconds', 'pathUnits'].includes(key)).map(key => [key, 0]));
-  const began = now(); let last = began;
+  const began = now(); let last = began, retentionReclaimer = null;
   if (!Number.isFinite(began)) throw new GraphBudgetError('operationMilliseconds');
   const check = () => {
     const current = now();
@@ -27,13 +27,13 @@ export function createGraphBudget(context, {now = () => performance.now(), accou
     if (!Object.hasOwn(counters, key) || !integer(count) || count > counters[key]) throw new Error('Invalid graph budget release.');
     counters[key] -= count;
   }
-  function retain(records, units, reclaim) {
+  function retain(records, units, reclaim = retentionReclaimer) {
     check();
     if (integer(records) && integer(units) && typeof reclaim === 'function' &&
         (records > limits.retainedRecords - counters.retainedRecords || units > limits.retainedStringUnits - counters.retainedStringUnits)) {
       reclaim(records, units);
       // Retry only this atomic reservation, never the caller's projection or getters.
-      return retain(records, units);
+      return retain(records, units, null);
     }
     if (!integer(records) || records > limits.retainedRecords - counters.retainedRecords) throw new GraphBudgetError('retainedRecords');
     if (!integer(units) || units > limits.retainedStringUnits - counters.retainedStringUnits) throw new GraphBudgetError('retainedStringUnits');
@@ -41,6 +41,12 @@ export function createGraphBudget(context, {now = () => performance.now(), accou
   }
   const ledger = {
     check, remaining: check, use, release, retain,
+    attachRetentionReclaimer(reclaim) {
+      if (typeof reclaim !== 'function' || retentionReclaimer !== null) throw projectionError();
+      retentionReclaimer = reclaim;
+      let attached = true;
+      return () => {if (attached && retentionReclaimer === reclaim) retentionReclaimer = null; attached = false;};
+    },
     remainingReadBytes: () => limits.readBytes - counters.readBytes,
     metrics: () => ({...counters}),
     /** Reserve each owned record/string before copying. An incomplete copy never escapes. */

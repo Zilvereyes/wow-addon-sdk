@@ -36,6 +36,7 @@ export async function traceSelectedSources(context, host) {
   // Candidate loads and DFS loads are awaited serially; one existing key is
   // sufficient and needs no additional owned Set/container or entry copies.
   let pinnedSourcePath = null;
+  let detachReclaimer = null;
   const reserve = (records, units) => budget.retain(records, units, reclaimText);
   const retain = value => budget.copy(value, reclaimText);
   function problem(code, group, sources = [], occurrenceId) {
@@ -364,6 +365,7 @@ export async function traceSelectedSources(context, host) {
     }
   }
   try {
+    detachReclaimer = budget.attachRetentionReclaimer(reclaimText);
     reserve(2, 128);
     await discover();
     for (const [index, input] of request.profile.addons.entries()) {
@@ -430,6 +432,7 @@ export async function traceSelectedSources(context, host) {
     for (const value of trace.files.values()) {value.valid = false; value.verdict = null; value.failures.add(trace.fatal);}
     return trace;
   } finally {
+    detachReclaimer?.();
     for (const key of textCache.keys()) evict(key);
     try {await host.close();} catch {
       trace.fatal = 'worker'; emergency.code = 'SGRAPH0007'; if (!trace.issues.includes(emergency)) trace.issues.push(emergency);

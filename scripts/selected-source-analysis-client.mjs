@@ -17,6 +17,7 @@ export function createGraphAnalyzer({spawnProcess = spawn, now = () => performan
       await Promise.race([Promise.all(states.map(state => state.done)), new Promise((_, reject) => {
         timer = setTimeout(() => reject(Error(code)), Math.max(0, deadline - now()));
       })]);
+      if (now() >= deadline) throw Error(code);
     } finally { clearTimeout(timer); }
   }
   return {
