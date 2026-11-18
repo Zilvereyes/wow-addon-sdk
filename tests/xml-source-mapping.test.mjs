@@ -136,6 +136,24 @@ test('mixed CR/LF/CRLF and BOM keep original coordinates and reject interior ter
   failure(entities, crlf, [range(0, 1)]);
 });
 
+test('bounded raw line index preserves UTF-16 and rejects a matching span after the enclosing line', () => {
+  const body = '🧪\u2028Z';
+  const text = '<Ui>\r\n<Script>' + body + '</Script>\r\n<Script>' + body + '</Script>\n</Ui>';
+  const start = text.indexOf(body), later = text.lastIndexOf(body);
+  const value = mapped(text, body, start, start + body.length, [[0, body.length, 'literal', start, start + body.length]]);
+  const queries = [range(0, 1, 0, 3), range(0, body.length)];
+  const result = map(text, value, queries);
+  assert.equal(result.complete, true);
+  assert.deepEqual(result.mappings.map(item => item.parts), [
+    [{ decodedRange: queries[0], kind: 'literal', source: source(text, start + 1, start + 3) }],
+    [{ decodedRange: queries[1], kind: 'anchor', source: source(text, start + body.length) }],
+  ]);
+
+  const moved = structuredClone(value);
+  moved.mappings[0].source = source(text, later, later + body.length);
+  failure(text, moved, queries);
+});
+
 test('malformed original correspondence and late queries fail the whole batch with no prefix mappings', () => {
   const text = '<v>abc</v>';
   const mutations = [v => { v.source.file = 'Wrong.xml'; }, v => { v.value = 'abd'; },

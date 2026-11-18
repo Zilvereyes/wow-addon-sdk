@@ -127,3 +127,20 @@ Stock calls took 271–661 ms. The two spawn intervals overlap. This isolates th
 A separate Windows Node 24.22.3 check used the existing 256 MiB old-generation process flag. Each temporary candidate process handled one authored request in one fresh Worker with empty `execArgv`, a 256 MiB old-generation request and the default stack. The Worker had to exit cleanly before its reply was framed. It reported a 4 MiB stack and 448 MiB effective V8 heap limit across all five launches. Effective heap includes V8 overhead.
 
 All five candidate replies matched the stock one-shot results and receipts, including XML depth 255 and 256 with inline Lua, depth 257 returning `XML0003`, a 380-reference XML with UTF-16/entity coverage, and duplicate TOC rows. The command exited 0 (local run `6be70e`). The threaded variant took 87–209 ms longer per pair in these one-shot comparisons. This includes starting and joining a thread in a newly spawned process. Testing reuse across a mixed workload, memory and the remaining platform matrix belongs to the proposed prototype. [Prototype acceptance](PROPOSAL-SELECTED-SOURCE-LAUNCHER-REUSE.md#prototype-and-acceptance)
+
+## Bounded XML source line indexing
+
+`mapXmlValueRanges` now indexes raw line ends only through the enclosing source span. Each previous line end determines the following line start using the original CR, LF or CRLF separator. The decoded index remains available for the entire value. Independent source correspondence and whole-batch failure still apply to every mapping. A required range beyond the enclosing line fails even if that later text has the same spelling.
+
+An authored Windows Node 24.22.3 comparison transpiled the baseline and final candidate from the same source revision, `517ca349ef173c85861f2fccb0e1bea4b4f60b72`. Each timing used six alternating bursts of mapper calls on complete SDK provider outputs after a warmup. All mapping results matched exactly. Host session 5011 exited 0.
+
+| Authored XML | UTF-16 units | Mapper calls per burst | Baseline median | Candidate median |
+| --- | ---: | ---: | ---: | ---: |
+| Scripts early, long trailing comment | 830,426 | 140 | 3071.20 ms | 10.71 ms |
+| Scripts distributed across the XML | 577,259 | 140 | 3035.92 ms | 1815.65 ms |
+| Scripts after 170,000 line breaks | 170,510 | 12 | 338.88 ms | 202.93 ms |
+| Single-line XML | 404,006 | 100 | 1359.17 ms | 206.93 ms |
+
+Earlier two-table alternatives were sensitive to dense line breaks or single-line inputs. The selected implementation stores only line ends and bounds the raw index. The measurements cover mapper calls, including validation of original source spelling. The full selected AddOn graph has its own acceptance requirement. [Current graph and CI](https://github.com/Zilvereyes/wow-addon-sdk/pull/30)
+
+The Windows Node 24.22.3 build (`tsc -b --pretty false`) and focused mapper, XML provider, inline Lua and graph analyzer suite exited 0 (host session 7281, 60 passed). The added regression covers a partial UTF-16 surrogate span and literal U+2028 before CRLF. A relocated span pointing to the same text on a later line fails atomically.

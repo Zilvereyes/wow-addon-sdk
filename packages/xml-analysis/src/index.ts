@@ -487,33 +487,42 @@ export function mapXmlValueRanges(
     }));
     const queries = selectedRanges.map(takeRange);
 
-    function index(text: string) {
-      const starts = [0], ends: number[] = [];
-      for (let i = 0; i < text.length; i++) {
+    function index(text: string, finalLine = text.length) {
+      const ends: number[] = [];
+      const firstBreak = finalLine === 0 ? text.search(/[\r\n]/u) : 0;
+      for (let i = firstBreak === -1 ? text.length : firstBreak; i < text.length; i++) {
         if (text[i] !== '\r' && text[i] !== '\n') continue;
         ends.push(i);
+        // Mapping bounds must lie within the enclosing source range.
+        if (ends.length > finalLine) break;
         if (text[i] === '\r' && text[i + 1] === '\n') i++;
-        starts.push(i + 1);
       }
-      ends.push(text.length);
+      if (ends.length <= finalLine) ends.push(text.length);
+      function startOf(line: number): number {
+        if (line === 0) return 0;
+        const previousEnd = ends[line - 1]!;
+        return previousEnd + (text[previousEnd] === '\r' && text[previousEnd + 1] === '\n' ? 2 : 1);
+      }
       function offset(point: { line: number; column: number }): number {
-        const start = starts[point.line], end = ends[point.line];
-        if (start === undefined || end === undefined || point.column > end - start) throw new Failure('XUI0001');
+        const end = ends[point.line];
+        if (end === undefined) throw new Failure('XUI0001');
+        const start = startOf(point.line);
+        if (point.column > end - start) throw new Failure('XUI0001');
         return start + point.column;
       }
       function position(offset: number) {
         // Match the existing Lua public converter at an interior CRLF offset.
         if (offset > 0 && text[offset] === '\n' && text[offset - 1] === '\r') offset--;
-        let low = 0, high = starts.length;
-        while (low + 1 < high) {
+        let low = 0, high = ends.length - 1;
+        while (low < high) {
           const middle = (low + high) >>> 1;
-          if (starts[middle]! <= offset) low = middle; else high = middle;
+          if (ends[middle]! < offset) low = middle + 1; else high = middle;
         }
-        return { line: low, column: offset - starts[low]! };
+        return { line: low, column: offset - startOf(low) };
       }
       return { offset, position };
     }
-    const rawIndex = index(content), decodedIndex = index(decoded);
+    const rawIndex = index(content, enclosing.range.end.line), decodedIndex = index(decoded);
     function rawBounds(source: SourceReference): [number, number] {
       if (source.file !== file) throw new Failure('XUI0001');
       return [rawIndex.offset(source.range.start), rawIndex.offset(source.range.end)];
