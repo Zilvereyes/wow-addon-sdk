@@ -49,3 +49,5 @@ jobs:
         run: npm run api:extractor
       - name: Verify package contents
         run: npm run check:packages
+      - name: Compare fresh and reused Lua Workers (authored only)
+        run: node tests/fixtures/lua-worker-reuse/measure.mjs
