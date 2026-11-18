@@ -6,22 +6,52 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
+import {EventEmitter, once} from 'node:events';
+import {PassThrough} from 'node:stream';
+import {setImmediate} from 'node:timers/promises';
 
 const command = fileURLToPath(new URL('../scripts/inspect-selected-addon-sources.mjs', import.meta.url));
 const json = filename => JSON.parse(fs.readFileSync(new URL(filename, import.meta.url), 'utf8'));
-function execute(args) {
+class UnconfirmedCliClose extends Error {}
+
+function execute(args, {spawnProcess = spawn, timeoutMs = 120000, reapMs = 10000} = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [command, ...args], {windowsHide: true, stdio: ['ignore', 'pipe', 'pipe']});
-    let stdout = '', stderr = '', exceeded = false;
-    const timer = setTimeout(() => {child.kill(); reject(Error('Authored CLI test exceeded its deadline.'));}, 120000);
+    const child = spawnProcess(process.execPath, [command, ...args], {windowsHide: true, stdio: ['ignore', 'pipe', 'pipe']});
+    let stdout = '', stderr = '', failure, reapTimer;
+    const deadline = setTimeout(() => stop(Error('Authored CLI test exceeded its deadline.'), true), timeoutMs);
+    function stop(error, terminate) {
+      if (failure) return;
+      failure = error;
+      clearTimeout(deadline);
+      reapTimer = setTimeout(() => {
+        reject(new UnconfirmedCliClose('Authored CLI child did not close. Fixture retained.', {cause: failure}));
+        child.stdout.destroy(); child.stderr.destroy(); child.unref();
+      }, reapMs);
+      if (terminate) {
+        try {child.kill('SIGKILL');} catch { /* Close is required even if signalling fails. */ }
+      }
+    }
     const collect = key => data => {
-      if (key === 'stdout') stdout += data.toString('utf8'); else stderr += data.toString('utf8');
-      if (stdout.length + stderr.length > 1024 * 1024) {exceeded = true; child.kill();}
+      if (failure) return;
+      const text = data.toString('utf8');
+      if (stdout.length + stderr.length + text.length > 1024 * 1024) {
+        stop(Error('Authored CLI child did not complete.'), true);
+      } else if (key === 'stdout') stdout += text;
+      else stderr += text;
     };
     child.stdout.on('data', collect('stdout')); child.stderr.on('data', collect('stderr'));
-    child.once('error', error => {clearTimeout(timer); reject(error);});
-    child.once('close', (code, signal) => {clearTimeout(timer); if (exceeded || signal) reject(Error('Authored CLI child did not complete.')); else resolve({code, stdout, stderr});});
+    child.on('error', error => stop(error, false));
+    child.once('close', (code, signal) => {
+      clearTimeout(deadline); clearTimeout(reapTimer);
+      if (failure || signal) reject(failure ?? Error('Authored CLI child did not complete.'));
+      else resolve({code, stdout, stderr});
+    });
   });
+}
+function removeFixture(base) {
+  assert.equal(path.dirname(base), path.resolve(os.tmpdir()));
+  assert.ok(path.basename(base).startsWith('wow-sdk-graph-cli-'));
+  fs.rmSync(base, {recursive: true, force: true});
 }
 async function fixture(run) {
   const temporary = path.resolve(os.tmpdir()), base = fs.mkdtempSync(path.join(temporary, 'wow-sdk-graph-cli-'));
@@ -36,13 +66,74 @@ async function fixture(run) {
   const args = () => [root, '--graph-profile', paths.graph, '--resolution-profile', paths.resolution,
     '--xml-provider-profile', paths.xml, '--xml-inline-lua-profile', paths.inline];
   const write = (name, content) => fs.writeFileSync(path.join(root, 'Demo', name), content);
+  let confirmedClose = true;
   try {await run({base, root, data, paths, args, writeProfiles, write});}
-  finally {
-    assert.equal(path.dirname(base), temporary); assert.ok(path.basename(base).startsWith('wow-sdk-graph-cli-'));
-    fs.rmSync(base, {recursive: true, force: true});
-  }
+  catch (error) {confirmedClose = !(error instanceof UnconfirmedCliClose); throw error;}
+  finally {if (confirmedClose) removeFixture(base);}
 }
 const invalid = result => {assert.deepEqual(result, {code: 2, stdout: '', stderr: 'Invalid selected-source graph input.\n'});};
+
+function fakeCliChild(kill) {
+  const child = new EventEmitter();
+  child.stdout = new PassThrough(); child.stderr = new PassThrough();
+  child.kill = kill; child.unref = () => {};
+  return child;
+}
+
+test('CLI timeout preserves fixture files until the child closes', async () => {
+  const child = fakeCliChild(signal => {child.emit('kill-requested', signal); return true;});
+  const stopping = once(child, 'kill-requested');
+  let base;
+  const completed = assert.rejects(fixture(({base: directory, args}) => {
+    base = directory;
+    return execute(args(), {spawnProcess: () => child, timeoutMs: 0});
+  }), /exceeded its deadline/u);
+  try {
+    assert.deepEqual(await stopping, ['SIGKILL']);
+    await setImmediate();
+    assert.ok(fs.existsSync(base), 'fixture must outlive the child');
+  } finally {
+    child.emit('close', null, 'SIGKILL');
+    await completed;
+  }
+  assert.equal(fs.existsSync(base), false);
+});
+
+test('CLI spawn errors also wait for close before removing fixture files', async () => {
+  const child = fakeCliChild(() => assert.fail('spawn error needs no termination signal'));
+  const failure = Error('Authored spawn error');
+  let base;
+  const completed = assert.rejects(fixture(({base: directory, args}) => {
+    base = directory;
+    return execute(args(), {spawnProcess: () => child});
+  }), error => error === failure);
+  try {
+    child.emit('error', failure);
+    await setImmediate();
+    assert.ok(fs.existsSync(base));
+  } finally {
+    child.emit('close', -1, null);
+    await completed;
+  }
+  assert.equal(fs.existsSync(base), false);
+});
+
+test('CLI unconfirmed reap fails the test while retaining its authored fixture', async () => {
+  const child = fakeCliChild(() => false);
+  let base;
+  try {
+    await assert.rejects(fixture(({base: directory, args}) => {
+      base = directory;
+      return execute(args(), {spawnProcess: () => child, timeoutMs: 0, reapMs: 0});
+    }), error => error instanceof UnconfirmedCliClose && /exceeded its deadline/u.test(error.cause?.message));
+    assert.ok(fs.existsSync(base));
+    assert.equal(child.stdout.destroyed, true);
+    assert.equal(child.stderr.destroyed, true);
+  } finally {
+    child.emit('close', null, 'SIGKILL');
+    if (base) removeFixture(base);
+  }
+});
 
 test('CLI requires one absolute local root and the exact four unique profile flags', () => fixture(async ({args}) => {
   const valid = args();
