@@ -53,19 +53,24 @@ export async function traceSelectedSources(context, host) {
     if (failedDirectories.has(key)) throw failure('read');
     if (!trace.directories.has(key)) {
       failedDirectories.add(key);
-      const raw = await host.listDirectory(key); budget.check(); own(raw, ['fingerprint', 'entries']);
-      assert.ok(typeof raw.fingerprint === 'string' && raw.fingerprint.length > 0 && raw.fingerprint.length <= 4096 && Array.isArray(raw.entries));
-      if (!shared) budget.use('directoryEntries', raw.entries.length);
-      const value = retain(raw), seen = new Set();
-      for (const row of value.entries) {
-        own(row, ['name', 'kind', 'reparsePoint']);
-        assert.ok(typeof row.name === 'string' && ['file', 'directory', 'link', 'unsupported'].includes(row.kind) && typeof row.reparsePoint === 'boolean');
-        assert.equal(seen.has(row.name), false); seen.add(row.name);
-        const parsed = normalizeGraphPath(row.name, [], {maximumUnits: limits.pathUnits});
-        if (row.kind !== 'unsupported') assert.ok(parsed.status === 'ready' && parsed.components.length === 1);
+      const raw = await host.listDirectory(key);
+      try {
+        budget.check(); own(raw, ['fingerprint', 'entries']);
+        assert.ok(typeof raw.fingerprint === 'string' && raw.fingerprint.length > 0 && raw.fingerprint.length <= 4096 && Array.isArray(raw.entries));
+        if (!shared) budget.use('directoryEntries', raw.entries.length);
+        const value = retain(raw), seen = new Set();
+        for (const row of value.entries) {
+          own(row, ['name', 'kind', 'reparsePoint']);
+          assert.ok(typeof row.name === 'string' && ['file', 'directory', 'link', 'unsupported'].includes(row.kind) && typeof row.reparsePoint === 'boolean');
+          assert.equal(seen.has(row.name), false); seen.add(row.name);
+          const parsed = normalizeGraphPath(row.name, [], {maximumUnits: limits.pathUnits});
+          if (row.kind !== 'unsupported') assert.ok(parsed.status === 'ready' && parsed.components.length === 1);
+        }
+        reserve(2, key.length); trace.directories.set(key, {...value, consumers: new Set(), valid: true});
+        failedDirectories.delete(key);
+      } finally {
+        host.releaseHandoff?.(raw);
       }
-      reserve(2, key.length); trace.directories.set(key, {...value, consumers: new Set(), valid: true});
-      failedDirectories.delete(key);
     }
     const value = trace.directories.get(key);
     if (consumer !== null && !value.consumers.has(consumer)) {reserve(1, 0); value.consumers.add(consumer);}
@@ -173,20 +178,25 @@ export async function traceSelectedSources(context, host) {
     let bound = maximum, reservation = 0;
     if (!shared) {bound = Math.min(bound, budget.remainingReadBytes() - 1); if (bound < 1) throw new GraphBudgetError('readBytes');
       reservation = bound + 1; budget.use('readBytes', reservation);}
-    const read = await host.readSource(value.sourcePath, bound); budget.check(); own(read, ['bytes', 'fingerprint']);
-    assert.ok(read.bytes instanceof Uint8Array && read.bytes.length <= bound);
-    assert.ok(typeof read.fingerprint === 'string' && read.fingerprint.length > 0 && read.fingerprint.length <= 4096);
-    if (!shared) budget.release('readBytes', reservation - read.bytes.length);
-    if (value.fingerprint !== null && value.fingerprint !== read.fingerprint) {invalidate(value, true, null); throw failure('read');}
-    if (value.fingerprint === null) {reserve(0, read.fingerprint.length); value.fingerprint = read.fingerprint; value.maximum = maximum; value.byteLength = read.bytes.length;}
+    const read = await host.readSource(value.sourcePath, bound);
     let content;
-    try {content = new TextDecoder('utf-8', {fatal: true, ignoreBOM: true}).decode(read.bytes);}
-    catch {
-      const bytes = read.bytes, bom = (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) ||
-        (bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0xfe && bytes[1] === 0xff) ||
-        (bytes[0] === 0 && bytes[1] === 0 && bytes[2] === 0xfe && bytes[3] === 0xff);
-      if (value.language !== 'lua' || request.luaInputProfile !== 'corpus-files' || bom) throw failure('encoding');
-      content = Buffer.from(bytes).toString('latin1');
+    try {
+      budget.check(); own(read, ['bytes', 'fingerprint']);
+      assert.ok(read.bytes instanceof Uint8Array && read.bytes.length <= bound);
+      assert.ok(typeof read.fingerprint === 'string' && read.fingerprint.length > 0 && read.fingerprint.length <= 4096);
+      if (!shared) budget.release('readBytes', reservation - read.bytes.length);
+      if (value.fingerprint !== null && value.fingerprint !== read.fingerprint) {invalidate(value, true, null); throw failure('read');}
+      if (value.fingerprint === null) {reserve(0, read.fingerprint.length); value.fingerprint = read.fingerprint; value.maximum = maximum; value.byteLength = read.bytes.length;}
+      try {content = new TextDecoder('utf-8', {fatal: true, ignoreBOM: true}).decode(read.bytes);}
+      catch {
+        const bytes = read.bytes, bom = (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) ||
+          (bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0xfe && bytes[1] === 0xff) ||
+          (bytes[0] === 0 && bytes[1] === 0 && bytes[2] === 0xfe && bytes[3] === 0xff);
+        if (value.language !== 'lua' || request.luaInputProfile !== 'corpus-files' || bom) throw failure('encoding');
+        content = Buffer.from(bytes).toString('latin1');
+      }
+    } finally {
+      host.releaseHandoff?.(read);
     }
     const maximumUnits = value.language === 'toc' ? 8 * 1024 * 1024 : value.language === 'lua' && request.luaInputProfile === 'corpus-files' ? 32 * 1024 * 1024 : 1024 * 1024;
     if (content.length > maximumUnits) throw failure('resource');

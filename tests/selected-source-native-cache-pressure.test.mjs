@@ -32,7 +32,7 @@ async function fixture(run) {
   }
 }
 
-async function graph(root, limits = {}) {
+async function graph(root, limits = {}, handoffOptions = null) {
   const prepared = context(input => {
     input.profile.addons[0].tocPaths = [toc];
     input.profile.limits = limits;
@@ -70,10 +70,40 @@ async function graph(root, limits = {}) {
   const host = await createSelectedSourceHost(root, prepared, {io, inspectorFactory, now: () => 0});
   const budget = graphHostBudget(host, prepared);
   const readSource = host.readSource, analyze = host.analyze, close = host.close;
+  const handoffs = [];
+  const issued = new WeakMap();
+  function observeHandoff(value, kind, name) {
+    if (handoffOptions) {
+      const records = kind === 'directory' ? value.entries.length + 4 : 4;
+      const units = value.fingerprint.length + (kind === 'directory' ? value.entries.reduce((sum, entry) => sum + entry.name.length, 0) : 0);
+      const row = {kind, name, records, units, releases: 0};
+      handoffs.push(row); issued.set(value, row);
+      handoffOptions.alter?.(value, row);
+    }
+    return value;
+  }
+  if (handoffOptions) {
+    const listDirectory = host.listDirectory, release = host.releaseHandoff;
+    host.listDirectory = async name => observeHandoff(await listDirectory(name), 'directory', slash(name));
+    if (handoffOptions.keep) delete host.releaseHandoff;
+    else if (release) host.releaseHandoff = value => {
+      const row = issued.get(value), before = budget.metrics();
+      assert.ok(row, 'release must match the exact native handoff');
+      release(value);
+      const after = budget.metrics();
+      assert.equal(before.retainedRecords - after.retainedRecords, row.records);
+      assert.equal(before.retainedStringUnits - after.retainedStringUnits, row.units);
+      assert.equal(after.directoryEntries, before.directoryEntries);
+      assert.equal(after.readBytes, before.readBytes);
+      row.releases++;
+      release(value);
+      assert.deepEqual(budget.metrics(), after, 'each handoff can be released only once');
+    };
+  }
   host.readSource = async (name, maximum) => {
     const row = {sourcePath: slash(name), before: budget.metrics(), callsBefore: calls.length};
     reads.push(row);
-    try {const value = await readSource(name, maximum); row.after = budget.metrics(); return value;}
+    try {const value = await readSource(name, maximum); row.after = budget.metrics(); return observeHandoff(value, 'source', slash(name));}
     catch (error) {row.error = error.code; row.after = budget.metrics(); throw error;}
   };
   host.analyze = async request => {calls.push(slash(request.sourcePath)); return analyze(request);};
@@ -88,8 +118,40 @@ async function graph(root, limits = {}) {
   assert.equal(budget.metrics().textCacheBytes, 0, 'all cache charges are released on completion or failure');
   const detach = budget.attachRetentionReclaimer(() => assert.fail('a cleanup-only lease is never consumed'));
   detach(); detach(); // A finished or failed trace leaves no active engine lease.
-  return {result, error, budget, reads, calls, opens};
+  return {result, error, budget, reads, calls, opens, handoffs};
 }
+
+test('composed graph releases native handoffs after their last use without lowering cumulative I/O', () => fixture(async root => {
+  const ordinary = await graph(root, {}, {}), retained = await graph(root, {}, {keep: true});
+  assert.ifError(ordinary.error); assert.ifError(retained.error);
+  assert.equal(ordinary.result.aggregate.status, 'passed');
+  assert.deepEqual(ordinary.result, retained.result);
+  assert.deepEqual(ordinary.opens, retained.opens);
+  assert.ok(ordinary.handoffs.some(row => row.kind === 'directory'));
+  assert.ok(ordinary.handoffs.some(row => row.kind === 'source'));
+  assert.ok(ordinary.handoffs.every(row => row.releases === 1));
+  const used = ordinary.budget.metrics(), kept = retained.budget.metrics();
+  assert.equal(kept.retainedRecords - used.retainedRecords, ordinary.handoffs.reduce((n, row) => n + row.records, 0));
+  assert.equal(kept.retainedStringUnits - used.retainedStringUnits, ordinary.handoffs.reduce((n, row) => n + row.units, 0));
+  assert.equal(kept.directoryEntries, used.directoryEntries);
+  assert.equal(kept.readBytes, used.readBytes);
+}));
+
+test('composed graph releases a rejected native copy while withholding its facts', () => fixture(async root => {
+  for (const kind of ['directory', 'source']) {
+    const result = await graph(root, {}, {alter(value, row) {
+      if (row.kind !== kind) return;
+      if (kind === 'directory') value.entries[0].kind = 'invalid';
+      else if (row.name === final) value.fingerprint = null;
+    }});
+    assert.ifError(result.error);
+    assert.equal(result.result.aggregate.status, 'failed');
+    assert.ok(result.result.issues.some(row => row.code === 'SGRAPH0007'));
+    assert.equal(result.calls.includes(final), false);
+    assert.ok(result.handoffs.some(row => row.kind === kind));
+    assert.ok(result.handoffs.every(row => row.releases === 1));
+  }
+}));
 
 test('native retention yields to inactive engine text before the next real SDK request', () => fixture(async root => {
   const ample = await graph(root);
@@ -107,7 +169,7 @@ test('native retention yields to inactive engine text before the next real SDK r
   // output plus the active final input. This is not a permanent-output shortfall.
   const finalInputHeadroom = 128;
   assert.ok(permanent + finalInputHeadroom < limit);
-  assert.ok(boundary.before.retainedRecords - (lines + 3) + 3 < limit);
+  assert.ok(boundary.before.retainedRecords - (lines + 3) + 5 < limit);
 
   fs.writeFileSync(path.join(root, earlier), compact);
   const compactControl = await graph(root, {retainedRecords: limit});
@@ -137,7 +199,7 @@ test('native retention yields to inactive engine text before the next real SDK r
     assert.equal(observed.before.sourceNodes, 3);
     assert.equal(observed.before.analysisRecords, 2);
     assert.equal(observed.after.retainedRecords, limit,
-      'the fingerprint row fits; the following two-record native handoff is denied');
+      'the fingerprint row fits; the following native handoff is denied');
     assert.ok(observed.after.textCacheBytes > multiline.length * 2);
     assert.deepEqual(bounded.calls, [toc, earlier], 'native denial precedes the next analysis submission');
     assert.ok(bounded.opens.includes(final), 'the source descriptor was opened and closed before retention denial');

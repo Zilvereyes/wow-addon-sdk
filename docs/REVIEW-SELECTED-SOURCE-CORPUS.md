@@ -182,3 +182,15 @@ The first integrated focused run on host 66633 exited 1 with 31 passes and one f
 ```powershell
 node --test --test-concurrency=1 tests/selected-source-resolution.test.mjs tests/selected-source-cache-pressure.test.mjs tests/selected-source-native-cache-pressure.test.mjs tests/selected-source-graph.test.mjs
 ```
+
+### Native file and directory handoff retention
+
+The composed native port issued owned directory results and source buffers. The engine copied directory data and decoded source bytes, while the native result reservations remained charged after the engine's last use. The composed host now registers each issued handoff by object identity. The engine releases the matching reservation after directory import or decoding, including when validation rejects the handoff. The native caches and the engine's owned data retain their own charges. Cumulative I/O, descriptor checks, final source/directory verification and the direct file port's caller-owned results retain their existing accounting.
+
+The two handoff controls on Windows against `a931abe` failed with exit 1. During review a further authored control reproduced an ordering problem in the first correction. Releasing an earlier handoff during an in-flight verification changes the native counters while that operation holds a snapshot for its cleanup. That regression failed before the guard with exit 1. The guarded implementation keeps the earlier result charged while the native operation is busy. Release succeeds after verification and is idempotent for that identity.
+
+Host 78093 ran the native cache-pressure, native-retention, native, engine, graph and cache-pressure test files with `node --test --test-concurrency=1`. It exited 0 with 76 tests, 75 passes and one Linux-only skip. The controls compare full graph output, opened paths and the cumulative read/directory counters across identical authored inputs. They also verify release when a handoff is rejected and ensure a second release changes no counters.
+
+A separate Windows authored probe added 1,024 empty, non-source directory entries. It used real supervised TOC, Lua and XML calls on authored inputs, a deterministic clock and a trusted attribute test port. The final ledger fell from 3,518 records with the handoffs retained to 2,470 with normal disposal. The difference was exactly 1,048 records and 22,802 UTF-16 units across two directory and three source handoffs. All graph output, six read-only opens, 2,056 cumulative directory entries and 85,138 read bytes matched. The probe exited 0. The installed evidence remains the earlier full request that stopped before final verification.
+
+The next ownership check follows the engine's validated copies from allocation to publication or rejection. A rejected provisional engine copy and traversal-only cache/index state are distinct from the native handoffs measured here. Use authored malformed, exact-cap and one-over cases to prove each isolated release preserves complete outputs and resource denials, then measure the final resolver on larger authored projections. The approved ceilings and Stage 7 acceptance continue to apply.

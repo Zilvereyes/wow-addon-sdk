@@ -37,7 +37,7 @@ async function fixture(run) {
   }
 }
 
-async function openHost(root, {shared = false, limits = {}, io = fs, now = () => 0,
+async function openHost(root, {shared = false, transientHandoffs = false, limits = {}, io = fs, now = () => 0,
   inspect = async paths => paths.map(() => ({ok: true, reparsePoint: false}))} = {}) {
   const prepared = context(limits);
   // Isolate native accounting from context ownership and real helper startup.
@@ -47,7 +47,7 @@ async function openHost(root, {shared = false, limits = {}, io = fs, now = () =>
     inspect,
     async close() {},
   });
-  const host = await createGraphFileHost(root, prepared, {budget, inspectorFactory, io, now});
+  const host = await createGraphFileHost(root, prepared, {budget, inspectorFactory, io, now, transientHandoffs});
   return {host, budget};
 }
 
@@ -98,6 +98,41 @@ test('issued native list and read copies remain owned, distinct, and retention c
     original.bytes.fill(0);
     assert.equal(another.bytes.toString(), content);
     assert.equal(fs.readFileSync(path.join(root, sourcePath), 'utf8'), content);
+    assertShared(host, budget);
+  } finally {await host.close();}
+}));
+
+test('native verification and release of an earlier handoff cannot interleave', () => fixture(async root => {
+  const entered = Promise.withResolvers(), resume = Promise.withResolvers();
+  let pause = false;
+  const {host, budget} = await openHost(root, {shared: true, transientHandoffs: true, async inspect(paths) {
+    if (pause) {
+      pause = false; entered.resolve();
+      await resume.promise;
+    }
+    return paths.map(() => ({ok: true, reparsePoint: false}));
+  }});
+  try {
+    const issued = await host.readSource(sourcePath, 1024);
+    const retainedWhileIssued = retained(host.metrics());
+    pause = true;
+    const verification = host.verifySource(sourcePath, issued.fingerprint, 1024);
+    const observed = verification.then(value => ({value}), error => ({error}));
+    await entered.promise;
+    try {
+      assert.throws(() => host.releaseHandoff(issued), error => error.code === 'graph-native-busy');
+      assert.deepEqual(retained(host.metrics()), retainedWhileIssued);
+    } finally {resume.resolve(); await observed;}
+    assert.deepEqual(await observed, {value: true});
+    assert.deepEqual(retained(host.metrics()), retainedWhileIssued);
+    const verified = host.metrics();
+    host.releaseHandoff(issued);
+    const released = host.metrics();
+    assert.equal(verified.retainedRecords - released.retainedRecords, 4);
+    assert.equal(verified.retainedStringUnits - released.retainedStringUnits, issued.fingerprint.length);
+    assert.equal(released.chargedReadBytes, verified.chargedReadBytes);
+    host.releaseHandoff(issued);
+    assert.deepEqual(host.metrics(), released);
     assertShared(host, budget);
   } finally {await host.close();}
 }));

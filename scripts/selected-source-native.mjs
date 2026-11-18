@@ -16,7 +16,7 @@ const stamp=s=>[identity(s),s.size,s.mtimeNs,s.ctimeNs].map(String).join(':');
 const hash=value=>createHash('sha256').update(value).digest('hex');
 
 /** io/clock/inspectorFactory are trusted test ports, never profile or CLI fields. */
-export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>performance.now(),inspectorFactory=process.platform==='win32'?createWindowsPathInspector:null,budget=null}={}){
+export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>performance.now(),inspectorFactory=process.platform==='win32'?createWindowsPathInspector:null,budget=null,transientHandoffs=false}={}){
   const request=getGraphRequest(context),limits=request.profile.limits;
   if(budget)requireGraphBudget(budget,context);
   const shared=run=>{try{return run();}catch{fail('budget');}};
@@ -24,6 +24,7 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     (process.platform==='win32'&&!/^[A-Za-z]:[\\/]/u.test(rootInput))||rootInput.includes('\0'))fail('root');
   const root=path.resolve(rootInput),started=now(),inspector=inspectorFactory?inspectorFactory():null;
   const directories=new Map(),sources=new Map(),invalidDirectories=new Set(),invalidSources=new Set(),ancestors=[];
+  const handoffs=transientHandoffs?new WeakMap():null;
   let closed=false,busy=false,canonicalRoot,entriesSeen=0,records=0,stringUnits=0,chargedReadBytes=0,consumedReadBytes=0;
   function check(){if(closed)fail('closed');if(budget)shared(()=>budget.check());if(now()-started>=limits.operationMilliseconds)fail('budget');}
   const remaining=()=>budget?shared(()=>budget.remaining()):limits.operationMilliseconds-(now()-started);
@@ -32,10 +33,28 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     if(budget)shared(()=>budget.retain(count,units));
     records+=count;stringUnits+=units;
   }
-  function releaseSince(initialRecords,initialUnits){
-    const count=records-initialRecords,units=stringUnits-initialUnits;
+  function release(count,units){
     if(budget){budget.release('retainedRecords',count);budget.release('retainedStringUnits',units);}
     records-=count;stringUnits-=units;
+  }
+  function releaseSince(initialRecords,initialUnits){release(records-initialRecords,stringUnits-initialUnits);}
+  function issue(makeResult,count,units,track){
+    const registry=track?handoffs:null;
+    const charged=count+(registry?2:0); // The weak registration and its charge record.
+    retain(charged,units);
+    try{
+      const result=makeResult();
+      if(registry)registry.set(result,{count:charged,units});
+      return result;
+    }catch(error){release(charged,units);throw error;}
+  }
+  function releaseHandoff(result){
+    const charge=handoffs?.get(result);
+    if(!charge)return;
+    // Preserve the ownership deltas of an in-flight native operation.
+    if(busy)fail('busy');
+    handoffs.delete(result);
+    release(charge.count,charge.units);
   }
   async function statChecked(absolute){
     check();const stat=io.lstatSync(absolute,{bigint:true});if(stat.isSymbolicLink())fail('link');
@@ -122,7 +141,7 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     }
     return{status:'ready',sourcePath:actual.join(path.sep),visited};
   }
-  async function read(sourcePath,maximumBytes){
+  async function read(sourcePath,maximumBytes,track=false){
     const extension=path.extname(sourcePath).toLowerCase();
     const cap=extension==='.toc'?8*1024*1024:extension==='.xml'?4*1024*1024:
       extension==='.lua'?(request.luaInputProfile==='corpus-files'?128:4)*1024*1024:0;
@@ -148,11 +167,11 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
       const fingerprint=hash(stamp(before)+':'+hash(bytes));
       if(sources.has(sourcePath)&&sources.get(sourcePath)!==fingerprint){invalidSources.add(sourcePath);fail('changed');}
       if(!sources.has(sourcePath)){retain(1,sourcePath.length+fingerprint.length);sources.set(sourcePath,fingerprint);}
-      retain(2,fingerprint.length); // Each handed-off result and byte buffer, including repeated empty inputs.
+      const result=issue(()=>({bytes,fingerprint}),2,fingerprint.length,track);
       // Refund only verified returned I/O counts. A failed/unknown read retains its full reservation.
       chargedReadBytes-=reservation-consumed;
       if(budget)budget.release('readBytes',reservation-consumed);
-      return{bytes,fingerprint};
+      return result;
     }catch(error){
       if(error?.code?.startsWith('graph-native-'))throw error;
       fail(error?.code==='bounded-read-changed'?'changed':'read');
@@ -183,8 +202,9 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     },
     listDirectory:sourceDirectory=>exclusive(async()=>{
       const r=await resolve(sourceDirectory,true);if(r.status!=='ready')fail(r.status);
-      const s=await listing(r.sourcePath);retain(s.entries.length+2,s.fingerprint.length+s.entries.reduce((sum,row)=>sum+row.name.length,0));
-      return{fingerprint:s.fingerprint,entries:s.entries.map(row=>({...row}))};
+      const s=await listing(r.sourcePath);
+      return issue(()=>({fingerprint:s.fingerprint,entries:s.entries.map(row=>({...row}))}),
+        s.entries.length+2,s.fingerprint.length+s.entries.reduce((sum,row)=>sum+row.name.length,0),true);
     }),
     verifyDirectory:(sourceDirectory,fingerprint)=>exclusive(async()=>{
       if(!directories.has(sourceDirectory)||directories.get(sourceDirectory).fingerprint!==fingerprint)return false;
@@ -196,7 +216,7 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
       }catch(error){invalidDirectories.add(sourceDirectory);if(error?.code==='graph-native-budget')throw error;return false;}
       finally{releaseSince(initialRecords,initialUnits);} // The issued cache already exists; fresh verification owns no persistent result.
     }),
-    readSource:(sourcePath,maximumBytes)=>exclusive(()=>read(sourcePath,maximumBytes)),
+    readSource:(sourcePath,maximumBytes)=>exclusive(()=>read(sourcePath,maximumBytes,true)),
     verifySource:(sourcePath,fingerprint,maximumBytes)=>exclusive(async()=>{
       if(!sources.has(sourcePath)||sources.get(sourcePath)!==fingerprint)return false;
       const initialRecords=records,initialUnits=stringUnits;
@@ -205,6 +225,7 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
       }catch(error){invalidSources.add(sourcePath);if(error?.code==='graph-native-budget')throw error;return false;}
       finally{releaseSince(initialRecords,initialUnits);} // A boolean verification never hands off its temporary buffer/fingerprint.
     }),
+    ...(handoffs?{releaseHandoff}:{}),
     metrics:()=>({directoryEntries:entriesSeen,chargedReadBytes,consumedReadBytes,retainedRecords:records,retainedStringUnits:stringUnits}),
     async close(){closed=true;await inspector?.close();},
   };
