@@ -280,3 +280,30 @@ The earlier Node 24 run reached 1,072 submissions, so these installed measuremen
 ```powershell
 node --test --test-name-pattern 'aggregate-only validation' tests/selected-source-graph.test.mjs
 ```
+
+### Windows root attribute calls and supported-runtime XML timing
+
+The installed replay at `d17bfea` spent 150,186 ms in 44,401 Windows attribute requests. The native code checked the root's attributes as the last step of its ancestor walk and repeated that request immediately while validating the cached root directory stamp. The same overlap was present when verifying cached directories after reading. The focused regression on `0edf24f` exited 1 because an unchanged warm read made four singleton root attribute calls. It requires one call before opening and one afterward.
+
+The native port keeps a fresh root observation within each of those two phases. The cached-root check still takes a fresh bigint `lstat`, rejects symbolic links, checks canonical containment and compares the issued directory stamp. It calls the Windows helper again when the full stamp differs. The regression verifies identical bytes and fingerprints and an exact four root stats. An authored change between observations triggers a fresh attribute check and rejection before another open. Final enumeration and source verification continue to take their own observations.
+
+The Windows Node 24.22.3 comparison (host 40021, exit 0) used the registered stock helper on the same authored directory tree for each implementation. It opened 24 distinct Lua inputs read-only, reread all 24, and verified seven directory fingerprints. The directory results, source bytes and fingerprints, verification verdicts and work counters matched. The first harness attempt used forward-slash directory labels for verification on Windows and failed before comparison. The measured comparison used the exact native directory keys.
+
+| Phase | Baseline helper requests | Corrected helper requests |
+| --- | ---: | ---: |
+| Bootstrap | 7 | 7 |
+| Initial directory listings | 88 | 82 |
+| Source reads | 600 | 552 |
+| Source integrity rereads | 600 | 552 |
+| Directory integrity scans | 88 | 82 |
+| Total | 1,383 | 1,275 |
+
+The same host also timed larger authored XML replies on Node 24.22.3. An initial phase run stopped at the stock analyzer deadline. The diagnostic rerun logged each failure stage, ran three samples per case and exited 0. Both stock processes and instrumented processes used the existing supervisor. All nine instrumented replies and their API receipts matched their stock controls. Times below are phase medians in milliseconds. The independent copy/validation probe ran after the supervised response and is outside the supervised total.
+
+| Authored fixture | Worker entry | SDK imports | Syntax | Provider | Inline | Reply and close | Parent decode and validation | Additional copy and validation |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 2 frames, 1 script | 237.4 | 61.9 | 6.2 | 8.1 | 13.0 | 17.5 | 3.0 | 6.3 |
+| 500 frames, 1 script | 186.9 | 48.9 | 29.7 | 65.1 | 69.1 | 31.6 | 111.3 | 134.0 |
+| 250 frames, 25 scripts | 154.9 | 37.3 | 21.3 | 41.8 | 69.9 | 21.9 | 57.3 | 61.8 |
+
+Worker startup varies across these local attempts. Larger replies add measurable independent validation time. The next authored controls should time larger standalone Lua replies and isolate unused inline-query construction from the range and declaration checks. The native comparison establishes a reduction in helper requests at equal work. The installed corpus gain and Stage 7 remain unverified.

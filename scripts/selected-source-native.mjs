@@ -56,9 +56,9 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     handoffs.delete(result);
     release(charge.count,charge.units);
   }
-  async function statChecked(absolute){
+  async function statChecked(absolute,previous){
     check();const stat=io.lstatSync(absolute,{bigint:true});if(stat.isSymbolicLink())fail('link');
-    if(inspector){
+    if(inspector&&(previous===undefined||stamp(previous)!==stamp(stat))){
       let row;
       try{[row]=await inspector.inspect([absolute],remaining());}catch{check();fail('attributes');}
       if(!row.ok)fail('attributes');if(row.reparsePoint)fail('link');
@@ -70,13 +70,20 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     if(relative==='..'||relative.startsWith('..'+path.sep)||path.isAbsolute(relative))fail('containment');
   }
   async function rootCheck(){
-    check();for(const row of ancestors)if(identity(await statChecked(row.absolute))!==row.identity)fail('changed');
+    check();let stat;
+    for(const row of ancestors){
+      stat=await statChecked(row.absolute);
+      if(identity(stat)!==row.identity)fail('changed');
+    }
     if(io.realpathSync(root)!==canonicalRoot)fail('changed');
+    return stat;
   }
-  async function verifyCached(key){
+  async function verifyCached(key,recentRoot){
     if(invalidDirectories.has(key))fail('changed');
     const snapshot=directories.get(key);if(!snapshot)return;
-    const absolute=path.join(root,key),stat=await statChecked(absolute);inside(absolute);
+    // Reuse only the immediately preceding root attribute observation. Always
+    // take a new lstat, and inspect again when any part of its stamp differs.
+    const absolute=path.join(root,key),stat=await statChecked(absolute,key===''?recentRoot:undefined);inside(absolute);
     if(stamp(stat)!==snapshot.stamp){invalidDirectories.add(key);fail('changed');}
   }
   async function scan(key){
@@ -111,8 +118,8 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     return snapshot;
     }catch(error){releaseSince(initialRecords,initialUnits);throw error;}
   }
-  async function listing(key){
-    await verifyCached(key);
+  async function listing(key,recentRoot){
+    await verifyCached(key,recentRoot);
     if(!directories.has(key)){
       const initialRecords=records,initialUnits=stringUnits;
       try{const snapshot=await scan(key);retain(1,key.length);directories.set(key,snapshot);}
@@ -121,14 +128,14 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     return directories.get(key);
   }
   async function resolve(relative,directory=false){
-    await rootCheck();
+    const recentRoot=await rootCheck();
     const normalized=directory&&relative===''?{status:'ready',components:[]}:
       normalizeGraphPath(relative,[],{maximumUnits:limits.pathUnits,allowDirectory:directory});
     if(normalized.status!=='ready')return{status:normalized.status==='budget'?'budget':'blocked'};
     if(normalized.components.length-(directory?0:1)>limits.directoryDepth)fail('budget');
     const actual=[],visited=[];
     for(let index=0;index<normalized.components.length;index++){
-      const key=actual.join(path.sep),snapshot=await listing(key);visited.push(key);
+      const key=actual.join(path.sep),snapshot=await listing(key,index===0?recentRoot:undefined);visited.push(key);
       const wanted=normalized.components[index],equivalent=snapshot.entries.filter(row=>fold(row.name)===fold(wanted));
       if(equivalent.length>1)return{status:'ambiguous'};
       const match=equivalent[0];if(!match||(request.profile.pathPolicy.caseComparison==='exact'&&match.name!==wanted))return{status:'missing'};
@@ -163,7 +170,8 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     try{
       bytes=readBoundedFile(absolute,bound,{io:observed});
       if(stamp(before)!==stamp(await statChecked(absolute)))fail('changed');inside(absolute);
-      await rootCheck();for(const key of resolved.visited)await verifyCached(key);
+      const recentRoot=await rootCheck();
+      for(const key of resolved.visited)await verifyCached(key,recentRoot);
       const fingerprint=hash(stamp(before)+':'+hash(bytes));
       if(sources.has(sourcePath)&&sources.get(sourcePath)!==fingerprint){invalidSources.add(sourcePath);fail('changed');}
       if(!sources.has(sourcePath)){retain(1,sourcePath.length+fingerprint.length);sources.set(sourcePath,fingerprint);}

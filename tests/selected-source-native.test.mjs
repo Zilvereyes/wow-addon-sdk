@@ -115,6 +115,42 @@ test('cached directory changes block content opening even when the requested byt
   }finally{await host.close();}
 }));
 
+test('warm source reads coalesce only unchanged adjacent root attribute checks',()=>fixture(async root=>{
+  const opensAtRootInspection=[];
+  let rootStats=0,opens=0,changeOnInspection=false,rootChanged=false;
+  const io={...fs,lstatSync(name,...args){
+    const stat=fs.lstatSync(name,...args);
+    if(name!==root)return stat;
+    rootStats++;
+    if(rootChanged)stat.mtimeNs+=1n;
+    return stat;
+  },openSync(...args){opens++;return fs.openSync(...args);}};
+  const inspectorFactory=()=>({async inspect(paths){
+    if(paths.length===1&&paths[0]===root){
+      opensAtRootInspection.push(opens);
+      if(changeOnInspection)rootChanged=true;
+    }
+    return paths.map(()=>({ok:true,reparsePoint:false}));
+  },async close(){}});
+  const host=await createGraphFileHost(root,context(),{io,inspectorFactory});
+  const sourcePath=path.join('Demo','Core.lua');
+  try{
+    const first=await host.readSource(sourcePath,1024);
+    rootStats=0;opensAtRootInspection.length=0;
+    const unchanged=await host.readSource(sourcePath,1024);
+    assert.deepEqual(unchanged,first);
+    assert.equal(rootStats,4);
+    assert.deepEqual(opensAtRootInspection,[1,2]);
+
+    rootStats=0;opensAtRootInspection.length=0;
+    changeOnInspection=true;
+    await assert.rejects(host.readSource(sourcePath,1024),/graph-native-changed/u);
+    assert.equal(opens,2);
+    assert.deepEqual(opensAtRootInspection,[2,2]);
+    assert.ok(rootStats>=2);
+  }finally{await host.close();}
+}));
+
 test('an intermediate directory replaced at open yields no source bytes or fingerprint',()=>fixture(async root=>{
   fs.mkdirSync(path.join(root,'Other'));fs.writeFileSync(path.join(root,'Other','Core.lua'),'Wrong=1');
   let replaced=false,reads=0,closes=0;
