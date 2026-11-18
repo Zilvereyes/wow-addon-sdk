@@ -10,9 +10,9 @@ import {getGraphRequest} from '../scripts/selected-source-context.mjs';
 import {analyzeSelectedSources} from '../scripts/selected-source-graph.mjs';
 import {context, slash} from './selected-source-engine-fixtures.mjs';
 
-const toc = 'Demo/Demo_Vanilla.toc', earlier = 'Demo/Earlier.lua', final = 'Demo/Final.lua';
+const toc = 'Demo/Demo_Vanilla.toc', earlier = 'Demo/Earlier.xml', final = 'Demo/Final.lua';
 const lines = 2500;
-const multiline = '-- authored padding\n'.repeat(lines);
+const multiline = `<Ui><!--${'authored padding\n'.repeat(lines)}--></Ui>`;
 // Same byte/string length and no declarations; only disposable line-map cost differs.
 const compact = multiline.replaceAll('\n', ' ');
 
@@ -21,7 +21,7 @@ async function fixture(run) {
   const root = fs.mkdtempSync(path.join(temporary, 'wow-sdk-native-cache-pressure-'));
   try {
     fs.mkdirSync(path.join(root, 'Demo'));
-    fs.writeFileSync(path.join(root, toc), '## SavedVariables: Saved\nEarlier.lua\nFinal.lua');
+    fs.writeFileSync(path.join(root, toc), '## SavedVariables: Saved\nEarlier.xml\nFinal.lua');
     fs.writeFileSync(path.join(root, earlier), multiline);
     fs.writeFileSync(path.join(root, final), 'Out = 1');
     await run(root);
@@ -105,8 +105,8 @@ test('native retention yields to inactive engine text before the next real SDK r
   assert.ok(boundary.before.textCacheBytes > multiline.length * 2);
   // Reclaiming the earlier line map alone leaves room for the completed owned
   // output plus the active final input. This is not a permanent-output shortfall.
-  const finalInputRecords = 3; // one source line, starts array and cache shell
-  assert.ok(permanent + finalInputRecords + 128 < limit);
+  const finalInputHeadroom = 128;
+  assert.ok(permanent + finalInputHeadroom < limit);
   assert.ok(boundary.before.retainedRecords - (lines + 3) + 3 < limit);
 
   fs.writeFileSync(path.join(root, earlier), compact);
@@ -146,10 +146,13 @@ test('native retention yields to inactive engine text before the next real SDK r
   // of the existing fail-closed resource result. Its diagnostic identifies the
   // native allocation and missing next SDK request without exposing any corpus.
   assert.equal(bounded.result.completeUnderPolicy, true, JSON.stringify({
-    limit, permanent, activeInputRecords: finalInputRecords, boundary: observed,
+    limit, permanent, finalInputHeadroom, boundary: observed,
     calls: bounded.calls, opens: bounded.opens, issues: bounded.result.issues.map(row => row.code),
   }));
   assert.equal(bounded.result.aggregate.status, 'passed');
+  assert.equal(observed.before.retainedRecords, limit - 1);
+  assert.ok(observed.after.textCacheBytes < observed.before.textCacheBytes,
+    'native handoff releases inactive cache before the next SDK call');
   assert.deepEqual(bounded.calls, ample.calls);
   assert.deepEqual(bounded.result, ample.result);
   assert.ok(bounded.budget.metrics().retainedRecords <= limit);

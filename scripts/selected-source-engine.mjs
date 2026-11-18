@@ -125,10 +125,13 @@ export async function traceSelectedSources(context, host) {
       if (key !== pinnedSourcePath) evict(key);
     }
   }
-  function cache(sourcePath, content) {
-    let count = 1;
-    for (const _break of content.matchAll(/\r\n|\r|\n/gu)) {budget.check(); count++;}
-    const bytes = content.length * 2 + count * 8, records = count + 2, units = content.length + sourcePath.length;
+  function cache({sourcePath, language}, content) {
+    // Only TOC and XML emit file references whose original slices need line offsets.
+    const indexed = language === 'toc' || language === 'xml';
+    let count = indexed ? 1 : 0;
+    if (indexed) for (const _break of content.matchAll(/\r\n|\r|\n/gu)) {budget.check(); count++;}
+    const bytes = content.length * 2 + count * 8;
+    const records = 1 + (indexed ? count + 1 : 0), units = content.length + sourcePath.length;
     for (const key of textCache.keys()) {
       budget.check();
       if (budget.metrics().textCacheBytes + bytes <= limits.textCacheBytes &&
@@ -137,7 +140,8 @@ export async function traceSelectedSources(context, host) {
     }
     budget.use('textCacheBytes', bytes);
     try {budget.retain(records, units);} catch (error) {budget.release('textCacheBytes', bytes); throw error;}
-    const starts = [0]; for (const match of content.matchAll(/\r\n|\r|\n/gu)) starts.push(match.index + match[0].length);
+    const starts = indexed ? [0] : null;
+    if (starts) for (const match of content.matchAll(/\r\n|\r|\n/gu)) starts.push(match.index + match[0].length);
     const value = {content, starts, bytes, records, units}; textCache.set(sourcePath, value); return value;
   }
   function file(sourcePath, group) {
@@ -186,7 +190,7 @@ export async function traceSelectedSources(context, host) {
     }
     const maximumUnits = value.language === 'toc' ? 8 * 1024 * 1024 : value.language === 'lua' && request.luaInputProfile === 'corpus-files' ? 32 * 1024 * 1024 : 1024 * 1024;
     if (content.length > maximumUnits) throw failure('resource');
-    return cache(value.sourcePath, content);
+    return cache(value, content);
   }
   function disposition(result) {
     const diagnostics = result.language === 'toc' ? result.parsed.diagnostics : result.language === 'lua' ? result.result.diagnostics : result.syntax.diagnostics;
@@ -313,6 +317,7 @@ export async function traceSelectedSources(context, host) {
         let rawTarget;
         {
           const sourceText = await text(trace.files.get(owner.sourcePath)), {start, end} = event.source.range;
+          assert.ok(sourceText.starts);
           rawTarget = sourceText.content.slice(sourceText.starts[start.line] + start.column, sourceText.starts[end.line] + end.column);
         }
         if (rawTarget.length > limits.pathUnits || event.target.length > limits.pathUnits) throw new GraphBudgetError('pathUnits');

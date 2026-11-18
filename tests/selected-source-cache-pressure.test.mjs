@@ -10,8 +10,8 @@ const names = Array.from({length: 64}, (_, index) => `Kept${index}`);
 const padding = lines => '-- paddingpaddingpaddingpadding\n'.repeat(lines);
 const declarations = names.map(name => `${name}=1`).join('\n');
 const files = {
-  [toc]: '## SavedVariables: Saved\nEarlier.lua\nCore.lua',
-  'Demo/Earlier.lua': padding(2500),
+  [toc]: '## SavedVariables: Saved\nEarlier.xml\nCore.lua',
+  'Demo/Earlier.xml': `<Ui><!--${'authored padding\n'.repeat(2500)}--></Ui>`,
   'Demo/Core.lua': declarations,
 };
 
@@ -22,8 +22,13 @@ async function graph(limits = {}, sourceFiles = files) {
   });
   const fixture = memoryHost(sourceFiles), budget = createGraphBudget(prepared);
   bindGraphHostBudget(fixture.host, budget, prepared);
+  const atAnalysis = new Map(), analyze = fixture.host.analyze;
+  fixture.host.analyze = request => {
+    atAnalysis.set(request.language, budget.metrics());
+    return analyze(request);
+  };
   try {
-    return {result: await analyzeSelectedSources(getGraphRequest(prepared), fixture.host), budget, fixture};
+    return {result: await analyzeSelectedSources(getGraphRequest(prepared), fixture.host), budget, fixture, atAnalysis};
   } catch (error) {
     return {error, budget, fixture};
   }
@@ -77,6 +82,26 @@ test('disposable text and line maps yield retention to the same complete graph f
       assert.ok(denied.budget.metrics()[key] <= limit);
     });
   }
+});
+
+test('Lua line breaks add no retained graph cost while original declaration ranges survive', async () => {
+  const lines = 2500, breaks = padding(lines);
+  const inputs = [breaks, breaks.replaceAll('\n', ' ')];
+  const costs = [];
+  for (const [index, prefix] of inputs.entries()) {
+    const lua = 'Demo/Core.lua';
+    const run = await graph({}, {[toc]: 'Core.lua', [lua]: `${prefix}\r\nOut=1\r\nOut=2`});
+    assert.ifError(run.error);
+    assert.equal(run.result.aggregate.status, 'passed');
+    const line = index === 0 ? lines + 1 : 1;
+    assert.deepEqual(run.result.declarationOrigins.map(row => row.declaration.source.range), [0, 1].map(offset => ({
+      start: {line: line + offset, column: 0}, end: {line: line + offset, column: 3},
+    })));
+    const {retainedRecords, retainedStringUnits, textCacheBytes} = run.atAnalysis.get('lua');
+    costs.push({retainedRecords, retainedStringUnits, textCacheBytes});
+    assert.equal(run.budget.metrics().textCacheBytes, 0);
+  }
+  assert.deepEqual(costs[0], costs[1]);
 });
 
 test('currently validated source stays charged when input plus reply exceeds string retention', async () => {
