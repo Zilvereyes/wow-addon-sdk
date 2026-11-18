@@ -25,7 +25,7 @@ Arkitekturen beskyttes af:
 
 v0.3.0 tilføjer fire beta-kontrakter i `addon-metadata`: separat environment-schema 1, klientmiljø samt logisk og præcis TOC-variantidentitet. Metadata-schema 2 og parser/registry-adfærd bevares. Se [migration](MIGRATION-v0.2-to-v0.3.md).
 
-Den valgfrie `scripts/inspect-addon-corpus.mjs` er lokal tooling uden for core. Den læser TOC-filer og kan med eksplicitte flag kalde Lua/XML-syntaks, XML-provider og inline Lua i overvågede workers. Kildepositioner, decoded mappings og aggregerede diagnostics kontrolleres. Loader-referencegrafen mangler fortsat. Tooling tilføjer ingen filesystem-afhængighed til SDK-pakkerne; opdagede filer er ikke i sig selv parsede filer.
+Den valgfrie `scripts/inspect-addon-corpus.mjs` er lokal tooling uden for core. Den læser TOC-filer og kan med eksplicitte flag kalde Lua/XML-syntaks, XML-provider og inline Lua i overvågede workers. Kildepositioner, decoded mappings og aggregerede diagnostics kontrolleres. PR #30 implementerer den særskilte `scripts/inspect-selected-addon-sources.mjs` til referencegrafen fra valgte TOC-filer. Filadgang og processer bliver i tooling. Se [implementeringen](IMPLEMENTATION-SELECTED-SOURCE-GRAPH.md) og [resultaterne fra den installerede samling](REVIEW-SELECTED-SOURCE-CORPUS.md).
 
 v0.3.1 placerer den rene `selectTocVariant` og fire tilhørende kontrakter i `toc-metadata-adapter`, som allerede er den godkendte semantiske bro. Den bruger eksplicit caller-politik og returnerer et variant-ID med afledte issues; den ændrer ikke statisk metadata eller registry. Ingen ekstra pakker, loader-tabeller, filesystem-adgang eller reverse imports tilføjes. Se [det godkendte design](DESIGN-v0.3.1.md).
 
@@ -57,7 +57,8 @@ Registry deduplikerer ved `name` for lookup, men bevarer alle deklarationer med 
 - **0.5.0:** godkendt XML-syntaksparser med namespace-kontrol og decoded mappings til original kilde; ingen XML-provider eller loader-referencegraf.
 - **0.6.0:** godkendt XML-faktaprovider med eksplicit navnerumspolitik, ukendte frame-kandidater, uafklarede referencer og mapped inline-tekst.
 - **0.7.0:** eksplicit inline Lua-kontekst, disjunkte originalkildespænd og opt-in corpus-komposition.
-- **Senere analyse/adapters:** valgt kildegraf, resterende XML-domæner og LuaLS-integration.
+- **Valgt kildegraf:** privat referencegraf i PR #30. Accepttesten mod den installerede samling afventer et gennemført resultat.
+- **Senere analyse/adapters:** resterende XML-domæner og LuaLS-integration.
 - **1.0.0:** Consumer Stability – eksplicitte kompatibilitetsgarantier; major-version ved breaking changes.
 
 ## JavaScript/TypeScript ABI
@@ -70,7 +71,7 @@ v0.3.4's [resolver](DESIGN-v0.3.4.md) lives in that same leaf: select exact sour
 
 The [pre-freeze review](PRE-FREEZE-REVIEW.md) records why evaluator/orchestration placement is retained: a provider can produce registry contracts without importing the orchestration leaf. An external caller composes providers and resolver; a neutral orchestration package remains an explicit future design choice. Naming ConditionEvaluationRule changes no edge or runtime behavior. Every export remains beta; [the surface inventory](PUBLIC-SURFACE.md) identifies the 52 core contracts, five Lua, nine XML syntax and twelve XML analysis exports (78 overall).
 
-The approved [v0.4.0 Lua extension](DESIGN-LUA-ANALYSIS.md) exercises that producer boundary: lua-analysis imports only registry/diagnostics types plus pinned luaparse 0.3.1; it never imports metadata, TOC parser or adapter. The original five-package core graph stays unchanged. Internal syntax and lexical-provider modules are distinct; that milestone added three root beta exports (55 overall). Actual parsed Lua + TOC declaration composition is tested in the external caller. Real filesystem graph/selected-file reachability remains unimplemented. Lua source/license hashes and its allowed external manifest/import edge are enforced by repository tooling.
+The approved [v0.4.0 Lua extension](DESIGN-LUA-ANALYSIS.md) exercises that producer boundary. Lua analysis imports registry and diagnostics types plus pinned luaparse 0.3.1. Internal syntax and lexical-provider modules are distinct. That milestone added three root beta exports (55 overall) and tested Lua plus TOC declaration composition in the external caller. The later selected-source graph remains in private tooling. Repository checks enforce Lua source and license hashes and the allowed manifest and import edges.
 
 The approved [v0.4.1 corpus profile](DESIGN-LUA-CORPUS-PROFILE.md) adds the fourth Lua type and optional fields without a new package edge or dependency. Node child/thread supervision and file transport stay in tooling; the SDK remains pure. [Actual syntax verdicts and remaining limitations](LOCAL-CORPUS-TESTING.md#approved-v041-corpus-files-profile) do not establish selected-source reachability or complete runtime availability.
 

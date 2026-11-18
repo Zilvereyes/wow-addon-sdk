@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "selected-source-supervised-xml-isolation",
+  "sourceCommit": "b77f8ede13186d5dec66905783207161e5cef862",
+  "baselineCorpusCommit": "6c7d7d5219b182f44ae26bc9043fb6f19f2e342f",
+  "platform": "win32",
+  "nodeVersion": "24.22.3",
+  "hostSession": 62043,
+  "exitCode": 0,
+  "scope": "XML files in prior read-only ledger, with source-directory requester IDs and empty inherited conditions",
+  "elapsedMilliseconds": 168650,
+  "totals": {
+    "found": 189,
+    "read": 189,
+    "matchesOldBytes": 189,
+    "rereadVerified": 189,
+    "submitted": 189,
+    "replies": 189,
+    "syntaxReturned": 189,
+    "syntaxComplete": 187,
+    "providerComplete": 187,
+    "inlineRows": 632,
+    "skipped": 0
+  },
+  "failureCodes": {},
+  "syntaxDiagnosticCodes": {
+    "XML0002": 2
+  },
+  "nativeReadOnlyOpens": 378,
+  "sourceIntegrity": "Every analyzed input matched the previous bytes and passed native reread verification",
+  "hostCloseConfirmed": true,
+  "analysisMilliseconds": 136737,
+  "fullGraphAcceptance": false
+}

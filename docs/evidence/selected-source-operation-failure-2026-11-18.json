@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "selected-source-operation-failure",
+  "sourceCommit": "e0fd1a1e5e128a14f714cbe8fa72355dd93647db",
+  "sourceSnapshotDigest": "8e642dc42a6d0e91be0abad30786a8776cc2350bb41edbc0cfadbb1ec02d12f5",
+  "entrypoint": "analyzeSelectedSources with createSelectedSourceHost",
+  "samePreparedProfilesAsBaseline": true,
+  "requestedGroups": 100,
+  "explicitCandidateRows": 227,
+  "hostSession": 14785,
+  "exitCode": 1,
+  "elapsedMilliseconds": 900211,
+  "status": "failed",
+  "aggregateAvailable": false,
+  "semanticCreditPublished": false,
+  "fullParsing": false,
+  "clientConformance": false,
+  "sourceRequests": {
+    "submitted": 798,
+    "completed": null,
+    "failed": null,
+    "perLanguage": null
+  },
+  "inputReads": {
+    "readOnlyOpenCalls": 801,
+    "uniquePathsOpened": 801,
+    "uniquePathsByLanguage": {"toc": 36, "lua": 595, "xml": 170},
+    "pathsReread": 0,
+    "firstLastHashMatchesOnReread": 0
+  },
+  "budgetFailureLimits": ["retainedRecords", "operationMilliseconds"],
+  "finalFailure": {"kind": "budget", "limit": "operationMilliseconds"},
+  "afterCleanupMetrics": {
+    "sourceNodes": 801,
+    "analysisRecords": 798,
+    "referenceOccurrences": 771,
+    "occurrences": 1389,
+    "directoryEntries": 12714,
+    "readBytes": 20371625,
+    "textCacheBytes": 0,
+    "retainedRecords": 851532,
+    "retainedStringUnits": 20525103
+  },
+  "limitations": [
+    "This execution receipt is not a graph aggregate or a parsed-file census.",
+    "File opens and submitted requests do not establish parser completion or final syntax credit.",
+    "No final source reread or integrity comparison completed.",
+    "Null request fields were not retained by the observer and are not zero counts.",
+    "No installed source, private identity, path, individual input hash or full diagnostic is published."
+  ]
+}

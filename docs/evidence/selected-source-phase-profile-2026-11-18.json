@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "selected-source-phase-profile",
+  "sourceCommit": "9180a622415ab69fb1c7fa997555380043fbfdb7",
+  "sourceTree": "90c5e5ee131c92b52d97e94172e4bb574a8a6d7d",
+  "sourceSnapshotDigest": "3992747a11ad4ae68398b5a9f156e96f98e9922c05807709fbb1e8ca1d51f561",
+  "observerSha256": "69792b8421fe08a3dcbd7484d2ab5d1ec685bfbd4c34f02103a5d532b0596e6a",
+  "hostSession": 65532,
+  "nodeVersion": "26.13.1",
+  "requestedGroups": 100,
+  "explicitCandidateRows": 227,
+  "profilesByteIdentical": true,
+  "exitCode": 1,
+  "elapsedMilliseconds": 901024,
+  "status": "failed",
+  "aggregateAvailable": false,
+  "finalSyntaxVerdicts": null,
+  "diagnosticCounts": null,
+  "sourceIntegrity": {
+    "pathsReread": 0,
+    "matching": 0
+  },
+  "inputReadOnlyOpens": {
+    "toc": 26,
+    "lua": 485,
+    "xml": 110,
+    "total": 621
+  },
+  "phases": [
+    {
+      "phase": "bootstrap",
+      "calls": 1,
+      "returned": 1,
+      "rejected": 0,
+      "elapsedMilliseconds": 1369
+    },
+    {
+      "phase": "listDirectory",
+      "calls": 1710,
+      "returned": 1710,
+      "rejected": 0,
+      "elapsedMilliseconds": 100619
+    },
+    {
+      "phase": "readSource",
+      "calls": 621,
+      "returned": 621,
+      "rejected": 0,
+      "elapsedMilliseconds": 52909
+    },
+    {
+      "phase": "analyzeToc",
+      "calls": 26,
+      "returned": 26,
+      "rejected": 0,
+      "elapsedMilliseconds": 35343
+    },
+    {
+      "phase": "analyzeLua",
+      "calls": 485,
+      "returned": 485,
+      "rejected": 0,
+      "elapsedMilliseconds": 554515
+    },
+    {
+      "phase": "analyzeXml",
+      "calls": 110,
+      "returned": 109,
+      "rejected": 1,
+      "elapsedMilliseconds": 147560
+    },
+    {
+      "phase": "verifySource",
+      "calls": 0,
+      "returned": 0,
+      "rejected": 0,
+      "elapsedMilliseconds": 0
+    },
+    {
+      "phase": "verifyDirectory",
+      "calls": 0,
+      "returned": 0,
+      "rejected": 0,
+      "elapsedMilliseconds": 0
+    },
+    {
+      "phase": "close",
+      "calls": 1,
+      "returned": 1,
+      "rejected": 0,
+      "elapsedMilliseconds": 20
+    }
+  ],
+  "nestedMeasurements": {
+    "windowsInspect": {
+      "calls": 41490,
+      "rows": 52485,
+      "returned": 41490,
+      "rejected": 0,
+      "elapsedMilliseconds": 118654
+    },
+    "windowsCloseMilliseconds": 20,
+    "inputHashUpdateAndDigestMilliseconds": 86
+  },
+  "budgetFailureLimits": [
+    "operationMilliseconds"
+  ],
+  "retentionAtDeadline": {
+    "retainedRecords": 784985,
+    "retainedStringUnits": 32444261,
+    "textCacheBytes": 28133290
+  },
+  "retentionAfterCleanup": {
+    "retainedRecords": 769218,
+    "retainedStringUnits": 18408229,
+    "textCacheBytes": 0
+  },
+  "readBytes": 14630096,
+  "directoryEntries": 12714
+}

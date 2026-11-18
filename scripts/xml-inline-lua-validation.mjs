@@ -69,19 +69,22 @@ function lines(text) {
   function range(value) { const a = offset(value.start), b = offset(value.end); assert.ok(b >= a); return [a, b]; }
   return { offset, position, range };
 }
+const enumerable = Object.prototype.propertyIsEnumerable;
 const exact = (value, fields) => {
-  assert.ok(record(value)); assert.deepEqual(Object.keys(value).sort(), [...fields].sort());
+  assert.ok(record(value) && Object.keys(value).length === fields.length &&
+    fields.every(field => enumerable.call(value, field)));
 };
 const summary = () => ({ discoveredBodies: 0, eligibleBodies: 0, skippedMissingContext: 0, attemptedBodies: 0,
   syntaxAccepted: 0, syntaxRejected: 0, resourceBlockedBodies: 0, backendBlockedBodies: 0,
   lexicalComplete: 0, lexicalIncomplete: 0, mappingValidated: 0, declarations: 0,
   queriedRecords: 0, originalParts: 0, checkedSourceReferences: 0, diagnosticsByCode: {} });
 
-function verifyLua(analysis, body, context, decodedSourcePath) {
+export function verifyLuaProjection(analysis, body, context, decodedSourcePath,
+  association = { addonId: XML_PROVIDER_ADDON_ID, conditions: [] }, recordLimit = 50000) {
   exact(analysis, ['schemaVersion', 'complete', 'declarations', 'diagnostics']);
   assert.equal(analysis.schemaVersion, 1); assert.equal(typeof analysis.complete, 'boolean');
   assert.ok(Array.isArray(analysis.declarations) && Array.isArray(analysis.diagnostics));
-  assert.ok(analysis.declarations.length + analysis.diagnostics.length <= 50000);
+  assert.ok(analysis.declarations.length + analysis.diagnostics.length <= recordLimit);
   assert.equal(analysis.complete, analysis.diagnostics.length === 0);
   const decoded = lines(body.value), queries = [], codes = new Set(), diagnosticsByCode = {};
   function source(source) {
@@ -89,11 +92,16 @@ function verifyLua(analysis, body, context, decodedSourcePath) {
     exact(source.range, ['start', 'end']); const offsets = decoded.range(source.range); queries.push(source.range);
     return offsets;
   }
+  const conditioned = association.conditions.length > 0;
+  const declarationFields = ['name', 'addonId', 'kind', 'activationState', 'source'];
+  if (conditioned) declarationFields.push('conditions');
+  const activation = conditioned ? 'conditional' : 'unconditional';
   for (const declaration of analysis.declarations) {
-    exact(declaration, ['name', 'addonId', 'kind', 'activationState', 'source']);
-    assert.ok(identifier(declaration.name)); assert.equal(declaration.addonId, XML_PROVIDER_ADDON_ID);
+    exact(declaration, declarationFields);
+    assert.ok(identifier(declaration.name)); assert.equal(declaration.addonId, association.addonId);
+    if (conditioned) assert.deepEqual(declaration.conditions, association.conditions);
     assert.equal(declaration.kind, 'lua-global');
-    assert.ok(['unconditional', 'unknown'].includes(declaration.activationState));
+    assert.ok(declaration.activationState === activation || declaration.activationState === 'unknown');
     if (context.kind === 'function-body') {
       assert.equal(declaration.activationState, 'unknown'); assert.equal(context.parameters.includes(declaration.name), false);
     }
@@ -115,7 +123,8 @@ function verifyLua(analysis, body, context, decodedSourcePath) {
   assert.equal(codes.has('LUA0001'), false);
   const disposition = codes.has('LUA0003') ? 'resourceBlockedBodies' : codes.has('LUA0005') ? 'backendBlockedBodies' :
     codes.has('LUA0002') ? 'syntaxRejected' : 'syntaxAccepted';
-  return { queries, diagnosticsByCode, disposition, lexical: codes.has('LUA0004') ? 'lexicalIncomplete' : 'lexicalComplete' };
+  const conditionRecords = analysis.declarations.length * association.conditions.reduce((sum, condition) => sum + 2 + condition.values.length, 0);
+  return { queries, conditionRecords, diagnosticsByCode, disposition, lexical: codes.has('LUA0004') ? 'lexicalIncomplete' : 'lexicalComplete' };
 }
 
 /** Independent intersection/range checks, using already verified body maps. */
@@ -173,11 +182,24 @@ function bodyContext(script, syntax, profile) {
 }
 
 export function composeXmlInlineLua(content, filename, syntax, provider, options, analyzeLua, mapXmlValueRanges) {
+  const association = options.association ?? { addonId: XML_PROVIDER_ADDON_ID, conditions: [] };
   const blocked = status => ({ schemaVersion: 1, status, bodies: [] });
   if (!syntax.complete) return blocked('rejected-before-inline');
   try {
-    if (verifyXmlProvider(provider, syntax, content, filename, options.policy).outcome !== 'validated') return blocked('provider-blocked');
+    if (verifyXmlProvider(provider, syntax, content, filename, options.policy, association).outcome !== 'validated') return blocked('provider-blocked');
   } catch { return blocked('provider-blocked'); }
+  return composeInlineBodies(content, filename, syntax, provider, options, association, analyzeLua, mapXmlValueRanges);
+}
+
+/** The graph preserves a confirmed provider failure and rejects malformed projections. */
+export function composeGraphXmlInlineLua(content, filename, syntax, provider, options, analyzeLua, mapXmlValueRanges) {
+  const {association} = options;
+  if (verifyXmlProvider(provider, syntax, content, filename, options.policy, association).outcome !== 'validated') return null;
+  return composeInlineBodies(content, filename, syntax, provider, options, association, analyzeLua, mapXmlValueRanges);
+}
+
+function composeInlineBodies(content, filename, syntax, provider, options, association, analyzeLua, mapXmlValueRanges) {
+  const blocked = status => ({ schemaVersion: 1, status, bodies: [] });
   const scripts = provider.scripts;
   if (scripts.length > 5000 || scripts.reduce((sum, script) => sum + script.body.value.length, 0) > 1024 * 1024) return blocked('resource');
   let records = 0;
@@ -190,10 +212,10 @@ export function composeXmlInlineLua(content, filename, syntax, provider, options
         status: context === null ? 'missing-context' : 'analyzed', analysis: null, mapping: null };
       if (context !== null) {
         try { row.analysis = analyzeLua(script.body.value, decodedSourcePath,
-          { addonId: XML_PROVIDER_ADDON_ID, context, profile: 'bounded', allowShebang: false }); }
+          { addonId: association.addonId, conditions: association.conditions, context, profile: 'bounded', allowShebang: false }); }
         catch { return blocked('backend'); }
-        const checked = verifyLua(row.analysis, script.body, context, decodedSourcePath);
-        records += row.analysis.declarations.length + row.analysis.diagnostics.length + checked.queries.length;
+        const checked = verifyLuaProjection(row.analysis, script.body, context, decodedSourcePath, association);
+        records += row.analysis.declarations.length + row.analysis.diagnostics.length + checked.queries.length + checked.conditionRecords;
         if (records > 50000) return blocked('resource');
         try { row.mapping = mapXmlValueRanges(content, filename, script.body, checked.queries); }
         catch { return blocked('backend'); }
@@ -224,19 +246,39 @@ export function composeXmlInlineLua(content, filename, syntax, provider, options
   return { schemaVersion: 1, status: 'completed', bodies };
 }
 
-export function verifyXmlInlineLua(result, content, filename, syntax, provider, policy, profile, fileOrdinal) {
+export function verifyXmlInlineLua(result, content, filename, syntax, provider, policy, profile, fileOrdinal,
+  association = { addonId: XML_PROVIDER_ADDON_ID, conditions: [] }) {
   assert.deepEqual(JSON.parse(JSON.stringify(result)), result);
   exact(result, ['schemaVersion', 'status', 'bodies']); assert.equal(result.schemaVersion, 1);
   assert.ok(['completed', 'rejected-before-inline', 'provider-blocked', 'resource', 'backend', 'invariant'].includes(result.status));
   assert.ok(Array.isArray(result.bodies));
   if (result.status !== 'completed') { assert.deepEqual(result.bodies, []); return { status: result.status, metrics: null, complete: false }; }
-  assert.equal(verifyXmlProvider(provider, syntax, content, filename, policy).outcome, 'validated');
-  assert.ok(provider.scripts.length <= 5000); assert.equal(result.bodies.length, provider.scripts.length);
+  assert.equal(verifyXmlProvider(provider, syntax, content, filename, policy, association).outcome, 'validated');
+  return verifyInlineBodies(result.bodies, content, filename, syntax, provider, profile, fileOrdinal, association);
+}
+
+/** Validate the graph's wire projection in a single provider pass. */
+export function verifyGraphXmlInlineLua(inline, content, filename, syntax, provider, policy, profile, association) {
+  assert.ok(Array.isArray(inline));
+  if (verifyXmlProvider(provider, syntax, content, filename, policy, association).outcome !== 'validated') {
+    assert.deepEqual(inline, []);
+    return 0;
+  }
+  const bodies = inline.map((row, index) => {
+    exact(row, ['elementIndex', 'kind', 'status', 'analysis', 'mapping']);
+    return {...row, decodedSourcePath: `decoded:xml-inline:0:${index}`};
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(bodies)), bodies);
+  return verifyInlineBodies(bodies, content, filename, syntax, provider, profile, 0, association).metrics.attemptedBodies;
+}
+
+function verifyInlineBodies(bodies, content, filename, syntax, provider, profile, fileOrdinal, association) {
+  assert.ok(provider.scripts.length <= 5000); assert.equal(bodies.length, provider.scripts.length);
   assert.ok(provider.scripts.reduce((sum, script) => sum + script.body.value.length, 0) <= 1024 * 1024);
-  const metrics = summary(); metrics.discoveredBodies = result.bodies.length;
+  const metrics = summary(); metrics.discoveredBodies = bodies.length;
   const originalLines = lines(content);
   let records = 0;
-  for (const [index, row] of result.bodies.entries()) {
+  for (const [index, row] of bodies.entries()) {
     exact(row, ['elementIndex', 'kind', 'decodedSourcePath', 'status', 'analysis', 'mapping']);
     const script = provider.scripts[index], context = bodyContext(script, syntax, profile);
     assert.equal(row.elementIndex, script.elementIndex); assert.equal(row.kind, script.kind);
@@ -246,8 +288,8 @@ export function verifyXmlInlineLua(result, content, filename, syntax, provider, 
       metrics.skippedMissingContext++; continue;
     }
     assert.equal(row.status, 'analyzed'); metrics.eligibleBodies++; metrics.attemptedBodies++;
-    const checked = verifyLua(row.analysis, script.body, context, row.decodedSourcePath);
-    records += row.analysis.declarations.length + row.analysis.diagnostics.length + checked.queries.length;
+    const checked = verifyLuaProjection(row.analysis, script.body, context, row.decodedSourcePath, association);
+    records += row.analysis.declarations.length + row.analysis.diagnostics.length + checked.queries.length + checked.conditionRecords;
     assert.ok(records <= 50000);
     const parts = verifyMapping(row.mapping, script.body, checked.queries, content, filename, originalLines, 50000 - records);
     records += parts;

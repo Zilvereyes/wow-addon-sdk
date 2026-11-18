@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { verifyTypeScriptContract } from './test-node.mjs';
 import { parseToc } from '@wow-addon/toc-parser';
 import { analyzeLua } from '@wow-addon/lua-analysis';
 import { buildGlobalRegistry, listGlobals } from '@wow-addon/global-registry';
@@ -92,10 +92,7 @@ function failed(input, selected = options(), code = 'XUI0001') {
 }
 
 test('eight XML provider exports enforce the approved readonly contracts', () => {
-  const result = spawnSync(process.execPath, ['node_modules/typescript/bin/tsc', '--noEmit', '--strict',
-    '--exactOptionalPropertyTypes', '--module', 'NodeNext', '--moduleResolution', 'NodeNext', '--target', 'ES2022',
-    'tests/contracts/xml-analysis.ts'], { encoding: 'utf8', windowsHide: true });
-  assert.equal(result.status, 0, result.stdout + result.stderr);
+  verifyTypeScriptContract('tests/contracts/xml-analysis.ts');
 });
 
 test('frame occurrences retain duplicate and string-key names, entity spelling and preorder indices', () => {

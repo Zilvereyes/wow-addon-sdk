@@ -1,0 +1,11 @@
+{
+  "inputs": ["stdin: newline-delimited UTF-8 JSON {id: positive safe integer, paths: 1..128 absolute Windows drive paths}; at most 1 MiB per frame and 32767 UTF-16 units per path; the Node caller serializes requests and applies a 30-second inspection deadline including startup/replacement, clamped to the remaining operation budget", "The Node caller requires acknowledged close before replacement and separately bounds close/reap to 10 seconds"],
+  "outputs": ["stdout: one compact UTF-8 JSON {id, rows:[{ok:boolean,reparsePoint:boolean}]} frame per valid request, at most 1 MiB; paths/errors are never echoed", "exit 0 on clean EOF; exit 2 on invalid framing/input/protocol/runtime failure; failed attribute lookup returns ok=false/reparsePoint=true"],
+  "bindings": ["Target: installed stock Windows PowerShell 5.1, also syntax-checked with pwsh; no elevation, reboot, installation or execution-policy changes", "Single inseparable script; no functions, assemblies, module members, imports, dynamic commands, callbacks or external executables", "Built-in Set-StrictMode, New-Object, ConvertFrom-Json, ConvertTo-Json; .NET Console/Text/StringBuilder/IO.File/FileAttributes APIs", "Script-local variables only; ErrorActionPreference=Stop and StrictMode=2 affect this child process; Console input/output encodings are process-local UTF-8"],
+  "effects": ["Reads filesystem attributes only via IO.File.GetAttributes; follows no content and writes no filesystem/registry/network state", "Reads stdin and writes protocol stdout only; errors are fixed/closed, never raw exceptions", "Node parent launches a fixed absolute OS executable and fixed script with NoProfile/NonInteractive/File, no shell or policy bypass, and kills/reaps on timeout or corruption"],
+  "unresolved": [],
+  "reviewed": true,
+  "license": "MIT",
+  "tests": ["Authored transport tests exercise correlation, bounds, timeout and close/reap; native temporary-file/junction behavior must pass before operational reuse"],
+  "limitations": ["Attribute attestation is a point-in-time check, not atomic directory-handle traversal or a hostile-filesystem sandbox", "Caller-owned absolute paths and parent resource controls remain required; this helper does not select an AddOns root or execute Lua/XML"]
+}

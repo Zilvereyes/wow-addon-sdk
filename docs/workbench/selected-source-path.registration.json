@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "componentId": "8966c355-7324-4aba-966f-542309e2581a",
+  "version": "1.0.2",
+  "sha256": "738df2322c862451f85df2397a283a05c8cfd083e181d37dad72bf48ed3b9360",
+  "parserComponentId": "421252ae-2673-52eb-abfa-2902bed006b2",
+  "scope": "Reviewed single-script contract, exact-byte Workbench gate and native syntax checks; CRLF checkout bytes required by .gitattributes; integrity metadata, not operational authorization or a hostile-filesystem sandbox"
+}

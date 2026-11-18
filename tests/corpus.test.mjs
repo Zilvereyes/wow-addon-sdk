@@ -354,13 +354,14 @@ const selectionProfile = {
   policy: { schemaVersion: 1, id: 'authored-corpus-policy', client: 'classic-era', clientFamily: 'classic', suffixPrecedence: ['Vanilla', 'Classic', null] },
 };
 
-test('optional corpus selection uses top-level caller groups and keeps nested manifests as parse-only inventory', () => fixture(root => {
+test('tracked Classic Era selection profile uses top-level caller groups and keeps nested manifests as parse-only inventory', () => fixture(root => {
   fs.mkdirSync(path.join(root, 'A', 'libs', 'Library'), { recursive: true });
   fs.mkdirSync(path.join(root, 'B'));
   for (const name of ['A/A_Vanilla.toc', 'A/A_Classic.toc', 'A/A.toc', 'A/libs/Library/Library.toc', 'B/B_Mainline.toc']) {
     fs.writeFileSync(path.join(root, name), '## SavedVariables: PrivateDB');
   }
-  const profile = path.join(root, 'profile.json'); fs.writeFileSync(profile, JSON.stringify(selectionProfile));
+  const profile = path.join(root, 'profile.json');
+  fs.copyFileSync(new URL('../examples/classic-era-selection-profile.json', import.meta.url), profile);
   const result = inspect(root, '--selection-profile', profile);
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.report.parsed.toc, 5);
@@ -368,7 +369,7 @@ test('optional corpus selection uses top-level caller groups and keeps nested ma
     groups: 2, candidates: 4,
     statuses: { selected: 1, 'no-match': 1, unresolved: 0, ambiguous: 0, invalid: 0 }, issuesByCode: {},
   });
-  assert.doesNotMatch(result.stdout + result.stderr, /PrivateDB|A_Vanilla|Library\.toc|profile\.json/);
+  assert.doesNotMatch(result.stdout + result.stderr, /PrivateDB|A_Vanilla|Library\.toc|profile\.json|example\/caller-era-policy/);
 }));
 
 test('invalid or unresolved corpus profiles fail before reading source without exposing configuration', () => fixture(root => {

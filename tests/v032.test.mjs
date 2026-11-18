@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { verifyTypeScriptContract } from './test-node.mjs';
 import { parseToc } from '@wow-addon/toc-parser';
 import { toGlobalDeclarations, buildTocGlobalRegistry } from '@wow-addon/toc-metadata-adapter';
 import { buildGlobalRegistry, listGlobals } from '@wow-addon/global-registry';
@@ -22,11 +22,7 @@ function expectedCondition(file, line, text, raw, name, values) {
 }
 
 test('v0.3.2 has one provider-neutral descriptor and an optional readonly declaration field', () => {
-  const result = spawnSync(process.execPath, [
-    'node_modules/typescript/bin/tsc', '--noEmit', '--strict', '--exactOptionalPropertyTypes',
-    '--module', 'NodeNext', '--moduleResolution', 'NodeNext', '--target', 'ES2022', 'tests/contracts/v032.ts',
-  ], { encoding: 'utf8', windowsHide: true });
-  assert.equal(result.status, 0, result.stdout + result.stderr);
+  verifyTypeScriptContract('tests/contracts/v032.ts');
 });
 
 test('TOC adapter preserves exact header/value annotations, spelling, values and raw spans', () => {

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { verifyTypeScriptContract } from './test-node.mjs';
 import { analyzeLua } from '@wow-addon/lua-analysis';
 const file = 'Å\\decoded-handler';
 const body = (content, parameters = [], variadic = false, extra = {}) =>
@@ -14,10 +14,7 @@ function rejected(result, code) {
   assert.doesNotMatch(result.diagnostics[0].message, /PRIVATE/);
 }
 test('approved Lua context has readonly explicit discriminated parameters and variadic permission', () => {
-  const r = spawnSync(process.execPath, ['node_modules/typescript/bin/tsc', '--noEmit', '--strict',
-    '--exactOptionalPropertyTypes', '--module', 'NodeNext', '--moduleResolution', 'NodeNext',
-    '--target', 'ES2022', 'tests/contracts/lua-analysis.ts'], { encoding: 'utf8', windowsHide: true });
-  assert.equal(r.status, 0, r.stdout + r.stderr);
+  verifyTypeScriptContract('tests/contracts/lua-analysis.ts');
 });
 test('omitted context and explicit chunk remain identical across original profile and loader behavior', () => {
   for (const profile of ['bounded', 'corpus']) for (const content of [

@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "selected-source-worker-corpus-profile",
+  "sourceCommit": "2b99f2c87cd817a5a78366d57a020bcb949385e0",
+  "sourceTree": "4107de67c358ec80ccc754acd2ecf715c18d3e18",
+  "sourceSnapshotDigest": "43e26206d3ebf857345d7097b81e0cc1771212ac4878b9716ea80b51150cf462",
+  "observerSha256": "e25f58b009b79aa780da164dbf01c7d6ab3d69613bfe59a4b5f958f623856ce6",
+  "hostSession": 49791,
+  "nodeVersion": "26.13.1",
+  "requestedGroups": 100,
+  "explicitCandidateRows": 227,
+  "profilesByteIdentical": true,
+  "exitCode": 1,
+  "elapsedMilliseconds": 596396,
+  "status": "failed",
+  "aggregateAvailable": false,
+  "finalSyntaxVerdicts": null,
+  "diagnosticCounts": null,
+  "inputReadOnlyOpens": {
+    "total": 1081,
+    "unique": 1074,
+    "uniqueByLanguage": {
+      "toc": 36,
+      "lua": 744,
+      "xml": 294
+    },
+    "pathsReread": 3,
+    "rereadFirstLastHashMatches": 3
+  },
+  "sourceIntegrity": {
+    "verificationCalls": 0
+  },
+  "phases": [
+    {
+      "phase": "bootstrap",
+      "calls": 1,
+      "returned": 1,
+      "rejected": 0,
+      "elapsedMilliseconds": 1180
+    },
+    {
+      "phase": "listDirectory",
+      "calls": 1710,
+      "returned": 1710,
+      "rejected": 0,
+      "elapsedMilliseconds": 84199
+    },
+    {
+      "phase": "readSource",
+      "calls": 1081,
+      "returned": 1081,
+      "rejected": 0,
+      "elapsedMilliseconds": 73737
+    },
+    {
+      "phase": "analyzeToc",
+      "calls": 36,
+      "returned": 36,
+      "rejected": 0,
+      "elapsedMilliseconds": 11091
+    },
+    {
+      "phase": "analyzeLua",
+      "calls": 744,
+      "returned": 744,
+      "rejected": 0,
+      "elapsedMilliseconds": 292103
+    },
+    {
+      "phase": "analyzeXml",
+      "calls": 294,
+      "returned": 294,
+      "rejected": 0,
+      "elapsedMilliseconds": 126881
+    },
+    {
+      "phase": "verifySource",
+      "calls": 0,
+      "returned": 0,
+      "rejected": 0,
+      "elapsedMilliseconds": 0
+    },
+    {
+      "phase": "verifyDirectory",
+      "calls": 0,
+      "returned": 0,
+      "rejected": 0,
+      "elapsedMilliseconds": 0
+    },
+    {
+      "phase": "close",
+      "calls": 1,
+      "returned": 1,
+      "rejected": 0,
+      "elapsedMilliseconds": 33
+    }
+  ],
+  "nestedMeasurements": {
+    "windowsInspect": {
+      "calls": 53792,
+      "rows": 64787,
+      "returned": 53792,
+      "rejected": 0,
+      "elapsedMilliseconds": 120077
+    },
+    "windowsCloseMilliseconds": 33,
+    "inputHashUpdateAndDigestMilliseconds": 105
+  },
+  "budgetFailureLimits": [
+    "retainedRecords"
+  ],
+  "firstRecordedBudgetFailure": {
+    "elapsedMilliseconds": 587013,
+    "retainedRecords": 1000000,
+    "textCacheBytes": 22868
+  },
+  "retentionAfterCleanup": {
+    "retainedRecords": 1000000,
+    "retainedStringUnits": 24432115,
+    "textCacheBytes": 0
+  },
+  "readBytes": 21102633,
+  "directoryEntries": 12714
+}

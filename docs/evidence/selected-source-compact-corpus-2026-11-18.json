@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "selected-source-compact-corpus-profile",
+  "sourceCommit": "3aaf42c6c33a28379c950ca7b6803e76691549b3",
+  "sourceTree": "4bfbc9be1b23670a3786a4582c149f07146ccae3",
+  "observerSha256": "fcc713d29969224b13e87dd6e7d37a3575d1141d0da22cfb145d0add28265ebd",
+  "hostSession": 12355,
+  "platform": "win32",
+  "nodeVersion": "26.13.1",
+  "requestedGroups": 100,
+  "explicitCandidateRows": 227,
+  "profilesByteIdentical": true,
+  "limits": {
+    "operationMilliseconds": 900000,
+    "retainedRecords": 1000000
+  },
+  "exitCode": 1,
+  "elapsedMilliseconds": 900559,
+  "status": "failed",
+  "aggregateAvailable": false,
+  "completeUnderPolicy": false,
+  "finalSyntaxVerdicts": null,
+  "diagnosticCounts": null,
+  "skippedCounts": null,
+  "invariantFailureCounts": null,
+  "inputReadOnlyOpens": {
+    "total": 344,
+    "unique": 344,
+    "uniqueByLanguage": {"toc": 7, "lua": 260, "xml": 77},
+    "pathsReread": 0
+  },
+  "analyzerPort": {
+    "toc": {"calls": 7, "returned": 7, "rejected": 0, "elapsedMilliseconds": 19275},
+    "lua": {"calls": 260, "returned": 260, "rejected": 0, "elapsedMilliseconds": 513835},
+    "xml": {"calls": 77, "returned": 76, "rejected": 1, "elapsedMilliseconds": 234302}
+  },
+  "nativePhases": {
+    "listDirectory": {"calls": 1710, "elapsedMilliseconds": 90918},
+    "readSource": {"calls": 344, "elapsedMilliseconds": 30372},
+    "windowsInspectNested": {"calls": 34825, "elapsedMilliseconds": 95010}
+  },
+  "sourceIntegrity": {"verificationCalls": 0, "directoryVerificationCalls": 0},
+  "budgetFailureLimits": ["operationMilliseconds"],
+  "firstRecordedBudgetFailure": {
+    "elapsedMilliseconds": 900030,
+    "retainedRecords": 679094,
+    "textCacheBytes": 19042626
+  },
+  "retentionAfterCleanup": {
+    "retainedRecords": 665273,
+    "retainedStringUnits": 15355859,
+    "textCacheBytes": 0
+  },
+  "directoryEntries": 12714,
+  "readBytes": 10030481
+}

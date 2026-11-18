@@ -1,0 +1,396 @@
+{
+  "sourceCommit": "ae1bf90875d14d1ffb4510c5007870da50a56ff3",
+  "prototypeCommit": "a3d3b0545d0f3984eda718cec01a93330f26c73a",
+  "sourceTree": "3f8dd540ff221a8d97f828b1e1f592a5c45044e1",
+  "platform": "Windows",
+  "node": "24.22.3",
+  "hostSession": 61657,
+  "buildExitCode": 0,
+  "exitCode": 1,
+  "request": {
+    "profiles": 4,
+    "logicalGroups": 100,
+    "tocCandidates": 227,
+    "operationMilliseconds": 900000
+  },
+  "summary": {
+    "sourceCommit": "ae1bf90875d14d1ffb4510c5007870da50a56ff3",
+    "sourceSnapshotDigest": "d93e268f50adbb085d29a759913c28324874d332f442f81d883e042cea456cd1",
+    "phases": {
+      "bootstrap": {
+        "calls": 1,
+        "returned": 1,
+        "rejected": 0,
+        "rows": 0,
+        "elapsedMilliseconds": 9631.9935
+      },
+      "windowsInspect": {
+        "calls": 24812,
+        "returned": 24812,
+        "rejected": 0,
+        "rows": 63832,
+        "elapsedMilliseconds": 124359.2211999994
+      },
+      "listDirectory": {
+        "calls": 1938,
+        "returned": 1938,
+        "rejected": 0,
+        "rows": 0,
+        "elapsedMilliseconds": 120471.12470000013
+      },
+      "readSource": {
+        "calls": 561,
+        "returned": 309,
+        "rejected": 252,
+        "rows": 0,
+        "elapsedMilliseconds": 36894.45820000113
+      },
+      "analyze-toc": {
+        "calls": 7,
+        "returned": 7,
+        "rejected": 0,
+        "rows": 0,
+        "elapsedMilliseconds": 12677.692599999951
+      },
+      "analyze-xml": {
+        "calls": 74,
+        "returned": 74,
+        "rejected": 0,
+        "rows": 0,
+        "elapsedMilliseconds": 104294.42689999996
+      },
+      "analyze-lua": {
+        "calls": 228,
+        "returned": 228,
+        "rejected": 0,
+        "rows": 0,
+        "elapsedMilliseconds": 266280.5819000001
+      },
+      "verifySource": {
+        "calls": 309,
+        "returned": 309,
+        "rejected": 0,
+        "rows": 0,
+        "elapsedMilliseconds": 2554.6317000007257
+      },
+      "verifyDirectory": {
+        "calls": 1938,
+        "returned": 1938,
+        "rejected": 0,
+        "rows": 0,
+        "elapsedMilliseconds": 13982.831500001834
+      },
+      "close": {
+        "calls": 1,
+        "returned": 1,
+        "rejected": 0,
+        "rows": 0,
+        "elapsedMilliseconds": 1846.1363999999594
+      },
+      "windowsClose": {
+        "calls": 1,
+        "returned": 1,
+        "rejected": 0,
+        "rows": 0,
+        "elapsedMilliseconds": 479.7878999999957
+      }
+    },
+    "hashMilliseconds": 70.5509000007296,
+    "elapsedMilliseconds": 590845,
+    "submitted": 309,
+    "operationFailures": {
+      "toc": {},
+      "lua": {},
+      "xml": {}
+    },
+    "portEvidence": {
+      "toc": {
+        "validatedReplies": 7,
+        "rootApiReturns": 7,
+        "completeProjection": 7,
+        "otherDiagnostics": 0,
+        "diagnosticsByCode": {}
+      },
+      "lua": {
+        "validatedReplies": 228,
+        "rootApiReturns": 228,
+        "completeProjection": 166,
+        "otherDiagnostics": 0,
+        "diagnosticsByCode": {
+          "LUA0004": 635
+        }
+      },
+      "xml": {
+        "validatedReplies": 74,
+        "rootApiReturns": 74,
+        "completeProjection": 73,
+        "otherDiagnostics": 0,
+        "diagnosticsByCode": {
+          "XML0002": 1
+        }
+      }
+    },
+    "observerErrors": 0,
+    "sameProfileBytes": true,
+    "hostCloseConfirmed": true,
+    "prototypeCommit": "a3d3b0545d0f3984eda718cec01a93330f26c73a",
+    "parserProcesses": {
+      "starts": {
+        "lua": 8,
+        "tocXml": 3,
+        "boundedLua": 0
+      },
+      "exits": 11,
+      "cleanCloses": 11,
+      "signalledCloses": 0,
+      "otherCloses": 0,
+      "maxLive": 2,
+      "live": 0
+    },
+    "baselineOverlap": 6,
+    "baselineFirstReadMatches": 2,
+    "aggregateAvailable": true,
+    "status": "failed",
+    "completeUnderPolicy": false,
+    "inputReadOnlyOpenCalls": 310,
+    "inputPathsOpened": 310,
+    "pathsReread": 0,
+    "firstLastHashMatchesOnReread": 0,
+    "budgetFailureLimits": [],
+    "failure": null
+  },
+  "aggregate": {
+    "schemaVersion": 1,
+    "status": "failed",
+    "completeUnderPolicy": false,
+    "fullParsing": false,
+    "clientConformance": false,
+    "discovery": {
+      "complete": false,
+      "entriesVisited": 15579,
+      "found": {
+        "toc": 464,
+        "lua": 6340,
+        "xml": 1223
+      },
+      "rejectedLinks": 0,
+      "unrepresentableEntries": 0
+    },
+    "selection": {
+      "requestedGroups": 100,
+      "selected": 4,
+      "noMatch": 0,
+      "unresolved": 0,
+      "ambiguous": 0,
+      "invalid": 0,
+      "notInvoked": 96,
+      "explicitCandidateRows": 227,
+      "selectedCandidateRows": 4,
+      "nonSelectedCandidateRows": 3,
+      "undecidedCandidateRows": 220
+    },
+    "languages": {
+      "toc": {
+        "eligibleSourceFiles": 213,
+        "notRequestedSourceFiles": 251,
+        "uniqueFilesRead": 7,
+        "syntaxVerdictFiles": 0,
+        "syntaxAcceptedFiles": 0,
+        "syntaxRejectedFiles": 0,
+        "skippedBeforeSyntaxVerdict": {
+          "notAttempted": 0,
+          "readRejected": 213,
+          "encodingRejected": 0,
+          "resourceRejected": 0,
+          "workerRejected": 0,
+          "backendRejected": 0,
+          "invariantRejected": 0
+        },
+        "sourceRequestsSubmitted": 7,
+        "sourceRequestsCompleted": 7,
+        "sourceRequestsFailed": 0,
+        "failedRequestsWithUnknownStages": 0,
+        "reusedAnalyses": 0,
+        "readFailures": 213,
+        "workerFailures": 0,
+        "backendFailures": 0,
+        "invariantFailures": 0,
+        "resourceRejected": 0,
+        "encodingRejected": 0,
+        "analysisDiagnosticsByCode": {},
+        "occurrenceDiagnosticsByCode": {},
+        "sourceIntegrity": {
+          "checked": 7,
+          "matching": 0,
+          "changed": 0,
+          "verificationFailures": 7
+        }
+      },
+      "lua": {
+        "eligibleSourceFiles": 269,
+        "notRequestedSourceFiles": 6071,
+        "uniqueFilesRead": 228,
+        "syntaxVerdictFiles": 0,
+        "syntaxAcceptedFiles": 0,
+        "syntaxRejectedFiles": 0,
+        "skippedBeforeSyntaxVerdict": {
+          "notAttempted": 0,
+          "readRejected": 269,
+          "encodingRejected": 0,
+          "resourceRejected": 0,
+          "workerRejected": 0,
+          "backendRejected": 0,
+          "invariantRejected": 0
+        },
+        "sourceRequestsSubmitted": 228,
+        "sourceRequestsCompleted": 228,
+        "sourceRequestsFailed": 0,
+        "failedRequestsWithUnknownStages": 0,
+        "reusedAnalyses": 0,
+        "readFailures": 269,
+        "workerFailures": 0,
+        "backendFailures": 0,
+        "invariantFailures": 0,
+        "resourceRejected": 0,
+        "encodingRejected": 0,
+        "analysisDiagnosticsByCode": {},
+        "occurrenceDiagnosticsByCode": {},
+        "sourceIntegrity": {
+          "checked": 228,
+          "matching": 0,
+          "changed": 0,
+          "verificationFailures": 228
+        }
+      },
+      "xml": {
+        "eligibleSourceFiles": 79,
+        "notRequestedSourceFiles": 1144,
+        "uniqueFilesRead": 74,
+        "syntaxVerdictFiles": 0,
+        "syntaxAcceptedFiles": 0,
+        "syntaxRejectedFiles": 0,
+        "skippedBeforeSyntaxVerdict": {
+          "notAttempted": 0,
+          "readRejected": 79,
+          "encodingRejected": 0,
+          "resourceRejected": 0,
+          "workerRejected": 0,
+          "backendRejected": 0,
+          "invariantRejected": 0
+        },
+        "sourceRequestsSubmitted": 74,
+        "sourceRequestsCompleted": 74,
+        "sourceRequestsFailed": 0,
+        "failedRequestsWithUnknownStages": 0,
+        "reusedAnalyses": 0,
+        "readFailures": 79,
+        "workerFailures": 0,
+        "backendFailures": 0,
+        "invariantFailures": 0,
+        "resourceRejected": 0,
+        "encodingRejected": 0,
+        "analysisDiagnosticsByCode": {},
+        "occurrenceDiagnosticsByCode": {},
+        "sourceIntegrity": {
+          "checked": 74,
+          "matching": 0,
+          "changed": 0,
+          "verificationFailures": 74
+        }
+      }
+    },
+    "confirmedApiCalls": {
+      "parseToc": {
+        "invoked": 0,
+        "returned": 0
+      },
+      "parseXml": {
+        "invoked": 0,
+        "returned": 0
+      },
+      "analyzeLua": {
+        "invoked": 0,
+        "returned": 0
+      },
+      "analyzeXml": {
+        "invoked": 0,
+        "returned": 0
+      },
+      "mapXmlValueRanges": {
+        "invoked": 0,
+        "returned": 0
+      }
+    },
+    "graph": {
+      "sourceNodes": 561,
+      "analysisRecords": 309,
+      "occurrences": 766,
+      "referenceOccurrences": 348,
+      "resolvedReferences": 302,
+      "inactiveReferences": 0,
+      "blockedReferences": 46,
+      "unsupportedReferences": 0,
+      "missingReferences": 0,
+      "ambiguousReferences": 0,
+      "cyclicReferences": 0,
+      "activeGuards": 348,
+      "inactiveGuards": 0,
+      "unknownGuards": 0,
+      "expandedTokenReferences": 0,
+      "unsupportedVariables": 0,
+      "guardIssuesByCode": {}
+    },
+    "inlineLua": {
+      "discoveredBodies": 0,
+      "attemptedBodies": 0,
+      "skippedMissingContext": 0,
+      "syntaxAccepted": 0,
+      "syntaxRejected": 0,
+      "resourceBlocked": 0,
+      "backendBlocked": 0,
+      "lexicalComplete": 0,
+      "lexicalIncomplete": 0,
+      "mappingValidated": 0,
+      "originalParts": 0,
+      "diagnosticsByCode": {}
+    },
+    "resolution": {
+      "eligibleGroups": 0,
+      "blockedGroups": 100,
+      "coreComplete": true,
+      "complete": false,
+      "declarations": 0,
+      "activeGlobals": 0,
+      "availability": {
+        "active": 0,
+        "inactive": 0,
+        "unknown": 0
+      },
+      "issuesByCode": {}
+    },
+    "issuesByCode": {
+      "SGRAPH0006": 2293,
+      "SGRAPH0008": 96
+    }
+  },
+  "firstReadComparison": {
+    "toc": {
+      "equal": 2,
+      "differentLength": 0,
+      "sameLengthDifferentContent": 4
+    }
+  },
+  "terminalBudgetCounters": {
+    "sourceNodes": 561,
+    "analysisRecords": 309,
+    "referenceOccurrences": 348,
+    "occurrences": 766,
+    "graphDepth": 0,
+    "directoryDepth": 0,
+    "directoryEntries": 15692,
+    "readBytes": 9822907,
+    "textCacheBytes": 0,
+    "retainedRecords": 130868,
+    "retainedStringUnits": 4033632
+  }
+}

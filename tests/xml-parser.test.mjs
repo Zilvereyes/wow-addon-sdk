@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { verifyTypeScriptContract } from './test-node.mjs';
 let xml;
 try { xml = await import('@wow-addon/xml-parser'); }
 catch (error) { if (error.code !== 'ERR_MODULE_NOT_FOUND') throw error; }
@@ -73,10 +73,7 @@ function failed(input, options, sourcePath = 'Fixture.xml') {
 }
 
 test('nine XML exports have readonly public contracts and no backend AST', () => {
-  const result = spawnSync(process.execPath, ['node_modules/typescript/bin/tsc', '--noEmit', '--strict',
-    '--exactOptionalPropertyTypes', '--module', 'NodeNext', '--moduleResolution', 'NodeNext', '--target', 'ES2022',
-    'tests/contracts/xml-parser.ts'], { encoding: 'utf8', windowsHide: true });
-  assert.equal(result.status, 0, result.stdout + result.stderr);
+  verifyTypeScriptContract('tests/contracts/xml-parser.ts');
 });
 const catalog = JSON.parse(fs.readFileSync('tests/fixtures/lua-xml-syntax.json', 'utf8'));
 assert.equal(catalog.xml.length, 27);

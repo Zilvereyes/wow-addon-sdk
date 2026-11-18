@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { verifyTypeScriptContract } from './test-node.mjs';
 import { parseToc } from '@wow-addon/toc-parser';
 import { WoWClient } from '@wow-addon/addon-metadata';
 import { resolveGlobalRegistry, toGlobalDeclarations } from '@wow-addon/toc-metadata-adapter';
@@ -24,10 +25,7 @@ const condition = () => ({ providerId: '@wow-addon/toc-metadata-adapter', name: 
   source: { file: 'Header.toc', range: { start: { line: 0, column: 2 }, end: { line: 0, column: 29 } } } });
 
 test('three approved Lua exports have readonly contracts without exposing a backend AST', () => {
-  const result = spawnSync(process.execPath, ['node_modules/typescript/bin/tsc', '--noEmit', '--strict',
-    '--exactOptionalPropertyTypes', '--module', 'NodeNext', '--moduleResolution', 'NodeNext', '--target', 'ES2022',
-    'tests/contracts/lua-analysis.ts'], { encoding: 'utf8', windowsHide: true });
-  assert.equal(result.status, 0, result.stdout + result.stderr);
+  verifyTypeScriptContract('tests/contracts/lua-analysis.ts');
 });
 
 const catalog = JSON.parse(fs.readFileSync('tests/fixtures/lua-xml-syntax.json', 'utf8'));
@@ -81,6 +79,20 @@ test('table fields, member writes and method declarations never invent direct-na
   const result = analyze("local T = {}; T.a = 1; T['b'] = 2; function T:method() self.x = 3 end; Global = { field = 1 }");
   assert.equal(result.complete, true);
   assert.deepEqual(names(result), ['Global']);
+});
+
+test('field names and shadowing leave only the nonlocal environment read with its original UTF-16 range', () => {
+  const line = 'Title="😀"; Box._G=1; Box:getfenv(); Meta={load=1}; local require = require';
+  const result = analyze(line + '\r\nMeta = 2');
+  const column = line.lastIndexOf('require');
+  assert.equal(result.complete, false);
+  assert.deepEqual(names(result), ['Title', 'Meta', 'Meta']);
+  assert.ok(result.declarations.every(declaration => declaration.activationState === 'unknown'));
+  assert.deepEqual(result.declarations[2].source.range, { start: { line: 1, column: 0 }, end: { line: 1, column: 4 } });
+  assert.deepEqual(codes(result), ['LUA0004']);
+  assert.deepEqual(result.diagnostics[0].source.range, {
+    start: { line: 0, column }, end: { line: 0, column: column + 'require'.length },
+  });
 });
 
 test('non-direct statements remain runtime-unknown and nested functions never become active by inference', () => {

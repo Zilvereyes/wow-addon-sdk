@@ -30,7 +30,11 @@ console.log(`Running ${files.length} test file(s):`);
 for (const file of files) console.log(`  ${path.relative(root, file)}`);
 const env = { ...process.env };
 delete env.NODE_TEST_CONTEXT;
-const result = spawnSync(process.execPath, ['--test', ...files], {
+// Windows native/helper tests share the host's CPU with compiler/parser child
+// processes. Serialize files so another test file cannot consume a fixed
+// production worker deadline before its actual behavior is exercised.
+const scheduling = process.platform === 'win32' ? ['--test-concurrency=1'] : [];
+const result = spawnSync(process.execPath, ['--test', ...scheduling, ...files], {
   cwd: root, stdio: 'inherit', env
 });
 if (result.error) { console.error(result.error); process.exit(1); }

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { verifyTypeScriptContract } from './test-node.mjs';
 import { WoWClient, WoWGameMode } from '@wow-addon/addon-metadata';
 import { parseToc } from '@wow-addon/toc-parser';
 import * as adapter from '@wow-addon/toc-metadata-adapter';
@@ -33,11 +33,7 @@ function freeze(value) {
 }
 
 test('v0.3.1 exposes the five approved beta contracts with readonly TypeScript boundaries', () => {
-  const result = spawnSync(process.execPath, [
-    'node_modules/typescript/bin/tsc', '--noEmit', '--strict', '--exactOptionalPropertyTypes',
-    '--module', 'NodeNext', '--moduleResolution', 'NodeNext', '--target', 'ES2022', 'tests/contracts/v031.ts',
-  ], { encoding: 'utf8', windowsHide: true });
-  assert.equal(result.status, 0, result.stdout + result.stderr);
+  verifyTypeScriptContract('tests/contracts/v031.ts');
 });
 
 test('selection follows the explicit policy across every input permutation', () => {

@@ -178,7 +178,11 @@ export function analyzeLua(content: string, sourcePath: string, options: LuaAnal
       { code, severity: 'error', message, source: source(offset) },
     ] };
   }
-  if (typeof content !== 'string' || !nonempty(sourcePath) || !record(options) || !nonempty(options.addonId) ||
+  if (typeof content !== 'string' || !nonempty(sourcePath) || !record(options)) {
+    return failure('LUA0001', 'Invalid Lua analysis input projection.');
+  }
+  const addonId = options.addonId;
+  if (!nonempty(addonId) ||
       ('profile' in options && profile !== 'bounded' && profile !== 'corpus') ||
       ('allowShebang' in options && typeof allowShebang !== 'boolean')) {
     return failure('LUA0001', 'Invalid Lua analysis input projection.');
@@ -226,7 +230,7 @@ export function analyzeLua(content: string, sourcePath: string, options: LuaAnal
   }
   found.sort((a, b) => a.node.range[0] - b.node.range[0]);
   const declarations: GlobalDeclaration[] = found.map(({ node, name, direct }) => ({
-    name, addonId: options.addonId, kind: 'lua-global',
+    name, addonId, kind: 'lua-global',
     activationState: unsupported.length || !direct ? 'unknown' : inherited.length ? 'conditional' : 'unconditional',
     source: source(parsed.prefix + node.range[0], parsed.prefix + node.range[1]),
     ...(inherited.length ? { conditions: inherited.map(copyCondition) } : {}),

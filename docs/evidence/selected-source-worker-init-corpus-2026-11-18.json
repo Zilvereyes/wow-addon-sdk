@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "selected-source-worker-init-observation",
+  "sourceCommit": "ca9d24c6eada15d4d9e555f513922e4e4012e98d",
+  "sourceTree": "92d29c936084574ddb6cf1215d06ec05f4bd1003",
+  "runtimeSourceDigest": "d89c29deb95d7e974628ae30c6126b4227007bf53e6c2ca7356e3fa951e6fee8",
+  "platform": "windows",
+  "nodeVersion": "24.22.3",
+  "hostSession": 94565,
+  "exitCode": 1,
+  "profiles": {
+    "profiles": 4,
+    "groups": 100,
+    "candidateFiles": 227,
+    "groupsWithOpenedCandidate": 37,
+    "runtimeFiles": 14
+  },
+  "limits": {
+    "operationMilliseconds": 900000,
+    "retainedRecords": 1000000,
+    "retainedStringUnits": 67108864
+  },
+  "elapsedMilliseconds": 900285,
+  "status": "failed",
+  "aggregateAvailable": false,
+  "inputReadOnlyOpenCalls": 1456,
+  "pathsReread": 0,
+  "verifySource": 0,
+  "verifyDirectory": 0,
+  "bootstrapMilliseconds": 4957,
+  "listDirectoryMilliseconds": 85053,
+  "readSourceMilliseconds": 126613,
+  "sourceReadCalls": 1456,
+  "sourceReadRejections": 1,
+  "windowsInspect": {
+    "calls": 59113,
+    "rejected": 1,
+    "rows": 70114,
+    "elapsedMilliseconds": 144550
+  },
+  "firstDenial": {
+    "limit": "operationMilliseconds",
+    "elapsedMilliseconds": 900012,
+    "metrics": {
+      "sourceNodes": 1456,
+      "analysisRecords": 1455,
+      "referenceOccurrences": 1414,
+      "occurrences": 2355,
+      "graphDepth": 0,
+      "directoryDepth": 0,
+      "directoryEntries": 12723,
+      "readBytes": 23369943,
+      "textCacheBytes": 44670754,
+      "retainedRecords": 276999,
+      "retainedStringUnits": 30335793
+    }
+  },
+  "finalMetrics": {
+    "sourceNodes": 1456,
+    "analysisRecords": 1455,
+    "referenceOccurrences": 1414,
+    "occurrences": 2355,
+    "graphDepth": 0,
+    "directoryDepth": 0,
+    "directoryEntries": 12723,
+    "readBytes": 23369943,
+    "textCacheBytes": 0,
+    "retainedRecords": 235361,
+    "retainedStringUnits": 7164059
+  },
+  "analyses": {
+    "toc": {
+      "opened": 64,
+      "submitted": 64,
+      "replied": 64,
+      "rejected": 0,
+      "elapsedMilliseconds": 32969
+    },
+    "lua": {
+      "opened": 1010,
+      "submitted": 1009,
+      "replied": 1009,
+      "rejected": 0,
+      "elapsedMilliseconds": 374068
+    },
+    "xml": {
+      "opened": 382,
+      "submitted": 382,
+      "replied": 382,
+      "rejected": 0,
+      "elapsedMilliseconds": 266212
+    }
+  },
+  "priorFirstReads": {
+    "sourceCommit": "6943a8a43d20079eed7501f5111d27a45172b30a",
+    "matched": 1456,
+    "changed": 0,
+    "earlierPaths": 1989,
+    "currentPaths": 1456
+  },
+  "finalSyntaxVerdicts": null,
+  "finalSkips": null,
+  "finalDiagnostics": null,
+  "finalInvariantResults": null
+}

@@ -77,6 +77,43 @@ test('gate hardening fixtures preserve legitimate dependency, export and strict-
   }
 }));
 
+test('architecture requires each root reference to resolve to its approved package config', () => fixture(({ audit, edit }) => {
+  edit('tsconfig.json', config => {
+    config.references.find(ref => ref.path === './packages/diagnostics').path = './examples/diagnostics';
+  });
+  const result = audit('check-architecture.mjs');
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stderr, /root tsconfig.*unknown package target/);
+  assert.match(result.stderr, /root tsconfig missing diagnostics/);
+}));
+
+test('architecture requires a dependency reference to resolve relative to the owning package', () => fixture(({ audit, edit }) => {
+  edit('packages/toc-parser/tsconfig.json', config => {
+    config.references.find(ref => ref.path === '../diagnostics').path = '../../examples/diagnostics';
+  });
+  const result = audit('check-architecture.mjs');
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stderr, /toc-parser tsconfig.*unknown package target/);
+  assert.match(result.stderr, /toc-parser: dependency diagnostics is missing from tsconfig.references/);
+}));
+
+test('architecture accepts explicit default config paths and rejects duplicate target references', () => fixture(({ audit, edit }) => {
+  edit('tsconfig.json', config => { config.references[0].path += '/tsconfig.json'; });
+  edit('packages/toc-parser/tsconfig.json', config => { config.references[0].path += '/tsconfig.json'; });
+  const valid = audit('check-architecture.mjs');
+  assert.equal(valid.error, undefined);
+  assert.equal(valid.status, 0, valid.stderr);
+  edit('packages/toc-parser/tsconfig.json', config => {
+    config.references.push({ path: config.references[0].path.replace('/tsconfig.json', '') });
+  });
+  const duplicate = audit('check-architecture.mjs');
+  assert.equal(duplicate.error, undefined);
+  assert.equal(duplicate.status, 1, duplicate.stdout);
+  assert.match(duplicate.stderr, /toc-parser tsconfig.*duplicate reference to/);
+}));
+
 test('architecture and export gates reject alternative SDK runtime dependency fields', () => {
   for (const [field, value] of [
     ['optionalDependencies', { luaparse: '0.3.1' }],
@@ -179,4 +216,51 @@ test('backend provenance binds the xmlchars deep modules actually consumed by sa
   assert.notEqual(result.status, 0, 'redirected xmlchars character classifier was accepted');
   assert.match(result.stderr, /unreviewed backend entry point/);
   assert.equal(fs.existsSync(marker), false);
+}));
+
+test('public exports gate requires the declared workspace entry points', () => {
+  for (const [field, value] of [
+    ['type', 'commonjs'],
+    ['main', './dist/alternate.js'],
+    ['types', './dist/alternate.d.ts'],
+  ]) fixture(({ audit, edit }) => {
+    edit('packages/toc-parser/package.json', manifest => { manifest[field] = value; });
+    const result = audit('check-public-exports.mjs');
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 1, result.stdout);
+    assert.ok(result.stderr.includes('toc-parser: wrong package.json ' + field), result.stderr);
+  });
+});
+
+test('backend provenance binds the lock version, integrity and registry URL', () => {
+  const names = ['luaparse', 'saxes', 'xmlchars'];
+  for (const [field, value] of [
+    ['version', '0.0.0'],
+    ['integrity', 'sha512-unreviewed'],
+    ['resolved', 'https://example.invalid/backend.tgz'],
+  ]) fixture(({ audit, edit }) => {
+    edit('package-lock.json', lock => {
+      for (const name of names) lock.packages['node_modules/' + name][field] = value;
+    });
+    const result = audit('check-public-exports.mjs');
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 1, result.stdout);
+    for (const name of names) {
+      assert.ok(result.stderr.includes('lock artifact differs from reviewed ' + name + ' (' + field + ')'), result.stderr);
+    }
+  });
+});
+
+test('backend provenance requires one lock record at the approved install location', () => fixture(({ audit, edit }) => {
+  edit('package-lock.json', lock => {
+    lock.packages['packages/lua-analysis/node_modules/luaparse'] = lock.packages['node_modules/luaparse'];
+    delete lock.packages['node_modules/luaparse'];
+    lock.packages['packages/xml-parser/node_modules/saxes'] = lock.packages['node_modules/saxes'];
+  });
+  const result = audit('check-public-exports.mjs');
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 1, result.stdout);
+  for (const name of ['luaparse', 'saxes']) {
+    assert.ok(result.stderr.includes('lock artifact differs from reviewed ' + name + ' (location)'), result.stderr);
+  }
 }));
