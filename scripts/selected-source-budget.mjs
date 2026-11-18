@@ -27,8 +27,14 @@ export function createGraphBudget(context, {now = () => performance.now(), accou
     if (!Object.hasOwn(counters, key) || !integer(count) || count > counters[key]) throw new Error('Invalid graph budget release.');
     counters[key] -= count;
   }
-  function retain(records, units) {
+  function retain(records, units, reclaim) {
     check();
+    if (integer(records) && integer(units) && typeof reclaim === 'function' &&
+        (records > limits.retainedRecords - counters.retainedRecords || units > limits.retainedStringUnits - counters.retainedStringUnits)) {
+      reclaim(records, units);
+      // Retry only this atomic reservation, never the caller's projection or getters.
+      return retain(records, units);
+    }
     if (!integer(records) || records > limits.retainedRecords - counters.retainedRecords) throw new GraphBudgetError('retainedRecords');
     if (!integer(units) || units > limits.retainedStringUnits - counters.retainedStringUnits) throw new GraphBudgetError('retainedStringUnits');
     counters.retainedRecords += records; counters.retainedStringUnits += units;
@@ -38,9 +44,9 @@ export function createGraphBudget(context, {now = () => performance.now(), accou
     remainingReadBytes: () => limits.readBytes - counters.readBytes,
     metrics: () => ({...counters}),
     /** Reserve each owned record/string before copying. An incomplete copy never escapes. */
-    copy(input) {
+    copy(input, reclaim) {
       let records = 0, units = 0;
-      function reserve(r, u) {retain(r, u); records += r; units += u;}
+      function reserve(r, u) {retain(r, u, reclaim); records += r; units += u;}
       function copy(value, depth = 0) {
         check(); if (depth > 64) throw projectionError();
         if (typeof value === 'string') {reserve(0, value.length); return value;}

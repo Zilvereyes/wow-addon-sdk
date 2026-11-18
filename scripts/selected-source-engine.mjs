@@ -33,7 +33,11 @@ export async function traceSelectedSources(context, host) {
     files: new Map(), directories: new Map(), providerBatches: new Map(), originInputs: [], budget, fatal: null};
   const emergency = {code: 'SGRAPH0005', sources: []};
   const analysisCache = new Map(), textCache = new Map(), failedDirectories = new Set();
-  const retain = value => budget.copy(value);
+  // Candidate loads and DFS loads are awaited serially; one existing key is
+  // sufficient and needs no additional owned Set/container or entry copies.
+  let pinnedSourcePath = null;
+  const reserve = (records, units) => budget.retain(records, units, reclaimText);
+  const retain = value => budget.copy(value, reclaimText);
   function problem(code, group, sources = [], occurrenceId) {
     const issue = retain({code, ...(group ? {logicalAddonId: group.logicalAddonId} : {}),
       ...(occurrenceId === undefined ? {} : {occurrenceId}), sources}); trace.issues.push(issue);
@@ -59,11 +63,11 @@ export async function traceSelectedSources(context, host) {
         const parsed = normalizeGraphPath(row.name, [], {maximumUnits: limits.pathUnits});
         if (row.kind !== 'unsupported') assert.ok(parsed.status === 'ready' && parsed.components.length === 1);
       }
-      budget.retain(2, key.length); trace.directories.set(key, {...value, consumers: new Set(), valid: true});
+      reserve(2, key.length); trace.directories.set(key, {...value, consumers: new Set(), valid: true});
       failedDirectories.delete(key);
     }
     const value = trace.directories.get(key);
-    if (consumer !== null && !value.consumers.has(consumer)) {budget.retain(1, 0); value.consumers.add(consumer);}
+    if (consumer !== null && !value.consumers.has(consumer)) {reserve(1, 0); value.consumers.add(consumer);}
     if (!value.valid) throw failure('read');
     return value;
   }
@@ -111,12 +115,25 @@ export async function traceSelectedSources(context, host) {
     budget.release('textCacheBytes', value.bytes); budget.release('retainedRecords', value.records);
     budget.release('retainedStringUnits', value.units);
   }
+  function reclaimText(records, units) {
+    for (const key of textCache.keys()) {
+      budget.check();
+      const current = budget.metrics();
+      if (records <= limits.retainedRecords - current.retainedRecords &&
+          units <= limits.retainedStringUnits - current.retainedStringUnits) break;
+      if (key !== pinnedSourcePath) evict(key);
+    }
+  }
   function cache(sourcePath, content) {
     let count = 1;
     for (const _break of content.matchAll(/\r\n|\r|\n/gu)) {budget.check(); count++;}
     const bytes = content.length * 2 + count * 8, records = count + 2, units = content.length + sourcePath.length;
-    while (textCache.size && (budget.metrics().textCacheBytes + bytes > limits.textCacheBytes ||
-      budget.metrics().retainedRecords + records > limits.retainedRecords || budget.metrics().retainedStringUnits + units > limits.retainedStringUnits)) evict(textCache.keys().next().value);
+    for (const key of textCache.keys()) {
+      budget.check();
+      if (budget.metrics().textCacheBytes + bytes <= limits.textCacheBytes &&
+          budget.metrics().retainedRecords + records <= limits.retainedRecords && budget.metrics().retainedStringUnits + units <= limits.retainedStringUnits) break;
+      if (key !== pinnedSourcePath) evict(key);
+    }
     budget.use('textCacheBytes', bytes);
     try {budget.retain(records, units);} catch (error) {budget.release('textCacheBytes', bytes); throw error;}
     const starts = [0]; for (const match of content.matchAll(/\r\n|\r|\n/gu)) starts.push(match.index + match[0].length);
@@ -124,7 +141,7 @@ export async function traceSelectedSources(context, host) {
   }
   function file(sourcePath, group) {
     if (!trace.files.has(sourcePath)) {
-      budget.retain(4, sourcePath.length);
+      reserve(4, sourcePath.length);
       trace.files.set(sourcePath, {sourcePath, language: language(sourcePath), consumers: new Set(), failures: new Set(), fingerprint: null,
         maximum: null, byteLength: null, verdict: null, valid: true, node: false, submitted: 0, completed: 0, failed: 0,
         unknownStages: 0, reuses: 0, failedCalls: [],
@@ -132,7 +149,7 @@ export async function traceSelectedSources(context, host) {
         integrity: {checked: 0, matching: 0, changed: 0, verificationFailures: 0}});
     }
     const value = trace.files.get(sourcePath);
-    if (!value.consumers.has(group.index)) {budget.retain(1, 0); value.consumers.add(group.index);}
+    if (!value.consumers.has(group.index)) {reserve(1, 0); value.consumers.add(group.index);}
     return value;
   }
   function recordFailure(value, kind) {value.failures.add(kind); value.failureCounts[kind]++;}
@@ -156,7 +173,7 @@ export async function traceSelectedSources(context, host) {
     assert.ok(typeof read.fingerprint === 'string' && read.fingerprint.length > 0 && read.fingerprint.length <= 4096);
     if (!shared) budget.release('readBytes', reservation - read.bytes.length);
     if (value.fingerprint !== null && value.fingerprint !== read.fingerprint) {invalidate(value, true, null); throw failure('read');}
-    if (value.fingerprint === null) {budget.retain(0, read.fingerprint.length); value.fingerprint = read.fingerprint; value.maximum = maximum; value.byteLength = read.bytes.length;}
+    if (value.fingerprint === null) {reserve(0, read.fingerprint.length); value.fingerprint = read.fingerprint; value.maximum = maximum; value.byteLength = read.bytes.length;}
     let content;
     try {content = new TextDecoder('utf-8', {fatal: true, ignoreBOM: true}).decode(read.bytes);}
     catch {
@@ -192,6 +209,10 @@ export async function traceSelectedSources(context, host) {
       if (previousKey !== null && analysisCache.has(previousKey)) {value.reuses++; return {record: trace.analyses[analysisCache.get(previousKey)], reused: true};}
       if (budget.metrics().analysisRecords >= limits.analysisRecords) throw new GraphBudgetError('analysisRecords');
       const cachedText = await text(value), key = keyFor();
+      // The request aliases this content through reply validation; it is not
+      // disposable cache retention until that validation has finished.
+      pinnedSourcePath = sourcePath;
+      try {
       const input = snapshotGraphAnalysisRequest({language: value.language, content: cachedText.content, sourcePath,
         addonId: group.logicalAddonId, conditions, luaProfile: request.luaInputProfile === 'corpus-files' ? 'corpus' : 'bounded',
         allowShebang: value.language === 'lua' && request.luaInputProfile === 'corpus-files', xmlPolicy: request.xmlPolicy, inlineProfile: request.inlineProfile});
@@ -214,12 +235,13 @@ export async function traceSelectedSources(context, host) {
         verifyGraphAnalysisReply({result: record.result, confirmedApiCalls: record.confirmedApiCalls, failure: null}, input);
         facts = disposition(record.result);
         if (facts.verdict !== null && value.verdict !== null && facts.verdict !== value.verdict) {invalidate(value, false, 'invariant'); throw failure('invariant');}
-        budget.retain(1, key.length);
+        reserve(1, key.length);
       } catch (error) {value.failed++; value.unknownStages++; throw error?.code === 'SGRAPH0005' ? error : failure('invariant');}
       trace.analyses.push(record); analysisCache.set(key, record.analysisId); value.completed++;
       if (facts.verdict !== null) value.verdict = facts.verdict;
       if (facts.failure) recordFailure(value, facts.failure);
       return {record, reused: false};
+      } finally {pinnedSourcePath = null;}
     } catch (error) {recordFailure(value, classify(error)); throw error;}
   }
   function occurrence(group, sourcePath, parent, referenceId, variantId, conditions, guard, loaded, depth, inline = null, reserved = false) {
@@ -254,7 +276,7 @@ export async function traceSelectedSources(context, host) {
     const emptyXmlConditions = result.language === 'xml' ? result.provider?.references.length ?? 0 : 0;
     const records = count + 2 + toc.length + descriptors + emptyXmlConditions;
     const units = descriptors * '@wow-addon/toc-metadata-adapter'.length;
-    budget.retain(records, units);
+    reserve(records, units);
     return {owner, loaded, events: events(result), cursor: 0, depth, records, units};
   }
   function batch(group, owner, declarations, providerId, mapping = null) {
@@ -287,22 +309,25 @@ export async function traceSelectedSources(context, host) {
           continue;
         }
         budget.use('referenceOccurrences', 1);
-        const value = trace.files.get(owner.sourcePath), sourceText = await text(value), {start, end} = event.source.range;
-        const rawTarget = sourceText.content.slice(sourceText.starts[start.line] + start.column, sourceText.starts[end.line] + end.column);
+        let rawTarget;
+        {
+          const sourceText = await text(trace.files.get(owner.sourcePath)), {start, end} = event.source.range;
+          rawTarget = sourceText.content.slice(sourceText.starts[start.line] + start.column, sourceText.starts[end.line] + end.column);
+        }
         if (rawTarget.length > limits.pathUnits || event.target.length > limits.pathUnits) throw new GraphBudgetError('pathUnits');
         const conditions = [...owner.conditions, ...event.conditions];
         const row = retain({referenceId: trace.references.length, parentOccurrenceId: owner.occurrenceId, source: event.source,
           constructSource: event.constructSource, analysisId: owner.analysisId, tocFileEntryIndex: event.kind === 'toc' ? event.index : null,
           providerReferenceIndex: event.kind === 'toc' ? null : event.index, rawTarget, targetValue: event.target, expandedTarget: null,
           guard: 'unknown', status: 'blocked', targetSourcePath: null, cycleAncestorOccurrenceId: null});
-        budget.retain(0, 64); // Bounded final enum labels; target/expanded strings are charged separately.
+        reserve(0, 64); // Bounded final enum labels; target/expanded strings are charged separately.
         const gate = await openGraphReference(context, {sourcePath: owner.sourcePath, source: event.source, targetValue: event.target,
           conditions, kind: event.kind}, async target => {
             try {return await lookup(target, group);} catch (error) {return {status: 'blocked', error: classify(error)};}
           });
         const guard = retain({referenceId: row.referenceId, evaluation: gate.evaluation});
         row.guard = gate.evaluation.availability;
-        if (gate.expandedTarget !== null) {budget.retain(0, gate.expandedTarget.length); row.expandedTarget = gate.expandedTarget;}
+        if (gate.expandedTarget !== null) {reserve(0, gate.expandedTarget.length); row.expandedTarget = gate.expandedTarget;}
         trace.references.push(row); trace.guardEvaluations.push(guard);
         if (row.guard === 'unknown') group.analysisComplete = false;
         if (gate.status === 'inactive') {row.status = 'inactive'; continue;}
@@ -315,7 +340,7 @@ export async function traceSelectedSources(context, host) {
             ['missing', 'ambiguous'].includes(status) ? 'SGRAPH0003' : 'SGRAPH0002', group, [event.source], owner.occurrenceId);
           continue;
         }
-        const sourcePath = gate.value.sourcePath; budget.retain(0, sourcePath.length); row.targetSourcePath = sourcePath;
+        const sourcePath = gate.value.sourcePath; reserve(0, sourcePath.length); row.targetSourcePath = sourcePath;
         if (active.has(sourcePath)) {
           row.status = 'cycle'; row.cycleAncestorOccurrenceId = active.get(sourcePath);
           group.graphComplete = false; group.analysisComplete = false; problem('SGRAPH0004', group, [event.source], owner.occurrenceId); continue;
@@ -339,15 +364,15 @@ export async function traceSelectedSources(context, host) {
     }
   }
   try {
-    budget.retain(2, 128);
+    reserve(2, 128);
     await discover();
     for (const [index, input] of request.profile.addons.entries()) {
       const group = {index, logicalAddonId: input.logicalAddonId, selection: null, candidates: [], selected: null,
         graphComplete: true, analysisComplete: true, resolutionEligible: false};
-      budget.retain(3, input.logicalAddonId.length); trace.groups.push(group); trace.providerBatches.set(index, []);
+      reserve(3, input.logicalAddonId.length); trace.groups.push(group); trace.providerBatches.set(index, []);
       // The selector retains one array and a row/loader/loaded shell per candidate.
       // Reserve before calling the loader, including rows whose read will fail.
-      budget.retain(1 + input.tocPaths.length * 3, 0);
+      reserve(1 + input.tocPaths.length * 3, 0);
       const selected = await selectGraphToc(context, index, async tocPath => {
         const resolved = await lookup(tocPath, group);
         if (resolved.status !== 'ready') throw failure(resolved.status === 'budget' ? 'resource' : 'read');
@@ -364,6 +389,9 @@ export async function traceSelectedSources(context, host) {
         await walk(group, root, variantId);
       }
     }
+    // Traversal is over. Integrity verification reads original bytes again and
+    // needs no cached text; free it before native verification allocates state.
+    for (const key of textCache.keys()) evict(key);
     for (const value of trace.files.values()) {
       budget.check(); if (value.fingerprint === null) continue;
       value.integrity.checked++;
@@ -402,7 +430,7 @@ export async function traceSelectedSources(context, host) {
     for (const value of trace.files.values()) {value.valid = false; value.verdict = null; value.failures.add(trace.fatal);}
     return trace;
   } finally {
-    for (const key of [...textCache.keys()]) evict(key);
+    for (const key of textCache.keys()) evict(key);
     try {await host.close();} catch {
       trace.fatal = 'worker'; emergency.code = 'SGRAPH0007'; if (!trace.issues.includes(emergency)) trace.issues.push(emergency);
       for (const group of trace.groups) {group.graphComplete = false; group.analysisComplete = false; group.resolutionEligible = false;}

@@ -32,6 +32,11 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     if(budget)shared(()=>budget.retain(count,units));
     records+=count;stringUnits+=units;
   }
+  function releaseSince(initialRecords,initialUnits){
+    const count=records-initialRecords,units=stringUnits-initialUnits;
+    if(budget){budget.release('retainedRecords',count);budget.release('retainedStringUnits',units);}
+    records-=count;stringUnits-=units;
+  }
   async function statChecked(absolute){
     check();const stat=io.lstatSync(absolute,{bigint:true});if(stat.isSymbolicLink())fail('link');
     if(inspector){
@@ -56,6 +61,8 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     if(stamp(stat)!==snapshot.stamp){invalidDirectories.add(key);fail('changed');}
   }
   async function scan(key){
+    const initialRecords=records,initialUnits=stringUnits;
+    try{
     const absolute=path.join(root,key),before=await statChecked(absolute);if(!before.isDirectory())fail('directory');inside(absolute);
     retain(2,0); // Snapshot and entry-array containers, including empty directories.
     const entries=[],dir=io.opendirSync(absolute,{encoding:'buffer',bufferSize:1});
@@ -83,11 +90,14 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     const snapshot={stamp:stamp(after),entries,fingerprint:hash(JSON.stringify([stamp(after),entries]))};
     retain(0,snapshot.stamp.length+snapshot.fingerprint.length);
     return snapshot;
+    }catch(error){releaseSince(initialRecords,initialUnits);throw error;}
   }
   async function listing(key){
     await verifyCached(key);
     if(!directories.has(key)){
-      const snapshot=await scan(key);retain(1,key.length);directories.set(key,snapshot);
+      const initialRecords=records,initialUnits=stringUnits;
+      try{const snapshot=await scan(key);retain(1,key.length);directories.set(key,snapshot);}
+      catch(error){releaseSince(initialRecords,initialUnits);throw error;}
     }
     return directories.get(key);
   }
@@ -178,18 +188,22 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     }),
     verifyDirectory:(sourceDirectory,fingerprint)=>exclusive(async()=>{
       if(!directories.has(sourceDirectory)||directories.get(sourceDirectory).fingerprint!==fingerprint)return false;
+      const initialRecords=records,initialUnits=stringUnits;
       try{
         const r=await resolve(sourceDirectory,true);if(r.status==='budget')fail('budget');if(r.status!=='ready')return false;
         const actual=await scan(r.sourcePath),valid=actual.fingerprint===fingerprint;
         if(!valid)invalidDirectories.add(r.sourcePath);return valid;
       }catch(error){invalidDirectories.add(sourceDirectory);if(error?.code==='graph-native-budget')throw error;return false;}
+      finally{releaseSince(initialRecords,initialUnits);} // The issued cache already exists; fresh verification owns no persistent result.
     }),
     readSource:(sourcePath,maximumBytes)=>exclusive(()=>read(sourcePath,maximumBytes)),
     verifySource:(sourcePath,fingerprint,maximumBytes)=>exclusive(async()=>{
       if(!sources.has(sourcePath)||sources.get(sourcePath)!==fingerprint)return false;
+      const initialRecords=records,initialUnits=stringUnits;
       try{const current=await read(sourcePath,maximumBytes),valid=current.fingerprint===fingerprint;
         if(!valid)invalidSources.add(sourcePath);return valid;
       }catch(error){invalidSources.add(sourcePath);if(error?.code==='graph-native-budget')throw error;return false;}
+      finally{releaseSince(initialRecords,initialUnits);} // A boolean verification never hands off its temporary buffer/fingerprint.
     }),
     metrics:()=>({directoryEntries:entriesSeen,chargedReadBytes,consumedReadBytes,retainedRecords:records,retainedStringUnits:stringUnits}),
     async close(){closed=true;await inspector?.close();},

@@ -1,0 +1,58 @@
+# Selected-source corpus acceptance — failed baseline
+
+Actual read-only CLI source: **40d59d1c2e4c4100ac59e3cd96ca44876b64d834**, tree9a7adecfb3d3b51400b26536e739fea31a3c8fe3. [Original implementation/controls](REVIEW-SELECTED-SOURCE-ENGINE.md) and [approved contract](PROPOSAL-SELECTED-SOURCE-GRAPH.md). The local selected Classic Era AddOns root and technical profiles stay private. No installed source, identities, paths, individual hashes or full diagnostics are published.
+
+The assistant prepared explicit associations from immediate-folder metadata:101directories,100groups with227regular immediate TOC candidates, one folder without candidates, zero linked/unsupported folders. Preparation opened zero source-content files. The caller environment and suffix policy reuse the existing Classic Era example (Vanilla, Classic, unsuffixed); the previously validated private XML vocabulary and partial handler-context profile are unchanged. The graph token table is empty: no implicit Family/Game substitution, dependency autoload or generic handler context is invented. These are caller-policy assumptions, not evidence of actual game activation.
+
+## Measured CLI baseline
+
+Parent Windows host session **37909**, Node26.13.1, ran:
+
+```text
+node scripts/inspect-selected-addon-sources.mjs <explicit-local-root> --graph-profile <private-graph> --resolution-profile <private-resolution> --xml-provider-profile <private-xml> --xml-inline-lua-profile <private-inline> --lua-input-profile corpus-files
+```
+
+Actual result: **exit1 / failed / completeUnderPolicy=false**,336217milliseconds,3788stdout bytes, zero stderr bytes. [Exact public-safe CLI aggregate](evidence/selected-source-graph-baseline-2026-11-18.json) passes a separate parent reconciliation: JSON roundtrip, unique-file/candidate/reference/inline partitions, fixed wire fields and no private identities/path/message fields. Reconciliation exits0; that checks the report's consistency, not corpus success.
+
+| Language | Metadata found | Eligible unique source files | Source requests | Completed requests | Failed requests | Final integrity-accepted syntax verdicts |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| TOC |434|9|9|9|0|0|
+| Lua |5242|316|316|315|1|0|
+| XML |1199|85|85|85|0|0|
+
+Metadata discovery completes over12714entries with no skipped links/unrepresentable entries. Five groups reach selection;95never invoke selection. The227candidate rows partition as5selected,4non-selected and218undecided. The graph retains409independently validated analysis records from410submitted requests,892occurrences and401references. A whole-operation **SGRAPH0005 resource failure** stops before final integrity verification: all provisional syntax/API/diagnostic semantic credit is withdrawn and all100groups are blocked. The actual empty core is complete; tool-level resolution is not. There are zero final matching-integrity counts, not proof that inputs changed or that no parsing was attempted.
+
+The CLI does not expose the specific exhausted counter. Actual API-invocation credit is zero after the integrity withdrawal; the operational request/analysis-record counts above are separately observed facts. No found-file count is relabeled as parsed coverage. `fullParsing` and `clientConformance` remain false. Historical all-inventory syntax/provider/inline results remain at their original commits and are not erased by this selected-profile failure.
+
+## Independent native retention correction under investigation
+
+Source review separately found that native boolean verification discarded fresh directory snapshots and source read-result objects while leaving their record/string retention charged. This is distinct from cumulative directory-entry/read work, which must remain charged. A synthetic17-case reproduction on40d59d1 exits1 (three controls pass,14regressions fail): four unchanged directory verifications add12records/592string units; four unchanged source verifications add8records/256units. Lower-limit cases admit one full verification and then reject later identical work solely because discarded temporaries accumulate.
+
+The native correction releases only discarded verification state and failed, uninstalled scan snapshots; issued cache snapshots and externally handed-off copies stay charged. Read/probe reservations, cumulative directory-entry work, path/reparse checks and all approved ceilings/deadlines are unchanged. Parent focused host6744 runs native-retention/native/host tests sequentially:35total/34pass/oneLinux-onlyskip/zero failures, exit0. Additional failure-path review, full gates and exact-head CI belong to the resulting committed correction. This correction is not claimed to explain the baseline resource failure: its final verification stage had not started.
+
+## Measured retention pressure and bounded correction
+
+A second actual run used the same full100-group/227-candidate profile and unchanged ceilings, with the native cleanup correction but the original engine/budget. Parent host21177 completed exit1 after337040milliseconds. Its eight-runtime-file snapshot digest is bcbfc4f647cf8bc45b6d707d054916fe2a2d18221aa3589ba5d887c40400ea33. A private observer retained the existing budget exception's fixed `limit` field without changing the ledger or its decisions. At denial, `retainedRecords` was exactly1000000, textCacheBytes24123992, retainedStringUnits28230885, directoryEntries12714 and readBytes11987055. After cache cleanup, retainedRecords fell to768128. The observed exhausted ceiling is therefore retained records, not elapsed time, directory work or read bytes. This identifies the diagnostic snapshot's failure; it does not retroactively instrument the first CLI run.
+
+The read-only diagnostic adapter allowed only read descriptors within the selected lexical/canonical root and retained first/last input hashes privately. There were410actual source opens and no rereads because final integrity was never reached. This proves no completed integrity comparison; it is not corpus acceptance or a claim that every input remained stable. No per-file hashes or original diagnostics are published.
+
+Source review found that cache insertion evicted stale text/line maps, but subsequent permanent result copies and event reservations could fail while disposable cache entries still occupied retention. The correction provides one trusted internal reclamation callback per atomic ledger reservation. It evicts only unpinned text entries, retries the reservation once and never restarts an external projection or consumes getters twice. Active request text stays pinned through actual parser calls and independent reply validation. Once traversal ends, all text is discarded before native integrity rereads allocate their temporary snapshots. Existing cumulative work, profile limits, path checks, helper bytes/deadlines, parser defaults, API contracts and publication rules are unchanged.
+
+| Deliverable / dependencies | Files | Failure scenarios and measurable acceptance |
+| --- | --- | --- |
+| Disposable native verification state; requires issued source/directory snapshots | scripts/selected-source-native.mjs; tests/selected-source-native-retention.test.mjs | Repeated unchanged/changed verification, failed scan/publication, expired attribute work and exact local/shared budgets. Temporary charges return to their previous values; issued copies/caches and actual work remain charged.27 focused cases pass. |
+| Pressure reclamation; requires the existing shared ledger and validated engine cache | scripts/selected-source-budget.mjs; selected-source-engine.mjs; tests/selected-source-cache-pressure.test.mjs | Same full authored GraphResult under lower record/string caps; insufficient permanent output and simultaneously live input/reply still fail closed. Getter-once, deadline, invalid-count, insufficient/throwing reclamation and rollback controls. No source-content reread or semantic reordering merely to reclaim inactive entries. |
+| Integration and full local gates | Existing engine/retention/graph/native/host/accounting tests; package scripts | Fresh focused regression results, then check:all, strict API Extractor and actual licensed package contents, serialized against one source snapshot. Final results belong to the resulting commit and PR evidence. |
+| Exact-head supported CI and actual installed corpus | PR30 and issue11; aggregate evidence only | Windows/Ubuntu × Node22/24 jobs must verify the new head. Then rerun the full100-group request; preserve failures/incomplete status, actual per-language parsing/integrity counts and private hash evidence. Previous green CI does not cover this correction. |
+
+Never increase preset ceilings, silently narrow the request, reinterpret unknown tokens/contexts or claim release readiness merely to obtain a green result. Root-ancestor attribute batching is a deferred performance idea, not an implemented change or demonstrated cure. A synthetically passing retention correction is not proof that the full installed output fits its approved ceilings.
+
+## Parent correction verification
+
+The completed authored cache-pressure suite was also run against isolated copies of the five original40d59d1 ledger/engine/graph/resolution/accounting modules, with only import locations redirected to the existing SDK/fixtures: exit1,12total/fivepass/sevenfail. Both stale-cache success requirements fail after actual parser calls. The active-input denial control already passes on the baseline. Initial isolated-copy attempts had module-identity/package-resolution setup failures; those are not counted as product regressions.
+
+Parent host43041 then ran `npm run check:all`, `npm run api:extractor` and `npm run check:packages` sequentially, all exit0, Windows Node26.13.1/npm12.2.0:558total/554pass/fourLinux-onlyskips/zero failures. Build, eight-package acyclic architecture/dependencies,78beta baselines/exports, all eight strict API Extractors and actual licensed payloads pass. This full-suite snapshot used a Set to pin the one serially loaded source. A final source review replaced that extra uncharged container with a scalar alias of the existing owned cache key; selection and DFS loads are awaited serially. Parent host87953 freshly exercises that final representation with `node --test --test-concurrency=1 tests/selected-source-cache-pressure.test.mjs tests/selected-source-engine.test.mjs tests/selected-source-retention.test.mjs`:23pass/zero failures/skips, exit0. Exact final-head full-suite CI remains a distinct required check.
+
+The new native retention suite independently passes27cases; the neighboring composed graph/native/host/accounting/engine/retention command on host14180 passes43cases with one Linux-only skip, exit0. An independent source review checked reservation-only retry, getter consumption, cleanup ownership, active-text lifetime, unchanged native/path/helper/cap checks and pre-integrity eviction. It reported no actionable finding within that delta. This is a bounded source review, not a new sealed security scan or whole-project audit.
+
+The unchanged PowerShell helper retains SHA256 ae058c154e3d17debcd3e4843eeb122495d0dd6f81d9a8e54fa23aa614a2c9c6 and the previously repeated exact-source Workbench gate. Optional WinRecoveryProjectLinter0.1.1 doctor/scan each exit2: at that inventory snapshot only five of225files (three TOC/two PowerShell) were checked; JS/TS/Markdown/JSON/YAML/XML lacked the plugin's pinned runtime libraries. Its six TOC-example findings and one existing Write-Host warning are not canonical gate passes or an audit of the220unchecked files. Missing runtime/token limitations were handed to the authorized plugin-maintenance chat; no plugin installation/configuration was performed.
