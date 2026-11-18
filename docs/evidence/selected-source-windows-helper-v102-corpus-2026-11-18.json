@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "selected-source-windows-helper-v102-observation",
+  "sourceCommit": "6c7d7d5219b182f44ae26bc9043fb6f19f2e342f",
+  "sourceTree": "5e9c9603c8c030a6a750b1d32b6c797c161ade05",
+  "runtimeSourceDigest": "eea32f015863da626f887ea7051fc9ba43c05a7ddbe6eda3e9c84f8bdb109aa7",
+  "platform": "windows",
+  "nodeVersion": "24.22.3",
+  "hostSession": 60617,
+  "exitCode": 1,
+  "helper": {
+    "version": "1.0.2",
+    "sha256": "738df2322c862451f85df2397a283a05c8cfd083e181d37dad72bf48ed3b9360"
+  },
+  "profiles": {
+    "profiles": 4,
+    "groups": 100,
+    "candidateFiles": 227,
+    "groupsWithOpenedCandidate": 23,
+    "runtimeFiles": 16
+  },
+  "limits": {
+    "operationMilliseconds": 900000,
+    "retainedRecords": 1000000,
+    "retainedStringUnits": 67108864
+  },
+  "elapsedMilliseconds": 900375,
+  "status": "failed",
+  "aggregateAvailable": false,
+  "inputReadOnlyOpenCalls": 839,
+  "pathsReread": 0,
+  "verifySource": 0,
+  "verifyDirectory": 0,
+  "bootstrapMilliseconds": 1567,
+  "listDirectoryMilliseconds": 91714,
+  "readSourceMilliseconds": 69632,
+  "sourceReadCalls": 839,
+  "sourceReadRejections": 1,
+  "windowsInspect": {
+    "calls": 43700,
+    "rows": 54702,
+    "elapsedMilliseconds": 114331
+  },
+  "firstDenial": {
+    "limit": "operationMilliseconds",
+    "elapsedMilliseconds": 900013,
+    "metrics": {
+      "sourceNodes": 839,
+      "analysisRecords": 838,
+      "referenceOccurrences": 809,
+      "occurrences": 1428,
+      "graphDepth": 0,
+      "directoryDepth": 0,
+      "directoryEntries": 12724,
+      "readBytes": 20594425,
+      "textCacheBytes": 39150880,
+      "retainedRecords": 200406,
+      "retainedStringUnits": 25229365
+    }
+  },
+  "finalMetrics": {
+    "sourceNodes": 839,
+    "analysisRecords": 838,
+    "referenceOccurrences": 809,
+    "occurrences": 1428,
+    "graphDepth": 0,
+    "directoryDepth": 0,
+    "directoryEntries": 12724,
+    "readBytes": 20594425,
+    "textCacheBytes": 0,
+    "retainedRecords": 166577,
+    "retainedStringUnits": 4991486
+  },
+  "analyses": {
+    "toc": {
+      "opened": 36,
+      "submitted": 36,
+      "replied": 36,
+      "rejected": 0,
+      "elapsedMilliseconds": 35264
+    },
+    "lua": {
+      "opened": 614,
+      "submitted": 614,
+      "replied": 614,
+      "rejected": 0,
+      "elapsedMilliseconds": 396599
+    },
+    "xml": {
+      "opened": 189,
+      "submitted": 188,
+      "replied": 185,
+      "rejected": 3,
+      "elapsedMilliseconds": 294501
+    }
+  },
+  "priorFirstReads": {
+    "sourceCommit": "ca9d24c6eada15d4d9e555f513922e4e4012e98d",
+    "matched": 839,
+    "changed": 0,
+    "earlierPaths": 1456,
+    "currentPaths": 839
+  },
+  "finalSyntaxVerdicts": null,
+  "finalSkips": null,
+  "finalDiagnostics": null,
+  "finalInvariantResults": null
+}

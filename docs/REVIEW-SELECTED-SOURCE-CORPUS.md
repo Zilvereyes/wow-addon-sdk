@@ -348,3 +348,17 @@ The guarded read-only request used four byte-identical profiles, 100 logical gro
 The 900,000 ms operation deadline arrived during a source read after all 1,455 submitted analyzer calls had returned. At first denial the ledger held 276,999 records and 30,335,793 UTF-16 units, below both retention ceilings. The run did not reach final source rereads or directory verification. No final syntax verdicts, skips, diagnostics or invariants are available. Stage 7 remains open. [Reconciled phase receipt](evidence/selected-source-worker-init-corpus-2026-11-18.json)
 
 The immediate next check uses one fixed authored Windows Node 24 workload. Compare warm Lua with Lua→TOC→Lua and Lua→XML→Lua at equal request counts, including rotation at 32. Record client serialization and decode, retirement through acknowledged close, child and thread startup, import, API, termination and parent projection times. Verify identical parser replies and API receipts, exact call counts, UTF-16 ranges and the existing failure and reaping behavior. This check depends on the real supervisor, worker and parent validator. Only the measured bottleneck should drive an implementation decision before another full replay. The two installed observations used different prefixes and host conditions.
+
+## Full replay with Windows helper 1.0.2
+
+The guarded Windows Node 24.22.3 run at `6c7d7d5219b182f44ae26bc9043fb6f19f2e342f` used the same four profile files, 100 logical groups, 227 TOC candidate rows and original work limits. The observer verified 16 runtime inputs, including the registered PowerShell helper and its pin. Session 60617 exited 1 after 900,375 ms. Every read-only first read matched the earlier replay's hash and length, and candidates opened in 23 groups. [Reconciled phase receipt](evidence/selected-source-windows-helper-v102-corpus-2026-11-18.json)
+
+| Language | Distinct first reads | Submissions | Replies | Port wall time |
+| --- | ---: | ---: | ---: | ---: |
+| TOC | 36 | 36 | 36 | 35,264 ms |
+| Lua | 614 | 614 | 614 | 396,599 ms |
+| XML | 189 | 188 | 185 | 294,501 ms |
+
+The deadline arrived during a source read. Three XML requests had no reply at the analyzer port. The observer counts these rejections and supplies no per-rejection reason. It recorded 43,700 Windows attribute requests covering 54,702 rows in 114,331 ms. This attribute time overlaps native discovery and read phases. The first denial held 200,406 retained records and 25,229,365 UTF-16 units. The operation never reached final source or directory verification and returned no parser aggregate. Stage 7 remains open.
+
+The two full observations traversed different prefixes and took different wall time at equal submission checkpoints. The registered authored comparison establishes the helper change on fixed work. The installed data directs the next timing pass to the Lua and XML analyzer ports, which together took 691,100 ms, and to the three XML rejections. Use a fixed Windows fixture with a bounded Lua burst, XML with and without inline bodies, and a controlled late reply. Capture process startup, first frame, import and parser duration, parent projection and acknowledged close in the analyzer client/worker path. Compare exact replies and API receipts and classify only fixed transport error codes. Keep the full read-only request and 900-second acceptance unchanged.
