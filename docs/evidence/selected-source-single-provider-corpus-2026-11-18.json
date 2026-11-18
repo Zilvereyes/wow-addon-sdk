@@ -29,6 +29,11 @@
     "uniqueByLanguage": {"toc": 36, "lua": 692, "xml": 233},
     "pathsReread": 0
   },
+  "candidatePathOpens": {
+    "explicitRowsOpened": 36,
+    "groupsWithAnyCandidateOpened": 23,
+    "groupsWithAllCandidatesOpened": 23
+  },
   "analyzerPort": {
     "toc": {"calls": 36, "returned": 36, "rejected": 0, "elapsedMilliseconds": 28298},
     "lua": {"calls": 692, "returned": 691, "rejected": 1, "elapsedMilliseconds": 548607},

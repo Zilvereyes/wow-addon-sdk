@@ -143,11 +143,11 @@ test('a declaration-heavy graph fits the lower retained-record limit with full o
   files[tocPath] = ['## SavedVariables: Alpha', ...targets].join('\n');
   const prepared = context(input => {
     input.profile.addons[0].tocPaths = [tocPath];
-    input.profile.limits = {retainedRecords: 47000};
+    input.profile.limits = {retainedRecords: 31500};
   });
   const fixture = memoryHost(files);
   const result = await analyzeSelectedSources(getGraphRequest(prepared), fixture.host);
-  assert.equal(result.aggregate.status, 'passed');
+  assert.equal(result.aggregate.status, 'passed', JSON.stringify(result.aggregate.issuesByCode));
   assert.equal(fixture.closes, 1);
   assert.deepEqual(result.resolved.activeGlobals, names);
   assert.deepEqual(result.declarationOrigins.map(origin => origin.declaration.name), names);

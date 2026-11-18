@@ -13,21 +13,34 @@ const same = (actual, expected) => assert.ok(isDeepStrictEqual(actual, expected)
  */
 function mapOrigins(request, resolved, rows, budget) {
   budget.retain(1, 0);
-  const entries = new Map();
-  for (const row of rows) {
-    budget.check();
-    let entry = entries.get(row.origin.declaration.name);
-    if (!entry) {budget.retain(2, row.origin.declaration.name.length); entry = {index: entries.size, count: 0}; entries.set(row.origin.declaration.name, entry);}
-    const declarationIndex = entry.count++, declaration = {...row.origin.declaration, addonId: row.logicalAddonId};
-    const expected = {logicalAddonId: row.logicalAddonId, tocVariantId: row.tocVariantId, providerId: row.providerId,
-      originalAddonId: row.origin.declaration.addonId, declaration,
-      evaluation: evaluateGlobalConditions(declaration, request.environment, request.conditionPolicy)};
-    same(resolved.entries[entry.index]?.name, declaration.name);
-    same(resolved.entries[entry.index]?.declarations[declarationIndex], expected);
-    row.origin.resolvedEntryIndex = entry.index; row.origin.resolvedDeclarationIndex = declarationIndex;
+  let records = 1, stringUnits = 0;
+  try {
+    const entries = new Map();
+    for (const row of rows) {
+      budget.check();
+      const name = row.origin.declaration.name;
+      let entry = entries.get(name);
+      if (!entry) {
+        budget.retain(2, name.length);
+        records += 2; stringUnits += name.length;
+        entry = {index: entries.size, count: 0};
+        entries.set(name, entry);
+      }
+      const declarationIndex = entry.count++, declaration = {...row.origin.declaration, addonId: row.logicalAddonId};
+      const expected = {logicalAddonId: row.logicalAddonId, tocVariantId: row.tocVariantId, providerId: row.providerId,
+        originalAddonId: row.origin.declaration.addonId, declaration,
+        evaluation: evaluateGlobalConditions(declaration, request.environment, request.conditionPolicy)};
+      same(resolved.entries[entry.index]?.name, declaration.name);
+      same(resolved.entries[entry.index]?.declarations[declarationIndex], expected);
+      row.origin.resolvedEntryIndex = entry.index; row.origin.resolvedDeclarationIndex = declarationIndex;
+    }
+    same(resolved.entries.length, entries.size);
+    for (const entry of entries.values()) same(resolved.entries[entry.index].declarations.length, entry.count);
+  } finally {
+    // The origin rows retain ordinal values only. Each lookup ends at this boundary.
+    budget.release('retainedRecords', records);
+    budget.release('retainedStringUnits', stringUnits);
   }
-  same(resolved.entries.length, entries.size);
-  for (const entry of entries.values()) same(resolved.entries[entry.index].declarations.length, entry.count);
 }
 
 export function composeGraphResolution(context, trace) {

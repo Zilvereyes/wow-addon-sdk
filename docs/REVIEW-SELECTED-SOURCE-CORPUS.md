@@ -167,4 +167,18 @@ Windows host 33178 ran `e47a973` with the same 100 groups, 227 candidate rows an
 
 The analyzer port took 731.8 seconds across the three languages. Native listing and reading took 157.5 seconds, which includes 121.3 seconds of Windows helper work. The first deadline denial held 928,401 records under the 1,000,000 cap. Removing cached source text left 908,188 records. The preceding run on `3aaf42c` stopped after 343 replies. The two runs differ in host timing and how far they reached, so their durations cannot isolate the XML change's effect.
 
+A subsequent comparison of the unchanged private selection profile with the read ledger reconciled the 36 opened TOC files to 36 candidate rows in 23 of the 100 groups. Each of those 23 groups had all its candidate paths opened. These are candidate open counts. The run did not report final group selections or completed traversals. Sizing the remaining work from the elapsed time for the last 100 calls alone would miss the later groups and final integrity phase.
+
 The next authored control should reproduce late-traversal memory pressure. Measure the scopes that retain records from analysis through final verification and composition, including temporary composition input and results. Compare full graphs under reduced test caps and require identical provenance, diagnostics and failures. Use a short fixed Node/TOC/Lua/XML timing probe to characterize the host before committing time to another full run. Keep the four profiles, full request and approved time and record limits in force. Stage 7 still requires the final integrity phase and the per-language aggregate.
+
+### Temporary ordinal lookup retention
+
+The per-group and final ordinal checks allocate a temporary map keyed by each distinct declaration name. Its references and strings were charged permanently, although the published origins retain only numeric indices. `scripts/selected-source-resolution.mjs` now accounts for each successful reservation and releases that map's records and string units when the check exits. Resolution and provenance verification still use the live map while it is charged. The release covers only the map's reservations, including on failure.
+
+An authored Windows comparison used the real supervised analyzer, one TOC and six Lua files containing 1,200 distinct declarations plus one SavedVariable. Host 57034 compared production at `43d37de` with a scratch copy releasing only the temporary maps. The full graph and all 1,201 origins matched. Final retained records fell from 33,041 to 28,235. A 31,500-record test cap rejected the original code for `retainedRecords` and accepted the corrected graph with all outputs intact. The comparison exited 0 after checking the expected results. `tests/selected-source-resolution.test.mjs` now uses that lower cap for its declaration-heavy regression. Full installed peak retention remains to be measured.
+
+The first integrated focused run on host 66633 exited 1 with 31 passes and one failed declaration-heavy graph assertion. The logged status did not identify the failing stage. Subsequent authored reproductions using both a bound shared ledger and the ordinary unbound host passed; the bound result retained 28,235 records at 31,500. The assertion now includes aggregate issue codes. The final command on host 55101 exited 0 with 32 passes and no failures or skips on Windows Node 26.13.1.
+
+```powershell
+node --test --test-concurrency=1 tests/selected-source-resolution.test.mjs tests/selected-source-cache-pressure.test.mjs tests/selected-source-native-cache-pressure.test.mjs tests/selected-source-graph.test.mjs
+```
