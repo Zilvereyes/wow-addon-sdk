@@ -67,3 +67,50 @@ The isolated candidate also passed three existing authored native CLI controls a
 The two earlier installed runs supply an order proxy for estimating process starts. The private first-read ledgers each reconciled with submission counts and all recorded rejected paths at their respective submission indices. For the 185-call prefix on `7d4ab84`, the proxy models 102 stock starts and seven candidate starts in the clean case. Forcing both candidate pools to retire at each recorded rejection gives 34. The 342-call prefix on `e5931e2` models 155 stock starts and 12 or 14 candidate starts under those same assumptions. The proxy records no observed child starts and fixes the prefix and rejection positions across models.
 
 Before a production decision, review the reply boundary and memory tradeoff. The stock supervisor waits for the one-shot TOC/XML child to close before crediting its frame. The candidate validates a complete frame during a continuing process lifetime. Later idle output retires both retained processes. If it arrives after a result was delivered, that result has already been credited. The prototype verifies an internal shared 10-second close schedule. An integrated host must propagate any tighter applicable cleanup allowance. The isolated read-only replay returned 309 parser replies before the graph failed native source and directory integrity. The subsequent diagnostic replay recorded zero native failure events before reaching the operation deadline. [Current diagnostic replay](REVIEW-SELECTED-SOURCE-CORPUS.md#full-diagnostic-replay-with-the-isolated-launcher-prototype) Full Stage 7 acceptance still requires evidence from the integrated build and the original local corpus traversal through final integrity.
+
+## Integrated authored comparison
+
+The maintainer benchmark uses the same selected-source graph, native file port, profiles, SDK build and 900-second operation limit for both launchers. The split variant is copied into a temporary directory from the pinned prototype patch at `a3d3b0545d0f3984eda718cec01a93330f26c73a`. The graph and its shared budget use the same implementation in both modes. The fixture creates its own AddOns tree and accepts no source path argument. [Benchmark](proposals/measure-selected-source-integration.mjs)
+
+From a built checkout with the pinned prototype commit available locally, run `node docs/proposals/measure-selected-source-integration.mjs --smoke` for one short pair and `node docs/proposals/measure-selected-source-integration.mjs --ab` for the four-group workload. With no arguments, the benchmark uses stock, split, split, stock order. The larger workload selects four of eight TOC candidates and reaches 49 standalone Lua files, including a first burst of 34, and 12 XML files with 24 inline bodies. Duplicate TOC file references reuse the same analysis. The benchmark checks the complete reply digest and aggregate equality, exact source counts, read-only first opens and rereads, successful directory verification and unchanged source bytes. Unknown XML declaration activation remains visible in the expected `incomplete` policy status.
+
+The initial four-group attempt on Windows Node 26.13.1 (host session 6751) stopped at the first stock aggregate assertion, exit 1. A smaller run (80505) identified one failed TOC worker call, with both source and all three directory fingerprints matching. The next stock smoke on Windows Node 24.22.3 (38557) completed all six source analyses and matched all integrity checks. Its six inline declarations had unknown activation. That exposed an incorrect expected `passed` value in the harness; the assertion now expects `incomplete` with the exact unknown count.
+
+The corrected Windows Node 24.22.3 smoke pair (13894) exited 0 on SDK merge commit `18189b78782e2f70203e4f62273d55bb939d0915` with this authored harness. Both modes accounted for 2 TOC, 1 standalone Lua and 3 XML files, plus 6 mapped inline Lua bodies, with zero worker or invariant failures. Each mode opened and verified all six sources read-only and matched all three directory fingerprints. The graph completed and published the same aggregate, including the six unknown activation outcomes.
+
+| Measured phase | Stock | Split prototype |
+|---|---:|---:|
+| Complete graph wall time | 54,050 ms | 19,149 ms |
+| TOC analyzer calls | 13,127 ms | 4,757 ms |
+| Lua analyzer calls | 5,842 ms | 3,323 ms |
+| XML analyzer calls | 16,270 ms | 2,294 ms |
+| Final source and directory verification | 694 ms | 402 ms |
+
+The overall time includes host setup, graph work, reply digesting and publication. This single pair establishes equivalent completed work in the short fixture. Timing on the local Windows host varied between runs, and the smoke pair is too small to predict installed throughput or launcher memory. Production launcher adoption and Classic Era acceptance remain open in [#11](https://github.com/Zilvereyes/wow-addon-sdk/issues/11).
+
+The four-group Windows Node 24.22.3 pair (`--ab`, host session 26509) exited 0. Both variants returned the same reply digest and aggregate with 8 TOC, 49 standalone Lua and 12 XML syntax verdicts, and 24 mapped inline bodies. No source request failed or was skipped before a syntax verdict. The 69 source fingerprints and 9 directory fingerprints matched for each variant. All 24 unknown XML declaration activations remained visible, so the aggregate returned `incomplete`. The first Lua burst crossed the 32-request rotation boundary.
+
+| Measured phase | Stock | Split prototype |
+|---|---:|---:|
+| Complete graph wall time | 103,571 ms | 71,603 ms |
+| TOC analyzer calls | 18,363 ms | 8,171 ms |
+| Lua analyzer calls | 36,063 ms | 41,090 ms |
+| XML analyzer calls | 36,548 ms | 8,877 ms |
+| Final source and directory verification | 3,768 ms | 3,476 ms |
+
+The observed wall-time reduction was 30.9%. The split variant spent more time in standalone Lua calls, which already reuse a launcher in the stock implementation. This single A/B pair provides evidence of a complete authored traversal with integrity checks. A counterbalanced run can test repeatability. The installed workload remains open and launcher adoption still requires a production design decision.
+
+### Read-only observer portability
+
+The Linux native reader uses both `O_NOFOLLOW` and `O_NONBLOCK` on its read-only descriptor. The benchmark initially rejected the latter. A fixed-flag control reproduced the rejection (exit 1). After the correction, four allowed flag combinations and ten mutation-flag combinations passed the focused assertions. The Node 24.22.3 Windows `--smoke` comparison (host 24760) exited 0 with the same aggregate and all six source and three directory checks per mode. This measures the corrected observer on Windows. The Linux-specific flag combinations were checked with explicit constants.
+## Production decision pending
+
+**A — Launcher lifetime.** Keep one corpus Lua launcher and add one shared TOC/XML launcher in the private selected-source host. Each launcher handles at most 32 sequential requests. At most one fresh worker runs at a time, and its exit is acknowledged before the launcher emits a reply. Keep the existing corpus Lua and TOC/XML heap, output and time limits. Bounded Lua uses its existing one-shot path after both retained launchers close. Keep the same SDK APIs and profile fields.
+
+**B — Reply and failure.** Credit an intermediate TOC/XML reply after joining the worker and independently validating the complete framed reply. Rotation and failure receipts wait for clean correlated closure. A fault retires both launchers, rejects the affected request and blocks replacement until both close acknowledgements. A fault from idle output remains reportable at the next request or final close, even if both children have closed. Earlier validated replies retain their receipts. Use a single monotonic retirement deadline clamped to the host cleanup allowance and the existing ten-second reap cap. Preserve child ownership when either close remains unconfirmed. Keep the 900-second operation budget and per-call caps.
+
+**C — Prerequisites.** Compare the one-child and split versions on the same authored workloads in both orders. Verify exact replies, spans, diagnostics, receipt accounting and final source/directory checks. Measure simultaneous aggregate child RSS on Windows and Ubuntu with Node 22 and 24, including wide valid XML, corpus Lua, calls 31–33 in both launchers and faults during retirement. The existing prototype measurements observed peak aggregate RSS of about 73 MiB stock and 144 MiB split on one Windows Node 24 hosted run. Exercise idle output after the final delivered reply, one unacknowledged close, exact reap deadlines, a tighter host allowance and unchanged bounded-Lua exclusivity. The relevant integration files are `scripts/selected-source-analysis-client.mjs`, `scripts/selected-source-analysis-worker.mjs`, `scripts/selected-source-host.mjs` and their focused tests.
+
+**D — Installed acceptance.** After the implementation and exact supported CI matrix, use the original four profiles, 100 groups and 227 TOC candidates. Operate read-only with the original 900-second limit. Require final source and directory verification and reconciled language counts, diagnostics, skips and technical outcomes before giving acceptance credit. [Issue #11](https://github.com/Zilvereyes/wow-addon-sdk/issues/11)
+
+The one-child alternative retains the current process contract and pursues measured native or validation improvements. Retaining a Lua worker thread across files is a separate proposal. The previously approved split prototype and its authored results are evidence for this decision. Production approval remains pending.
