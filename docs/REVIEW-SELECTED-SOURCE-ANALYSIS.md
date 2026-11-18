@@ -180,3 +180,20 @@ These measurements cover in-process `analyzeLua` calls. Host scheduling and garb
 On the same build, the first serial Node test run (host session 55195, exit 1) reported a timeout in the existing worker crash fixture, which starts a script containing only `process.exit(7)`. The expanded serial run (host session 65186, exit 0) passed all 138 tests across the Lua API, option ownership, entry context, corpus profile, worker, XML inline Lua worker and validation, selected-source analysis, worker imports and corpus launcher.
 
 A separate Windows Node 24.22.3 startup probe (host session 50788, exit 0) tried moving the `readline` import into the launcher branch. Four series of 16 authored requests returned identical replies. The eager series had thread-entry CPU medians of 93 and 93 ms, and the lazy series had 108 and 93 ms. The measured lazy mode did not improve series elapsed time. The production launcher retains its existing import and lifecycle.
+
+## Lua lexical scope checkpoints
+
+The lexical pass now tracks names introduced within each scope. A block exit removes only those names. Shadowing preserves the enclosing binding, repeat conditions still see the block locals, and each function retains the same parameter and implicit `self` rules. The scope walk no longer copies the visible-name set at every block. Existing scope regressions and an authored case with 120 outer bindings and 64 sibling blocks verify repeated declarations and original UTF-16 spans.
+
+The change in `e38c4e058c0b3db6b8d39cc621a9bc17021d9c68` built with `node node_modules/typescript/bin/tsc -b --pretty false` (Windows, host 1704, exit 0). On Node 24.22.3, `node --test --test-concurrency=1 tests/lua-analysis.test.mjs tests/lua-entry-context.test.mjs tests/lua-corpus-profile.test.mjs` (48887) passed 69 tests, exit 0.
+
+An isolated in-process comparison used the same built API entry and locked luaparse module for both revisions. The stock syntax module came from `18189b78782e2f70203e4f62273d55bb939d0915`. The candidate came from `e38c4e0`. The initial nine alternating single-call measurements produced identical complete API outputs. The medium test had an unstable wall median, so the second series measured nine alternating five-call batches per mode on the same Node 24.22.3 host (5436, exit 0). It checked complete outputs, including diagnostics, duplicates and source ranges, after each measured batch.
+
+| Authored workload | Stock wall median per call | Candidate wall median per call | Stock / candidate CPU median |
+|---|---:|---:|---:|
+| 32 sibling blocks, no outer bindings | 2.47 ms | 2.39 ms | 0 / 3.0 ms |
+| 300 sibling blocks, 16 outer bindings | 21.73 ms | 19.98 ms | 12.4 / 9.4 ms |
+| 2,000 sibling blocks, 120 outer bindings | 196.89 ms | 158.65 ms | 90.6 / 72.0 ms |
+| Repeat condition, recursive function, method and loops | 0.41 ms | 0.31 ms | 0 / 0 ms |
+
+Short CPU timings are quantized on this host. The wider fixture shows about 19% lower wall time in this comparison. These are authored API-level timings. They do not establish transport throughput or installed Classic Era acceptance.

@@ -162,73 +162,110 @@ export function parseSyntax(content: string, limits: { maxNodes: number; maxDept
 // Recompute lexical reference annotations on the bounded/validated AST, using
 // Lua 5.1 declaration order. Property/field names are not variable references.
 function annotateScopes(root: SyntaxNode, parameters: readonly string[]): void {
+  const visible = new Set(parameters);
+  const introduced: string[] = [];
+
+  function introduce(name: string): void {
+    // A shadow keeps the name local after this block ends as well.
+    if (visible.has(name)) return;
+    visible.add(name);
+    introduced.push(name);
+  }
+
+  function restore(checkpoint: number): void {
+    for (let index = introduced.length - 1; index >= checkpoint; index--) {
+      visible.delete(introduced[index]!);
+    }
+    introduced.length = checkpoint;
+  }
+
   function node(value: unknown): SyntaxNode {
     if (!record(value) || typeof value.type !== 'string') throw new Error('Unavailable scope node');
     return value as SyntaxNode;
   }
-  function list(value: unknown, scope: Set<string>): void {
+  function list(value: unknown): void {
     if (!Array.isArray(value)) throw new Error('Unavailable scope list');
-    for (const child of value) visit(child, scope);
+    for (const child of value) visit(child);
   }
-  function bind(value: unknown, scope: Set<string>): void {
+  function bind(value: unknown): void {
     const id = node(value);
     if (id.type === 'VarargLiteral') return;
     if (id.type !== 'Identifier' || typeof id.name !== 'string') throw new Error('Unavailable binding');
     id.isLocal = true;
-    scope.add(id.name);
+    introduce(id.name);
   }
-  function bindings(value: unknown, scope: Set<string>): void {
+  function bindings(value: unknown): void {
     if (!Array.isArray(value)) throw new Error('Unavailable bindings');
-    for (const child of value) bind(child, scope);
+    for (const child of value) bind(child);
   }
-  function visit(value: unknown, scope: Set<string>): void {
+  function visit(value: unknown): void {
     if (value === null) return;
     const current = node(value);
-    const nested = () => new Set(scope);
     switch (current.type) {
-      case 'Chunk': list(current.body, scope); break;
-      case 'Identifier': current.isLocal = scope.has(current.name as string); break;
-      case 'LocalStatement': list(current.init, scope); bindings(current.variables, scope); break;
-      case 'AssignmentStatement': list(current.variables, scope); list(current.init, scope); break;
+      case 'Chunk': list(current.body); break;
+      case 'Identifier': current.isLocal = visible.has(current.name as string); break;
+      case 'LocalStatement': list(current.init); bindings(current.variables); break;
+      case 'AssignmentStatement': list(current.variables); list(current.init); break;
       case 'FunctionDeclaration': {
-        if (current.isLocal === true) bind(current.identifier, scope);
-        else visit(current.identifier, scope);
-        const bodyScope = nested();
-        if (record(current.identifier) && current.identifier.type === 'MemberExpression' && current.identifier.indexer === ':') bodyScope.add('self');
-        bindings(current.parameters, bodyScope);
-        list(current.body, bodyScope);
+        if (current.isLocal === true) bind(current.identifier);
+        else visit(current.identifier);
+        const checkpoint = introduced.length;
+        try {
+          if (record(current.identifier) && current.identifier.type === 'MemberExpression' && current.identifier.indexer === ':') introduce('self');
+          bindings(current.parameters);
+          list(current.body);
+        } finally { restore(checkpoint); }
         break;
       }
       case 'ForNumericStatement': {
-        visit(current.start, scope); visit(current.end, scope); visit(current.step, scope);
-        const bodyScope = nested(); bind(current.variable, bodyScope); list(current.body, bodyScope); break;
+        visit(current.start); visit(current.end); visit(current.step);
+        const checkpoint = introduced.length;
+        try { bind(current.variable); list(current.body); }
+        finally { restore(checkpoint); }
+        break;
       }
       case 'ForGenericStatement': {
-        list(current.iterators, scope);
-        const bodyScope = nested(); bindings(current.variables, bodyScope); list(current.body, bodyScope); break;
+        list(current.iterators);
+        const checkpoint = introduced.length;
+        try { bindings(current.variables); list(current.body); }
+        finally { restore(checkpoint); }
+        break;
       }
       case 'RepeatStatement': {
-        const bodyScope = nested(); list(current.body, bodyScope); visit(current.condition, bodyScope); break;
+        const checkpoint = introduced.length;
+        try { list(current.body); visit(current.condition); }
+        finally { restore(checkpoint); }
+        break;
       }
-      case 'WhileStatement': case 'IfClause': case 'ElseifClause':
-        visit(current.condition, scope); list(current.body, nested()); break;
-      case 'DoStatement': case 'ElseClause': list(current.body, nested()); break;
-      case 'IfStatement': list(current.clauses, scope); break;
-      case 'CallStatement': visit(current.expression, scope); break;
-      case 'ReturnStatement': list(current.arguments, scope); break;
-      case 'MemberExpression': visit(current.base, scope); break;
-      case 'IndexExpression': visit(current.base, scope); visit(current.index, scope); break;
-      case 'CallExpression': visit(current.base, scope); list(current.arguments, scope); break;
-      case 'TableCallExpression': visit(current.base, scope); visit(current.arguments, scope); break;
-      case 'StringCallExpression': visit(current.base, scope); visit(current.argument, scope); break;
-      case 'TableConstructorExpression': list(current.fields, scope); break;
-      case 'TableKey': visit(current.key, scope); visit(current.value, scope); break;
-      case 'TableKeyString': case 'TableValue': visit(current.value, scope); break;
-      case 'BinaryExpression': case 'LogicalExpression': visit(current.left, scope); visit(current.right, scope); break;
-      case 'UnaryExpression': visit(current.argument, scope); break;
+      case 'WhileStatement': case 'IfClause': case 'ElseifClause': {
+        visit(current.condition);
+        const checkpoint = introduced.length;
+        try { list(current.body); }
+        finally { restore(checkpoint); }
+        break;
+      }
+      case 'DoStatement': case 'ElseClause': {
+        const checkpoint = introduced.length;
+        try { list(current.body); }
+        finally { restore(checkpoint); }
+        break;
+      }
+      case 'IfStatement': list(current.clauses); break;
+      case 'CallStatement': visit(current.expression); break;
+      case 'ReturnStatement': list(current.arguments); break;
+      case 'MemberExpression': visit(current.base); break;
+      case 'IndexExpression': visit(current.base); visit(current.index); break;
+      case 'CallExpression': visit(current.base); list(current.arguments); break;
+      case 'TableCallExpression': visit(current.base); visit(current.arguments); break;
+      case 'StringCallExpression': visit(current.base); visit(current.argument); break;
+      case 'TableConstructorExpression': list(current.fields); break;
+      case 'TableKey': visit(current.key); visit(current.value); break;
+      case 'TableKeyString': case 'TableValue': visit(current.value); break;
+      case 'BinaryExpression': case 'LogicalExpression': visit(current.left); visit(current.right); break;
+      case 'UnaryExpression': visit(current.argument); break;
       case 'BreakStatement': case 'StringLiteral': case 'NumericLiteral': case 'BooleanLiteral': case 'NilLiteral': case 'VarargLiteral': break;
       default: throw new Error('Unavailable scope node type');
     }
   }
-  visit(root, new Set(parameters));
+  visit(root);
 }
