@@ -1,8 +1,7 @@
 /** Fixed graph worker with an opt-in launcher for sequential corpus Lua requests. */
 import {Worker, isMainThread, parentPort, workerData} from 'node:worker_threads';
 import {createInterface} from 'node:readline';
-import {composeGraphXmlInlineLua} from './xml-inline-lua-validation.mjs';
-import {emptyGraphCalls} from './selected-source-analysis.mjs';
+import {emptyGraphCalls} from './selected-source-analysis-receipts.mjs';
 
 function requireExports(sdk, ...names) {
   for (const name of names) {
@@ -18,25 +17,28 @@ async function loadApis(language) {
   if (language === 'lua') {
     return requireExports(await import('@wow-addon/lua-analysis'), 'analyzeLua');
   }
-  const [syntax, provider, lua] = await Promise.all([
+  const [syntax, provider, lua, composition] = await Promise.all([
     import('@wow-addon/xml-parser'),
     import('@wow-addon/xml-analysis'),
     import('@wow-addon/lua-analysis'),
+    import('./xml-inline-lua-validation.mjs'),
   ]);
   requireExports(syntax, 'parseXml');
   requireExports(provider, 'analyzeXml', 'mapXmlValueRanges');
   requireExports(lua, 'analyzeLua');
+  requireExports(composition, 'composeGraphXmlInlineLua');
   return {
     parseXml: syntax.parseXml,
     analyzeXml: provider.analyzeXml,
     mapXmlValueRanges: provider.mapXmlValueRanges,
     analyzeLua: lua.analyzeLua,
+    composeGraphXmlInlineLua: composition.composeGraphXmlInlineLua,
   };
 }
 
 async function analyze(request) {
   // Initialization errors terminate the worker before it can claim an API call.
-  const {parseToc, parseXml, analyzeLua, analyzeXml, mapXmlValueRanges} = await loadApis(request.language);
+  const {parseToc, parseXml, analyzeLua, analyzeXml, mapXmlValueRanges, composeGraphXmlInlineLua} = await loadApis(request.language);
   const confirmedApiCalls = emptyGraphCalls();
   const call = (name, api) => (...args) => {
     confirmedApiCalls[name].invoked++;

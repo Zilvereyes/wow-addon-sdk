@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import {validateXmlProviderProfile} from './xml-provider-validation.mjs';
 import {validateXmlInlineProfile, verifyGraphXmlInlineLua, verifyLuaProjection} from './xml-inline-lua-validation.mjs';
 import {verifyXmlSyntax} from './selected-source-syntax-validation.mjs';
+import {emptyGraphCalls, graphApis} from './selected-source-analysis-receipts.mjs';
 
-export const graphApis = Object.freeze(['parseToc', 'parseXml', 'analyzeLua', 'analyzeXml', 'mapXmlValueRanges']);
-export const emptyGraphCalls = () => Object.fromEntries(graphApis.map(name => [name, {invoked: 0, returned: 0}]));
+export {emptyGraphCalls, graphApis};
 export const exact = (value, keys) => assert.ok(value !== null && typeof value === 'object' && !Array.isArray(value) &&
   Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key)));
 

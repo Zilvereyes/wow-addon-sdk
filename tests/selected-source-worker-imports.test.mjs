@@ -8,8 +8,12 @@ import {emptyGraphCalls} from '../scripts/selected-source-analysis.mjs';
 const workerUrl = new URL('../scripts/selected-source-analysis-worker.mjs', import.meta.url).href;
 const tocModule = '@wow-addon/toc-parser';
 const luaModule = '@wow-addon/lua-analysis';
-const xmlModules = ['@wow-addon/xml-parser', '@wow-addon/xml-analysis', luaModule];
+const xmlParser = '@wow-addon/xml-parser';
+const xmlModules = [xmlParser, '@wow-addon/xml-analysis', luaModule];
+const xmlComposition = './xml-inline-lua-validation.mjs';
+const parentValidation = './selected-source-analysis.mjs';
 const marker = 'tracked-sdk-import:';
+const xmlCallMarker = 'tracked-parseXml-call';
 const dataModule = source => `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
 const json = file => JSON.parse(readFileSync(new URL(file, import.meta.url), 'utf8'));
 const xmlPolicy = json('../examples/xml-provider-profile.json').policy;
@@ -30,13 +34,16 @@ async function observeWorker(input, use, faults = {}) {
   const replacements = {
     throwsAtInitialization: dataModule("throw Error('authored module initialization failure'); export function parseToc() {}"),
     missingNamedExport: dataModule('export const unrelated = 1;'),
+    tracksXmlCall: dataModule(`import {writeSync} from 'node:fs';
+      export function parseXml() { writeSync(2, ${JSON.stringify(xmlCallMarker)}); return {complete: false}; }`),
   };
   const hook = dataModule(`
     import {writeSync} from 'node:fs';
     const faults = ${JSON.stringify(faults)};
     const replacements = ${JSON.stringify(replacements)};
     export function resolve(specifier, context, next) {
-      if (context.parentURL !== ${JSON.stringify(workerUrl)} || !specifier.startsWith('@wow-addon/')) {
+      if (context.parentURL !== ${JSON.stringify(workerUrl)} ||
+          (!specifier.startsWith('@wow-addon/') && !${JSON.stringify([xmlComposition, parentValidation])}.includes(specifier))) {
         return next(specifier, context);
       }
       writeSync(2, ${JSON.stringify(marker)} + specifier + '\\n');
@@ -57,7 +64,7 @@ async function observeWorker(input, use, faults = {}) {
   try {
     await use(client.analyze(input));
     return {imports: stderr.split(/\r?\n/u).filter(line => line.startsWith(marker)).map(line => line.slice(marker.length)),
-      outputBytes};
+      outputBytes, xmlCalled: stderr.includes(xmlCallMarker)};
   } finally {
     await client.close();
   }
@@ -68,16 +75,16 @@ test('TOC worker loads only its fixed SDK module even if an unused module is mis
     const reply = await pending;
     assert.equal(reply.result.parsed.metadata.fileEntries[0].path, 'Core.lua');
     assert.deepEqual(reply.confirmedApiCalls, receipts('parseToc'));
-  }, {[luaModule]: 'missing'});
+  }, {[luaModule]: 'missing', [xmlComposition]: 'missing', [parentValidation]: 'missing'});
   assert.deepEqual(observed.imports, [tocModule]);
 });
 
-test('bounded Lua worker loads only its fixed SDK module', async () => {
+test('bounded Lua worker loads its SDK without XML composition or parent validation', async () => {
   const observed = await observeWorker(request('lua', 'Answer=42'), async pending => {
     const reply = await pending;
     assert.equal(reply.result.result.declarations[0].name, 'Answer');
     assert.deepEqual(reply.confirmedApiCalls, receipts('analyzeLua'));
-  });
+  }, {[xmlComposition]: 'missing', [parentValidation]: 'missing'});
   assert.deepEqual(observed.imports, [luaModule]);
 });
 
@@ -86,7 +93,7 @@ test('corpus Lua launcher leaves SDK initialization to the isolated parser threa
     const reply = await pending;
     assert.equal(reply.result.result.declarations[0].name, 'Answer');
     assert.deepEqual(reply.confirmedApiCalls, receipts('analyzeLua'));
-  });
+  }, {[xmlComposition]: 'missing', [parentValidation]: 'missing'});
   // The parser thread has its own execArgv, so the launcher-only probe cannot count its imports.
   assert.deepEqual(observed.imports, []);
 });
@@ -97,8 +104,23 @@ test('XML worker loads the fixed syntax, provider and inline Lua SDK modules', a
     assert.equal(reply.result.inline[0].analysis.declarations[0].name, 'Answer');
     assert.deepEqual(reply.confirmedApiCalls, receipts('parseXml', 'analyzeXml', 'analyzeLua', 'mapXmlValueRanges'));
   });
-  assert.deepEqual(observed.imports.sort(), [...xmlModules].sort());
+  assert.deepEqual(observed.imports.sort(), [...xmlModules, xmlComposition].sort());
 });
+
+for (const fault of ['missing', 'throwsAtInitialization', 'missingNamedExport']) {
+  test(`XML composition failure (${fault}) exits without a reply or receipts`, async () => {
+    const observed = await observeWorker(request('xml', '<Ui><Script>Answer=42</Script></Ui>'), async pending => {
+      await assert.rejects(pending, error => {
+        assert.equal(error.message, 'graph-analysis-exit');
+        assert.equal(Object.hasOwn(error, 'confirmedApiCalls'), false);
+        return true;
+      });
+    }, {[xmlComposition]: fault, [xmlParser]: 'tracksXmlCall'});
+    assert.ok(observed.imports.includes(xmlComposition));
+    assert.equal(observed.xmlCalled, false);
+    assert.equal(observed.outputBytes, 0);
+  });
+}
 
 for (const fault of ['missing', 'throwsAtInitialization', 'missingNamedExport']) {
   test(`required SDK module failure (${fault}) exits without a reply or receipts`, async () => {

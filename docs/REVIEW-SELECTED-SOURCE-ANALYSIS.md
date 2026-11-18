@@ -51,3 +51,11 @@ The first Windows Node 26.13.1 integration run exited 0 with 64 passes and no sk
 ```powershell
 node --test --test-concurrency=1 tests/selected-source-corpus-launcher.test.mjs
 ```
+
+## Worker initialization by language
+
+The worker imports a small shared receipt module. The TOC and standalone Lua branches initialize their own SDK APIs. The XML branch loads its syntax, provider, inline Lua and composition modules before any SDK invocation can earn receipt credit. The parent retains the full independent result validators. The existing process, fresh-thread and reap limits still apply.
+
+On base `bc061bb`, the tightened import tests exited 1 with four failing cases. TOC and Lua could not initialize when the XML composition or parent validator import was blocked. The XML success case also observed the unnecessary parent validator import. The corrected tests block those imports on each relevant branch and require a real SDK result and receipt. For a missing XML composition module, an initialization exception or an absent named export, the XML test requires an empty response and checks that an instrumented `parseXml` was never invoked.
+
+An isolated Windows Node 24.22.3 comparison (host 53180, exit 0) used the original worker and the implemented worker under the same supervisor. Both worker copies used the same absolute module targets. Three alternating runs per mode matched all 177 candidate replies and API receipts. Each 34-file Lua burst used two child processes and each 25-request mixed workload used 15. The Lua burst median was 7,016.0 ms before and 6,684.1 ms after. The mixed median was 24,957.1 ms before and 16,147.1 ms after. These are small authored samples under variable Windows host load. Installed throughput still requires a separate full run.
