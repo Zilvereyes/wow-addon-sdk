@@ -1,0 +1,245 @@
+diff --git scripts/prototype-analysis-client.mjs scripts/prototype-analysis-client.mjs
+index 7d98f3b..bacfb25 100644
+--- scripts/prototype-analysis-client.mjs
++++ scripts/prototype-analysis-client.mjs
+@@ -1,10 +1,10 @@
+-/** Supervised private graph parser port; a corpus Lua launcher owns one parser thread at a time. */
++/** Isolated benchmark prototype with one reusable child per parser heap class. */
+ import {spawn} from 'node:child_process';
+ import {fileURLToPath} from 'node:url';
+ import {performance} from 'node:perf_hooks';
+ import {snapshotGraphAnalysisRequest, verifyGraphAnalysisReply, exact} from './selected-source-analysis.mjs';
+
+-const worker = fileURLToPath(new URL('./selected-source-analysis-worker.mjs', import.meta.url));
++const worker = fileURLToPath(new URL('./prototype-analysis-worker.mjs', import.meta.url));
+ const corpusRequestLimit = 32;
+
+ function decodeReply(chunks, bytes, id, request) {
+@@ -27,7 +27,9 @@ export function createGraphAnalyzer({spawnProcess = spawn, now = () => performan
+   timeoutMs = 60000, maxOutputBytes = 128 * 1024 * 1024} = {}) {
+   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60000 ||
+       !Number.isSafeInteger(maxOutputBytes) || maxOutputBytes < 1 || maxOutputBytes > 128 * 1024 * 1024) throw Error('graph-analysis-limits');
+-  let closed = false, busy = false, sequence = 0, launcher = null;
++  let closed = false, busy = false, sequence = 0;
++  let reapDeadline = null, faultVersion = 0, lastFault;
++  const launchers = new Map();
+   const children = new Set();
+   async function waitFor(states, deadline, code) {
+     let timer;
+@@ -38,26 +40,49 @@ export function createGraphAnalyzer({spawnProcess = spawn, now = () => performan
+       if (now() >= deadline) throw Error(code);
+     } finally { clearTimeout(timer); }
+   }
+-  function start(language, corpus) {
++  function start(language, pool = null) {
+     const env = {...process.env}; delete env.NODE_OPTIONS; delete env.NODE_TEST_CONTEXT; delete env.NODE_V8_COVERAGE;
+-    const flags = corpus ? ['--max-old-space-size=2048'] : language === 'lua' ?
++    const flags = pool === 'lua' ? ['--max-old-space-size=2048'] : language === 'lua' ?
+       ['--max-old-space-size=128', '--stack_size=1024'] : ['--max-old-space-size=256'];
+     const args = [...flags, worker];
+-    if (corpus) args.push('--corpus-launcher');
++    if (pool) args.push(pool === 'lua' ? '--corpus-launcher' : '--xml-toc-launcher');
+     let child;
+     try {child = spawnProcess(process.execPath, args, {stdio: ['pipe', 'pipe', 'pipe'], shell: false, windowsHide: true, env});}
+     catch {throw Error('graph-analysis-start');}
+-    const state = {child, done: null, fail: null}; children.add(state);
+-    state.done = new Promise(resolve => child.once('close', () => {children.delete(state); resolve();}));
++    const state = {child, pool, done: null, fail: null}; children.add(state);
++    state.done = new Promise(resolve => child.once('close', () => {
++      children.delete(state);
++      if (!children.size) reapDeadline = null;
++      resolve();
++    }));
+     return state;
+   }
+-  function startLauncher() {
+-    const state = start('lua', true);
++  function forgetLauncher(state) {
++    if (launchers.get(state.pool) === state) launchers.delete(state.pool);
++  }
++  function recordFault(code) {
++    faultVersion++;
++    lastFault = code;
++    if (children.size) reapDeadline ??= now() + Math.min(timeoutMs, 10000);
++  }
++  function abortLaunchers(code, source) {
++    if (source && !children.has(source) && !source.pending && !launchers.size) return;
++    recordFault(code);
++    source?.pending?.fail(code);
++    for (const state of children) if (state.pool) {
++      state.pending?.fail(code);
++      state.retire(true);
++    }
++  }
++  function startLauncher(language, pool) {
++    let state;
++    try {state = start(language, pool);}
++    catch (error) {abortLaunchers('graph-analysis-start'); throw error;}
+     const {child} = state;
+     state.requests = 0; state.pending = null; state.stdoutEnded = false; state.exited = false;
+     let ending = false, signalled = false;
+     state.retire = terminate => {
+-      if (launcher === state) launcher = null;
++      forgetLauncher(state);
+       if (!children.has(state)) return;
+       if (terminate) {
+         if (signalled) return;
+@@ -72,8 +97,7 @@ export function createGraphAnalyzer({spawnProcess = spawn, now = () => performan
+       }
+     };
+     state.fail = code => {
+-      state.pending?.fail(code);
+-      state.retire(true);
++      if (!signalled) abortLaunchers(code, state);
+     };
+     child.stderr.resume();
+     child.on('error', () => state.fail('graph-analysis-start'));
+@@ -84,25 +108,27 @@ export function createGraphAnalyzer({spawnProcess = spawn, now = () => performan
+       state.stdoutEnded = true;
+       if (state.pending) {
+         if (!state.pending.hasFrame) state.fail('graph-analysis-exit');
+-      } else if (!ending) state.retire(true);
++      } else if (!ending && !signalled) state.fail('graph-analysis-exit');
+     });
+     child.stdout.on('data', chunk => {
+       if (state.pending) state.pending.receive(chunk);
+-      else state.retire(true);
++      else if (!signalled) state.fail('graph-analysis-invariant');
+     });
+     child.once('exit', () => {
+       state.exited = true;
+       // Pipes can outlive the process exit. Ownership ends only on close.
+-      if (launcher === state) launcher = null;
++      forgetLauncher(state);
++      if (!state.pending && !ending && !signalled) state.fail('graph-analysis-exit');
+     });
+     child.once('close', code => {
+-      if (launcher === state) launcher = null;
+-      state.pending?.close(code);
++      forgetLauncher(state);
++      if (state.pending) state.pending.close(code);
++      else if (!signalled && (!ending || code !== 0)) abortLaunchers('graph-analysis-exit');
+     });
+-    launcher = state;
++    launchers.set(pool, state);
+     return state;
+   }
+-  function submitCorpus(state, request, id, payload, deadline, outputCap) {
++  function submitLauncher(state, request, id, payload, deadline, outputCap) {
+     return new Promise((resolve, reject) => {
+       let bytes = 0, frameTurn, checked, closedCode;
+       const chunks = [];
+@@ -118,7 +144,11 @@ export function createGraphAnalyzer({spawnProcess = spawn, now = () => performan
+       }
+       function complete() {
+         if (now() >= deadline) {state.fail('graph-analysis-timeout'); return;}
+-        if (checked.failure !== null) finish(replyError(checked));
++        if (checked.failure !== null) {
++          const error = replyError(checked);
++          finish(error);
++          abortLaunchers(error.message);
++        }
+         else finish(null, checked);
+       }
+       function verify() {
+@@ -132,7 +162,7 @@ export function createGraphAnalyzer({spawnProcess = spawn, now = () => performan
+           state.fail('graph-analysis-exit'); return;
+         }
+         if (!retiring || closedCode === 0) complete();
+-        else if (launcher === state) launcher = null;
++        else forgetLauncher(state);
+       }
+       const pending = {
+         hasFrame: false,
+@@ -181,20 +211,24 @@ export function createGraphAnalyzer({spawnProcess = spawn, now = () => performan
+         const deadline = began + Math.min(remainingMilliseconds, timeoutMs, corpus ? 60000 : 10000);
+         const outputCap = Math.min(maxOutputBytes, (corpus ? 128 : 32) * 1024 * 1024);
+         const id = ++sequence, payload = JSON.stringify({id, ...request}) + '\n';
+-        if (!corpus) launcher?.retire(false);
++        const pool = corpus ? 'lua' : request.language === 'lua' ? null : 'toc-xml';
++        const initialFaultVersion = faultVersion;
++        if (pool === null) for (const state of launchers.values()) state.retire(false);
+         while (true) {
+-          const retiring = [...children].filter(state => state !== launcher);
++          const retiring = [...children].filter(state => launchers.get(state.pool) !== state);
+           if (!retiring.length) break;
+-          try {await waitFor(retiring, deadline, 'graph-analysis-timeout');}
++          try {await waitFor(retiring, Math.min(deadline, reapDeadline ?? deadline), 'graph-analysis-timeout');}
+           catch (error) {
+             for (const state of retiring) state.fail?.('graph-analysis-timeout');
+             throw error;
+           }
+         }
++        if (initialFaultVersion !== faultVersion) throw Error(lastFault);
+         if (closed) throw Error('graph-analysis-closed');
+         if (now() >= deadline) throw Error('graph-analysis-timeout');
+-        if (corpus) return await submitCorpus(launcher ?? startLauncher(), request, id, payload, deadline, outputCap);
+-        const state = start(request.language, false), {child} = state;
++        if (pool) return await submitLauncher(launchers.get(pool) ?? startLauncher(request.language, pool),
++          request, id, payload, deadline, outputCap);
++        const state = start(request.language), {child} = state;
+         return await new Promise((resolve, reject) => {
+           let settled = false, timer, bytes = 0; const chunks = [];
+           const fail = code => {
+@@ -234,15 +268,19 @@ export function createGraphAnalyzer({spawnProcess = spawn, now = () => performan
+     async close() {
+       closed = true;
+       const states = [...children];
++      if (!states.length) return;
++      const deadline = reapDeadline ??= now() + Math.min(timeoutMs, 10000);
++      const initialFaultVersion = faultVersion;
+       for (const state of states) {
+-        if (state === launcher && !state.pending) state.retire(false);
++        if (launchers.get(state.pool) === state && !state.pending) state.retire(false);
+         else state.fail?.('graph-analysis-closed');
+       }
+-      try {await waitFor(states, now() + Math.min(timeoutMs, 10000), 'graph-analysis-reap');}
++      try {await waitFor(states, deadline, 'graph-analysis-reap');}
+       catch (error) {
+         for (const state of states) state.fail?.('graph-analysis-closed');
+         throw error;
+       }
++      if (initialFaultVersion !== faultVersion && lastFault !== 'graph-analysis-closed') throw Error(lastFault);
+     },
+   };
+ }
+diff --git scripts/prototype-analysis-worker.mjs scripts/prototype-analysis-worker.mjs
+index f1fbda8..fb93630 100644
+--- scripts/prototype-analysis-worker.mjs
++++ scripts/prototype-analysis-worker.mjs
+@@ -1,4 +1,4 @@
+-/** Fixed graph worker with an opt-in launcher for sequential corpus Lua requests. */
++/** Isolated benchmark prototype. Each reusable child starts fresh parser threads. */
+ import {Worker, isMainThread, parentPort, workerData} from 'node:worker_threads';
+ import {createInterface} from 'node:readline';
+ import {emptyGraphCalls} from './selected-source-analysis-receipts.mjs';
+@@ -75,7 +75,8 @@ async function analyze(request) {
+ if (!isMainThread) parentPort.postMessage(await analyze(workerData));
+ else {
+   const corpusLauncher = process.argv[2] === '--corpus-launcher';
+-  const maxRequests = corpusLauncher ? 32 : 1;
++  const tocXmlLauncher = process.argv[2] === '--xml-toc-launcher';
++  const maxRequests = corpusLauncher || tocXmlLauncher ? 32 : 1;
+   const input = createInterface({input: process.stdin, crlfDelay: Infinity});
+   let requests = 0;
+   for await (const line of input) {
+@@ -83,12 +84,15 @@ else {
+       const request = JSON.parse(line);
+       const isCorpusLua = request.language === 'lua' && request.luaProfile === 'corpus';
+       if (corpusLauncher && !isCorpusLua) throw Error('Expected corpus Lua request.');
++      if (tocXmlLauncher && request.language !== 'toc' && request.language !== 'xml') {
++        throw Error('Expected TOC or XML request.');
++      }
+       let reply;
+-      if (isCorpusLua) {
+-        // The actual API wrapper and receipts run in the 8MiB parser stack,
+-        // not around postMessage (which would only confirm message submission).
++      if (isCorpusLua || tocXmlLauncher) {
++        const resourceLimits = isCorpusLua ? {maxOldGenerationSizeMb: 2048, stackSizeMb: 8} :
++          {maxOldGenerationSizeMb: 256};
+         const thread = new Worker(new URL(import.meta.url), {workerData: request, execArgv: [],
+-          resourceLimits: {maxOldGenerationSizeMb: 2048, stackSizeMb: 8}});
++          resourceLimits});
+         try {
+           reply = await new Promise((resolve, reject) => {
+             thread.once('message', resolve); thread.once('error', reject);
