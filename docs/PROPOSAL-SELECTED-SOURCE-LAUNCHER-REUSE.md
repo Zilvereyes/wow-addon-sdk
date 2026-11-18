@@ -87,3 +87,15 @@ The corrected Windows Node 24.22.3 smoke pair (13894) exited 0 on SDK merge comm
 | Final source and directory verification | 694 ms | 402 ms |
 
 The overall time includes host setup, graph work, reply digesting and publication. This single pair establishes equivalent completed work in the short fixture. Timing on the local Windows host varied between runs, and the smoke pair is too small to predict installed throughput or launcher memory. Production launcher adoption and Classic Era acceptance remain open in [#11](https://github.com/Zilvereyes/wow-addon-sdk/issues/11).
+
+The four-group Windows Node 24.22.3 pair (`--ab`, host session 26509) exited 0. Both variants returned the same reply digest and aggregate with 8 TOC, 49 standalone Lua and 12 XML syntax verdicts, and 24 mapped inline bodies. No source request failed or was skipped before a syntax verdict. The 69 source fingerprints and 9 directory fingerprints matched for each variant. All 24 unknown XML declaration activations remained visible, so the aggregate returned `incomplete`. The first Lua burst crossed the 32-request rotation boundary.
+
+| Measured phase | Stock | Split prototype |
+|---|---:|---:|
+| Complete graph wall time | 103,571 ms | 71,603 ms |
+| TOC analyzer calls | 18,363 ms | 8,171 ms |
+| Lua analyzer calls | 36,063 ms | 41,090 ms |
+| XML analyzer calls | 36,548 ms | 8,877 ms |
+| Final source and directory verification | 3,768 ms | 3,476 ms |
+
+The observed wall-time reduction was 30.9%. The split variant spent more time in standalone Lua calls, which already reuse a launcher in the stock implementation. This single A/B pair provides evidence of a complete authored traversal with integrity checks. A counterbalanced run can test repeatability. The installed workload remains open and launcher adoption still requires a production design decision.
