@@ -362,3 +362,20 @@ The guarded Windows Node 24.22.3 run at `6c7d7d5219b182f44ae26bc9043fb6f19f2e342
 The deadline arrived during a source read. Three XML requests had no reply at the analyzer port. The observer counts these rejections and supplies no per-rejection reason. It recorded 43,700 Windows attribute requests covering 54,702 rows in 114,331 ms. This attribute time overlaps native discovery and read phases. The first denial held 200,406 retained records and 25,229,365 UTF-16 units. The operation never reached final source or directory verification and returned no parser aggregate. Stage 7 remains open.
 
 The two full observations traversed different prefixes and took different wall time at equal submission checkpoints. The registered authored comparison establishes the helper change on fixed work. The installed data directs the next timing pass to the Lua and XML analyzer ports, which together took 691,100 ms, and to the three XML rejections. Use a fixed Windows fixture with a bounded Lua burst, XML with and without inline bodies, and a controlled late reply. Capture process startup, first frame, import and parser duration, parent projection and acknowledged close in the analyzer client/worker path. Compare exact replies and API receipts and classify only fixed transport error codes. Keep the full read-only request and 900-second acceptance unchanged.
+
+## Read-only XML isolation from the prior replay
+
+Windows Node 24.22.3 host session 62043 ran a temporary observer on `b77f8ede13186d5dec66905783207161e5cef862`. The 16-file runtime identity matched the earlier helper replay, including the registered helper bytes. The observer selected the 189 XML files from the earlier private ledger. It used the same XML and inline policies, matched requester IDs by their containing AddOn directories and passed an empty inherited condition list. The run used the native read-only port and the production supervised XML worker.
+
+| Measure | Count |
+| --- | ---: |
+| Ledger XML entries and first-read byte matches | 189 |
+| SDK parse returns confirmed by the supervisor | 189 |
+| Complete XML syntax / provider projections | 187 / 187 |
+| Syntax diagnostics | 2 `XML0002` |
+| Inline analysis rows, including skipped rows | 632 |
+| Transport rejections, files skipped, and invariant failures | 0 |
+| Native read-only opens, initial and verification | 378 |
+| Files passing native source reread verification | 189 |
+
+The corrected isolated run exited 0 after 168,650 ms, including 136,737 ms in analyzer calls. The exit establishes transport, projection and source integrity for this sample. The two syntax diagnostics remain. A first observer exited 1 before opening any file because it rewrote the native Windows path separators. The native read port requires its exact resolved identity. The corrected observer uses the unchanged ledger paths. The three original graph transport rejections did not recur. This scope does not recreate inherited TOC conditions, language transitions or the original global budget pressure. Stage 7 still requires the full original graph and final graph integrity. [Aggregate receipt](evidence/selected-source-xml-isolation-2026-11-18.json)
