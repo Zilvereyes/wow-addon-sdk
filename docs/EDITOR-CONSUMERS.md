@@ -11,4 +11,3 @@
 The editor owns the file layout, game policy and diagnostic lifecycle. The SDK supplies parsing and source ranges through its public beta API. The [VS Code test](https://github.com/Zilvereyes/vscode-wow-toc/blob/1282e2ca9ca3776ec32c4366cc145548f8a8c194/tests/client-aware-xml-editor.cjs) switches between Classic Era and Retail in one workspace and verifies that Problems reflects the newly selected client.
 
 See the extension's [build instructions](https://github.com/Zilvereyes/vscode-wow-toc/blob/1282e2ca9ca3776ec32c4366cc145548f8a8c194/README.md#sdk-dependency) to reproduce the pinned build.
-
