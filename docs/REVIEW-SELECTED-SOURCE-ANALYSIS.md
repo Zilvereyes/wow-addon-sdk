@@ -59,3 +59,24 @@ The worker imports a small shared receipt module. The TOC and standalone Lua bra
 On base `bc061bb`, the tightened import tests exited 1 with four failing cases. TOC and Lua could not initialize when the XML composition or parent validator import was blocked. The XML success case also observed the unnecessary parent validator import. The corrected tests block those imports on each relevant branch and require a real SDK result and receipt. For a missing XML composition module, an initialization exception or an absent named export, the XML test requires an empty response and checks that an instrumented `parseXml` was never invoked.
 
 An isolated Windows Node 24.22.3 comparison (host 53180, exit 0) used the original worker and the implemented worker under the same supervisor. Both worker copies used the same absolute module targets. Three alternating runs per mode matched all 177 candidate replies and API receipts. Each 34-file Lua burst used two child processes and each 25-request mixed workload used 15. The Lua burst median was 7,016.0 ms before and 6,684.1 ms after. The mixed median was 24,957.1 ms before and 16,147.1 ms after. These are small authored samples under variable Windows host load. Installed throughput still requires a separate full run.
+
+## Language switching on Windows
+
+The authored supervisor benchmark used 13 Lua files, three TOCs and three XML files on Windows Node 24.22.3 at `5f50238`. It compared grouped and alternating input with the same requests, two series per order in grouped–mixed–mixed–grouped order. All 76 validated responses matched by authored source, including full SDK replies and API receipts. Every process closed successfully before the next process started. [Runnable benchmark](proposals/selected-source-language-switch-benchmark.mjs)
+
+```powershell
+node docs/proposals/selected-source-language-switch-benchmark.mjs
+```
+
+| Series | Requests | Lua launchers | One-shot processes | Total |
+| --- | ---: | ---: | ---: | ---: |
+| Grouped 1 | 19 | 1 | 6 | 4,044 ms |
+| Mixed 1 | 19 | 4 | 6 | 15,063 ms |
+| Mixed 2 | 19 | 4 | 6 | 42,094 ms |
+| Grouped 2 | 19 | 1 | 6 | 11,679 ms |
+
+The mixed runs recorded six switch-related launcher retirements through acknowledged close at 18–264 ms. Three extra launchers per mixed series had to reach first output. The TOC and XML one-shot timings also varied across series. An earlier longer authored attempt exited 1 on a one-shot deadline. A separate eight-request observation exited 0, with bare Node startup and close at 1,667 and 2,603 ms. These observations establish the extra process starts and bound the samples above. Installed timing and the causal wall-clock cost of a new launcher policy remain open.
+
+The checked-in benchmark path reran successfully on the same runtime sources. Grouped totals were 2,374 and 2,495 ms, while mixed totals were 2,617 and 2,729 ms. Launcher counts and all reply bytes matched the earlier observation. Switch retirements completed in 13–14 ms in these two mixed series. These lower times show how strongly the first series varied with host conditions.
+
+The next private observer records actual language transitions and launcher starts under the existing policy. It reports only counts and phase timings. This will establish the frequency of this cost in the installed request and show whether the next review should focus on Lua launcher lifetime or one-shot startup. A change to the approved process lifetime or concurrency requires a separate design decision. Stage 7 still requires the original full request, final integrity and policy-bound accounting.

@@ -254,11 +254,36 @@ test('corpus response cap resets per request and idle output retires the launche
   } finally { await harness.close(); }
 });
 
-test('real corpus process rotates at 32 and reaps before bounded Lua', async () => {
-  const children = [], closed = new Set();
+const threadEventMarker = 'graph-thread-event:';
+const threadObserver = 'data:text/javascript;base64,' + Buffer.from(String.raw`
+import { createRequire, syncBuiltinESMExports } from 'node:module';
+const threads = createRequire(process.argv[1])('node:worker_threads');
+const emit = row => process.stderr.write('graph-thread-event:' + JSON.stringify(row) + '\n');
+threads.Worker = class ObservedWorker extends threads.Worker {
+  constructor(entry, options) {
+    super(entry, options);
+    const { id } = options.workerData;
+    const threadId = this.threadId;
+    const { maxOldGenerationSizeMb, stackSizeMb } = this.resourceLimits;
+    emit(['create', id, threadId, maxOldGenerationSizeMb, stackSizeMb]);
+    this.once('exit', () => emit(['exit', id, threadId]));
+  }
+};
+syncBuiltinESMExports();
+const write = process.stdout.write;
+process.stdout.write = function(frame, ...args) {
+  emit(['reply', JSON.parse(frame).id]);
+  return write.call(this, frame, ...args);
+};
+`).toString('base64');
+
+test('real corpus process uses fresh reaped parser threads and rotates after 32 files', async () => {
+  const children = [], closed = new Set(), eventText = new Map();
   const client = createGraphAnalyzer({spawnProcess(executable, args, options) {
     assert.ok(children.every(child => closed.has(child)));
-    const child = spawn(executable, args, options);
+    const child = spawn(executable, ['--import', threadObserver, ...args], options);
+    eventText.set(child, '');
+    child.stderr.setEncoding('utf8').on('data', chunk => eventText.set(child, eventText.get(child) + chunk));
     child.once('close', () => closed.add(child));
     children.push(child);
     return child;
@@ -278,4 +303,23 @@ test('real corpus process rotates at 32 and reaps before bounded Lua', async () 
     assert.equal(children.length, 3);
   } finally { await client.close(); }
   assert.equal(closed.size, children.length);
+  const parseEvents = child => eventText.get(child).split(/\r?\n/u)
+    .filter(line => line.startsWith(threadEventMarker))
+    .map(line => JSON.parse(line.slice(threadEventMarker.length)));
+  for (const [index, firstId, count] of [[0, 1, 32], [1, 33, 1]]) {
+    const events = parseEvents(children[index]);
+    const threadIds = new Set();
+    assert.equal(events.length, count * 3);
+    for (let offset = 0; offset < count; offset++) {
+      const id = firstId + offset;
+      const [created, exited, replied] = events.slice(offset * 3, offset * 3 + 3);
+      const threadId = created[2];
+      assert.ok(Number.isSafeInteger(threadId) && threadId > 0 && !threadIds.has(threadId));
+      threadIds.add(threadId);
+      assert.deepEqual(created, ['create', id, threadId, 2048, 8]);
+      assert.deepEqual(exited, ['exit', id, threadId]);
+      assert.deepEqual(replied, ['reply', id]);
+    }
+  }
+  assert.deepEqual(parseEvents(children[2]), [['reply', 34]]);
 });

@@ -479,3 +479,7 @@ The staged TOC probe now checks the full eight-scenario manifest and 40 payload 
 ## Editor lookup diagnostic control
 
 At `vscode-wow-toc` revision `2598cc8474bfdf44c1b8fb2ae22c9326332cbe53`, an authored Node 24.22.3 check of the current `findMissingXmlReferences` adapter and local SDK bundle exited 0. The missing encoded Include produced one warning candidate spanning zero-based line 1, UTF-16 columns 29–46 with exclusive end. The unresolved Classic Era manifest branch never reached lookup. An authored `EACCES` result reached the lookup failure branch and produced no missing-file candidate. This provider control exercised temporary fixtures. The extension's pinned public SDK entry points and actual editor validation are recorded in [the editor integration guide](EDITOR-CONSUMERS.md).
+
+## Corpus Lua thread lifetime control
+
+On Windows Node 24.22.3, the strengthened launcher test observes actual `Worker` creation, exit and the launcher frame in the same child process. The normal run passed all 12 launcher cases. The real 33-file case checks a unique thread ID per request, the approved 2,048 MiB old generation and 8 MiB stack, thread exit before each reply, process close at 32, and the separate bounded Lua path. On an isolated copy of `5f50238`, one authored request skipped thread creation while preserving its parser reply. The previous test passed, and the strengthened test failed with two missing lifecycle events. The synthetic mutation stayed in the temporary copy.
