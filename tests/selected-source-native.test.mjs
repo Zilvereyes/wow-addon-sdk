@@ -115,6 +115,57 @@ test('cached directory changes block content opening even when the requested byt
   }finally{await host.close();}
 }));
 
+test('native failure observations distinguish a changed root snapshot from later verification failures',()=>fixture(async root=>{
+  const events=[];
+  let opens=0;
+  const io={...fs,openSync(...args){opens++;return fs.openSync(...args);}};
+  const host=await createGraphFileHost(root,context(),{io,inspectorFactory:null,onFailure(event){
+    events.push(event);
+    throw Error('Observer failure must leave the native outcome intact');
+  }});
+  try{
+    const sourcePath=path.join('Demo','Core.lua');
+    const directory=await host.listDirectory('');
+    const source=await host.readSource(sourcePath,64);
+    assert.equal(await host.verifySource(sourcePath,source.fingerprint,64),true);
+    assert.deepEqual(events,[]);
+    assert.equal(await host.verifyDirectory('','unissued'),false);
+    fs.writeFileSync(path.join(root,'AuthoredSibling.txt'),'Changes the root directory only.');
+    const before=opens;
+    await assert.rejects(host.readSource(sourcePath,64),{code:'graph-native-changed'});
+    assert.equal(await host.verifySource(sourcePath,source.fingerprint,64),false);
+    assert.equal(await host.verifyDirectory('',directory.fingerprint),false);
+    assert.equal(opens,before);
+    assert.deepEqual(events,[
+      {operation:'verifyDirectory',outcome:'mismatch',code:null,check:'unissued-fingerprint'},
+      {operation:'readSource',outcome:'rejected',code:'graph-native-changed',check:'root-directory-stamp'},
+      {operation:'verifySource',outcome:'mismatch',code:'graph-native-changed',check:'root-directory-invalidated'},
+      {operation:'verifyDirectory',outcome:'mismatch',code:null,check:'directory-fingerprint'},
+    ]);
+  }finally{await host.close();}
+}));
+
+test('native failure observations omit operating-system error details',()=>fixture(async root=>{
+  const events=[];
+  let blocked=false;
+  const io={...fs,lstatSync(absolute,options){
+    if(blocked)throw Object.assign(Error('Unavailable: '+absolute),{code:'EACCES',path:absolute});
+    return fs.lstatSync(absolute,options);
+  }};
+  const host=await createGraphFileHost(root,context(),{io,inspectorFactory:null,onFailure:event=>events.push(event)});
+  try{
+    const sourcePath=path.join('Demo','Core.lua');
+    const source=await host.readSource(sourcePath,64);
+    blocked=true;
+    assert.equal(await host.verifySource(sourcePath,source.fingerprint,64),false);
+    await assert.rejects(host.readSource(sourcePath,64),{code:'graph-native-changed'});
+    assert.deepEqual(events,[
+      {operation:'verifySource',outcome:'mismatch',code:'graph-native-io',check:null},
+      {operation:'readSource',outcome:'rejected',code:'graph-native-changed',check:'source-invalidated'},
+    ]);
+  }finally{await host.close();}
+}));
+
 test('warm source reads coalesce only unchanged adjacent root attribute checks',()=>fixture(async root=>{
   const opensAtRootInspection=[],rootBatches=[];
   let rootStats=0,opens=0,changeOnInspection=false,rootChanged=false;
