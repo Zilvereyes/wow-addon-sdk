@@ -6,7 +6,7 @@ $utf8 = New-Object System.Text.UTF8Encoding($false, $true)
 [Console]::OutputEncoding = $utf8
 try {
     while ($true) {
-        $line = New-Object System.Text.StringBuilder
+        $line = [System.Text.StringBuilder]::new()
         while ($true) {
             $unit = [Console]::In.Read()
             if ($unit -eq -1) {

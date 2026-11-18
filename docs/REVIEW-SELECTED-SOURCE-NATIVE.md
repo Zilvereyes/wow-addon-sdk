@@ -17,7 +17,7 @@ This is the approved stable-installation adapter, not an atomic hostile-filesyst
 
 The owning Workbench archive was searched first (no existing matching component). The single inseparable script has no executable member dependencies or functions; its complete command/variable/stream/control-flow contract is [recorded](workbench/selected-source-path.contract.json). A draft0.1.0 was registered, reviewed/resolved1.0.0 followed, then immutable revision1.0.1 normalized the checkout to the repository's existing CRLF requirement. No cache/archive records were rewritten.
 
-Current component8966c355-7324-4aba-966f-542309e2581a, version1.0.1, SHA256 **ae058c154e3d17debcd3e4843eeb122495d0dd6f81d9a8e54fa23aa614a2c9c6**. [Public registration pin](workbench/selected-source-path.registration.json) contains no private archive/provenance path. The launcher checks these actual checkout bytes before spawning; Git's normalized blob bytes are distinct from the CRLF checkout bytes. Hashes prove integrity, not authorization.
+Original checkpoint component8966c355-7324-4aba-966f-542309e2581a, version1.0.1, SHA256 **ae058c154e3d17debcd3e4843eeb122495d0dd6f81d9a8e54fa23aa614a2c9c6**. [Original registration pin](https://github.com/Zilvereyes/wow-addon-sdk/blob/dd4da4daef34052f698535bea7d40dd5309fa25b/docs/workbench/selected-source-path.registration.json) contains no private archive/provenance path. The launcher checks these actual checkout bytes before spawning; Git's normalized blob bytes are distinct from the CRLF checkout bytes. Hashes prove integrity, not authorization.
 
 Executed checkpoints, actual exit0:
 
@@ -43,3 +43,29 @@ Final local host95658, Windows Node26.13.1: actual final exit0, **453total/449pa
 ## Subsequent approved helper deadline amendment
 
 The ten-second inspect preset and hashes above describe the accepted fc2cb8e native checkpoint. Parser checkpoint c86d338 subsequently retained a native helper startup failure in local full host51592 and Windows24 PR job134378253088; no installed input was read and no failed result gained credit. The user explicitly approved [A–D](https://github.com/Zilvereyes/wow-addon-sdk/pull/30#issuecomment-6961659940): fixed inspect maximum/default30seconds including startup/replacement, clamped to remaining operation time, with independent10second close and replacement reaping. Post-wait absolute deadlines reject late acknowledgements even before an overdue timer callback fires. There is no automatic retry or change to PS bytes/argv/path rules/overall budget/Lua/XML limits. Four deterministic transport regressions and actual native fixtures are required, with final commands and exact-head CI in [the parser record](REVIEW-SELECTED-SOURCE-ANALYSIS.md) and PR30. Historical failures remain failures; the whole graph/corpus goal remains open.
+
+## Windows inspection phases and helper allocation
+
+On runtime `dd4da4d`, the authored Windows Node 24.22.3 profile listed 49 nested directories twice, read 32 Lua sources, then verified every directory and source fingerprint. Both listings and all authored source bytes matched. The observer counts the real stock Windows inspector calls by their native caller. It reports only aggregate numbers.
+
+```powershell
+node docs/proposals/selected-source-native-attribute-profile.mjs
+```
+
+| Attribute call site | Helper calls | Rows |
+| --- | ---: | ---: |
+| Root ancestors after bootstrap | 1,925 | 1,925 |
+| Cached-directory validation | 577 | 577 |
+| Matched path components | 544 | 544 |
+| Directory scan boundaries | 196 | 196 |
+| Directory entry batches | 98 | 864 |
+| Source read boundaries | 128 | 128 |
+| Initial root bootstrap | 7 | 7 |
+
+The root walks are a large part of this workload. Each path still receives the approved native attributes and canonical/identity checks in the same order. The helper now constructs its per-request StringBuilder directly through the stock .NET constructor. Its framing, UTF-8 policy, per-request bounds, request validation and attribute API call stay in place.
+
+The initial constructor comparison ran in an isolated authored fixture before Workbench registration. The review used the subsequent comparison with exact-byte gates for both execution artifacts. Each of four Windows Node 24.22.3 series issued 500 singleton and 16 batched requests to the real helper. All 788 rows per series matched, including the explicit missing-path and junction cases. Stock `1.0.1` took 2,370 and 1,971 ms. Registered `1.0.2` took 1,388 and 1,463 ms. These timings measure the authored transport workload.
+
+Workbench component `8966c355-7324-4aba-966f-542309e2581a` version `1.0.2` passed its exact-source gate. `powershell.exe` and `pwsh.exe` both parsed the candidate with exit 0 and the automatic-variable check passed. The contract now records the approved 30-second inspection deadline and the separate 10-second close/reap deadline. The earlier source pin and its historical evidence remain recorded above. [Current source pin](workbench/selected-source-path.registration.json) · [Current helper contract](workbench/selected-source-path.contract.json)
+
+On Windows Node 24.22.3, after gating the checked-out helper, the native, retention, cache-pressure and Windows transport suites passed 64 cases with one Linux-only skip and zero failures. The updated helper also passed the authored directory/source profile. Every phase retained its original call and row count, with 3,475 attribute requests and 4,241 rows overall. The installed corpus will be replayed with the original operation budget and the new helper and registration bytes included in its runtime source identity.
