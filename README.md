@@ -59,6 +59,8 @@ console.log(listGlobals(registry)); // ['ZUI_DB', 'ZUI_Character']
 
 See [architecture](docs/ARCHITECTURE.md), [diagnostic codes](docs/DIAGNOSTIC-CODES.md), and the [v0.1 → v0.2 migration guide](docs/MIGRATION-v0.1-to-v0.2.md).
 
+See the [Zilvereyes WoW TOC integration](docs/EDITOR-CONSUMERS.md) for a VS Code consumer pinned to SDK 0.7.0.
+
 ## Validation
 
 ```powershell
