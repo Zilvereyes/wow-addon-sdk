@@ -47,33 +47,49 @@ test('probe generation produces a complete hashed matrix without asserting obser
   assert.equal(manifest.schemaVersion, 1);
   assert.equal(manifest.interfaceVersion, '11508');
   assert.equal(manifest.runtimeVerified, false);
-  assert.equal(manifest.scenarios.length, 8);
-  assert.ok(manifest.scenarios.every(s => !Object.hasOwn(s, 'winner')));
-  assert.deepEqual(manifest.scenarios.find(s => s.id === 'EraAll').suffixes, ['Vanilla', 'Classic', null]);
-  assert.deepEqual(manifest.scenarios.find(s => s.id === 'MainlineAll').suffixes, ['Standard', 'Mainline', null]);
-  assert.deepEqual(manifest.scenarios.find(s => s.id === 'FutureFallback').suffixes, ['SDKFuture', null]);
-  const paths = new Set();
+  const scenarios = [
+    { id: 'EraAll', suffixes: ['Vanilla', 'Classic', null] },
+    { id: 'EraFamily', suffixes: ['Classic', null] },
+    { id: 'EraSpecific', suffixes: ['Vanilla', null] },
+    { id: 'MainlineAll', suffixes: ['Standard', 'Mainline', null] },
+    { id: 'MainlineFamily', suffixes: ['Mainline', null] },
+    { id: 'Unsuffixed', suffixes: [null] },
+    { id: 'FutureFallback', suffixes: ['SDKFuture', null] },
+    { id: 'Headings', suffixes: [null] },
+  ];
+  assert.deepEqual(manifest.scenarios, scenarios);
+  const expectedPaths = [];
+  const expectedTocs = new Map();
+  for (const { id, suffixes } of scenarios) {
+    const folder = `SDKProbe_${id}`;
+    expectedPaths.push(`${folder}/LICENSE`);
+    for (const suffix of suffixes) {
+      const variant = suffix ?? 'unsuffixed';
+      const toc = `${folder}/${folder}${suffix === null ? '' : '_' + suffix}.toc`;
+      const marker = `Probe_${variant}.lua`;
+      expectedTocs.set(toc, { id, variant, marker, folder });
+      expectedPaths.push(toc, `${folder}/${marker}`);
+    }
+  }
+  assert.deepEqual(manifest.files.map(item => item.path).sort(), expectedPaths.sort());
   for (const item of manifest.files) {
-    assert.equal(paths.has(item.path), false);
-    paths.add(item.path);
     const bytes = readProbeFile(out, item.path);
     assert.equal(bytes.length, item.bytes);
     assert.equal(digest(bytes), item.sha256);
-    if (item.path.endsWith('.toc')) {
+    const expected = expectedTocs.get(item.path);
+    if (expected) {
       const parsed = parseToc(bytes.toString('utf8'), item.path);
       // The heading case deliberately captures current strict parser diagnostics.
-      if (item.path.includes('SDKProbe_Headings/')) assert.equal(parsed.diagnostics.filter(d => d.code === 'TOC0001').length, 2);
+      if (expected.id === 'Headings') assert.equal(parsed.diagnostics.filter(d => d.code === 'TOC0001').length, 2);
       else assert.deepEqual(parsed.diagnostics, [], item.path);
       assert.deepEqual(parsed.metadata.interfaceVersions, ['11508']);
-      assert.equal(parsed.metadata.files.length, 1);
-      const markerPath = path.join(path.dirname(item.path), parsed.metadata.files[0]).replaceAll('\\', '/');
-      assert.ok(manifest.files.some(f => f.path === markerPath), markerPath);
+      assert.deepEqual(parsed.metadata.files, [expected.marker], item.path);
+      const markerText = readProbeFile(out, `${expected.folder}/${expected.marker}`).toString('utf8');
+      assert.ok(markerText.includes(`print("SDK_TOC_PROBE|schema=1|case=${expected.id}|variant=${expected.variant}"`), item.path);
       assert.deepEqual(parsed.metadata.savedVariables, []);
       assert.deepEqual(parsed.metadata.savedVariablesPerCharacter, []);
     }
   }
-  assert.equal(manifest.files.filter(f => f.path.endsWith('.toc')).length, 16);
-  assert.equal(manifest.files.filter(f => f.path.endsWith('.lua')).length, 16);
 }));
 
 test('probe output is deterministic and marker Lua only reads runtime values and prints local evidence', () => temporary(root => {

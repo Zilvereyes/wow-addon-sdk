@@ -9,6 +9,22 @@ import { createHash } from 'node:crypto';
 const root = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 const expected = ['diagnostics','addon-metadata','toc-parser','global-registry','toc-metadata-adapter','lua-analysis','xml-parser','xml-analysis'];
 const errors = [];
+const runtimeEntry = './dist/index.js';
+const typeEntry = './dist/index.d.ts';
+const reviewedBackends = {
+  luaparse: {
+    version: '0.3.1',
+    integrity: 'sha512-b21h2bFEbtGXmVqguHogbyrMAA0wOHyp9u/rx+w6Yc9pW1t9YjhGUsp87lYcp7pFRqSWN/PhFkrdIqKEUzRjjQ==',
+  },
+  saxes: {
+    version: '6.0.0',
+    integrity: 'sha512-xAg7SOnEhrm5zI3puOOKyy1OMcMlIJZYNJY7xLBwSze0UjhPLnWfj2GF2EpT0jmzaJKIWKHLsaSSajf35bcYnA==',
+  },
+  xmlchars: {
+    version: '2.2.0',
+    integrity: 'sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==',
+  },
+};
 function checkDependencyFields(manifest, name) {
   for (const field of ['optionalDependencies', 'peerDependencies', 'bundleDependencies', 'bundledDependencies']) {
     if (Object.hasOwn(manifest, field)) errors.push(`${name}: unsupported runtime dependency field ${field}`);
@@ -31,14 +47,17 @@ for (const name of expected) {
   const p = path.join(root,'packages',name,'package.json');
   const pkg = JSON.parse(fs.readFileSync(p,'utf8'));
   checkDependencyFields(pkg, name);
+  if (pkg.type !== 'module') errors.push(`${name}: wrong package.json type`);
+  if (pkg.main !== runtimeEntry) errors.push(`${name}: wrong package.json main`);
+  if (pkg.types !== typeEntry) errors.push(`${name}: wrong package.json types`);
   const keys = Object.keys(pkg.exports ?? {});
   if (keys.length !== 1 || keys[0] !== '.') errors.push(`${name}: exports must expose only '.'`);
   const conditions = Object.keys(pkg.exports?.['.'] ?? {});
   if (conditions.length !== 2 || !conditions.includes('types') || !conditions.includes('default')) {
     errors.push(`${name}: root export conditions must be exactly types and default`);
   }
-  if (pkg.exports?.['.']?.types !== './dist/index.d.ts') errors.push(`${name}: wrong type entry point`);
-  if (pkg.exports?.['.']?.default !== './dist/index.js') errors.push(`${name}: wrong runtime entry point`);
+  if (pkg.exports?.['.']?.types !== typeEntry) errors.push(`${name}: wrong type entry point`);
+  if (pkg.exports?.['.']?.default !== runtimeEntry) errors.push(`${name}: wrong runtime entry point`);
   const publishFiles = name === 'xml-parser' ? ['dist', 'THIRD-PARTY-NOTICES.txt'] : ['dist'];
   if (JSON.stringify(pkg.files) !== JSON.stringify(publishFiles)) errors.push(`${name}: unexpected publish files`);
   if (pkg.license !== 'MIT') errors.push(`${name}: missing MIT license manifest`);
@@ -55,7 +74,7 @@ try {
   const folder = path.dirname(manifestPath);
   checkBackendEntry(manifest, folder, requireFromLua, 'luaparse', 'luaparse.js');
   const hash = file => createHash('sha256').update(fs.readFileSync(path.join(folder, file))).digest('hex');
-  if (manifest.name !== 'luaparse' || manifest.version !== '0.3.1' || manifest.license !== 'MIT' ||
+  if (manifest.name !== 'luaparse' || manifest.version !== reviewedBackends.luaparse.version || manifest.license !== 'MIT' ||
       Object.keys(manifest.dependencies ?? {}).length !== 0) errors.push('Lua backend manifest differs from the reviewed dependency');
   if (Object.keys(manifest.scripts ?? {}).some(name => /^(preinstall|install|postinstall|prepare)$/.test(name))) {
     errors.push('Lua backend has an unreviewed install lifecycle script');
@@ -77,11 +96,11 @@ try {
   checkBackendEntry(saxes, saxesFolder, requireFromXml, 'saxes', 'saxes.js');
   checkBackendEntry(xmlchars, xmlcharsFolder, requireFromXml, 'xmlchars', 'xmlchars.js');
   const hash = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
-  if (saxes.name !== 'saxes' || saxes.version !== '6.0.0' || saxes.license !== 'ISC' ||
+  if (saxes.name !== 'saxes' || saxes.version !== reviewedBackends.saxes.version || saxes.license !== 'ISC' ||
       JSON.stringify(saxes.dependencies) !== JSON.stringify({ xmlchars: '^2.2.0' })) {
     errors.push('XML backend manifest differs from the reviewed dependency');
   }
-  if (xmlchars.name !== 'xmlchars' || xmlchars.version !== '2.2.0' || xmlchars.license !== 'MIT' ||
+  if (xmlchars.name !== 'xmlchars' || xmlchars.version !== reviewedBackends.xmlchars.version || xmlchars.license !== 'MIT' ||
       Object.keys(xmlchars.dependencies ?? {}).length !== 0) errors.push('XML character backend manifest differs from the reviewed dependency');
   if (requireFromSaxes.resolve('xmlchars/package.json') !== xmlcharsManifestPath) {
     errors.push('XML parser resolves a different character backend than its reviewed direct pin');
@@ -117,18 +136,28 @@ try {
       'b794316d83690e28cf0e1d3b618a704fdf331ff775288ad651a149831ee816fe') {
     errors.push('XML third-party notices differ from the complete reviewed license bytes');
   }
+} catch {
+  errors.push('Cannot verify the reviewed XML backend artifacts/licenses');
+}
+try {
   const lock = JSON.parse(fs.readFileSync(path.join(root, 'package-lock.json'), 'utf8'));
-  for (const [name, version, integrity] of [
-    ['saxes', '6.0.0', 'sha512-xAg7SOnEhrm5zI3puOOKyy1OMcMlIJZYNJY7xLBwSze0UjhPLnWfj2GF2EpT0jmzaJKIWKHLsaSSajf35bcYnA=='],
-    ['xmlchars', '2.2.0', 'sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw=='],
-  ]) {
-    const records = Object.entries(lock.packages ?? {}).filter(([key]) => key.endsWith(`node_modules/${name}`));
-    if (records.length !== 1 || records[0][1].version !== version || records[0][1].integrity !== integrity) {
-      errors.push(`XML backend lock artifact differs from reviewed ${name}`);
+  const records = Object.entries(lock.packages ?? {});
+  for (const [name, { version, integrity }] of Object.entries(reviewedBackends)) {
+    const installPath = `node_modules/${name}`;
+    const matches = records.filter(([key]) => key === installPath || key.endsWith(`/${installPath}`));
+    const error = `Backend lock artifact differs from reviewed ${name}`;
+    if (matches.length !== 1 || matches[0][0] !== installPath) {
+      errors.push(`${error} (location)`);
+      continue;
+    }
+    const [, record] = matches[0];
+    const resolved = `https://registry.npmjs.org/${name}/-/${name}-${version}.tgz`;
+    for (const [field, value] of Object.entries({ version, integrity, resolved })) {
+      if (record?.[field] !== value) errors.push(`${error} (${field})`);
     }
   }
 } catch {
-  errors.push('Cannot verify the reviewed XML backend artifacts/licenses');
+  errors.push('Cannot verify the reviewed backend lock artifacts');
 }
 if (errors.length) { errors.forEach(x=>console.error(`PUBLIC EXPORT ERROR: ${x}`)); process.exitCode=1; }
 else console.log(`Public exports PASS: ${expected.length} packages have explicit root entry points`);

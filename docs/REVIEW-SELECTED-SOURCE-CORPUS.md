@@ -334,3 +334,17 @@ The full request on `6943a8a43d20079eed7501f5111d27a45172b30a` used the same fou
 The first time denial held 354,667 of 1,000,000 records and 46,987,414 of 67,108,864 UTF-16 units. Final source and directory verification never started. The aggregate and final parser verdicts, diagnostics, skips and invariant counts are unavailable. List and read calls occupied 249.0 seconds. Within the native phases, the Windows helper spent 160.0 seconds across 70,823 requests. Helper duration overlaps the native wall time and is recorded separately.
 
 The installed replays ran under varying measured conditions. The equal-work synthetic comparison remains the evidence for the Windows change. This observation places standalone Lua at the largest analyzer wall-time share, followed by XML. The 64-file probe found low backend name cardinality. Measure SDK module initialization in fresh Lua parser threads and one-shot TOC/XML processes with authored mixed workloads. Require exact SDK replies and API receipts, and preserve fresh threads, case policies and resource ceilings. Stage 7 requires final integrity checks for the full selected request.
+
+## Full replay after isolating worker initialization
+
+The guarded read-only request used four byte-identical profiles, 100 logical groups, 227 TOC candidate rows and the same work ceilings as `6943a8a`. The verifier matched 14 runtime files to checkout `ca9d24c6eada15d4d9e555f513922e4e4012e98d`. Windows Node 24.22.3 host session 94565 exited 1 after 900,285 ms. The operation opened 1,456 distinct sources read-only, including candidates in 37 groups. Every first read matched its counterpart in the earlier ledger.
+
+| Language | Distinct sources opened | Analyzer submissions | Analyzer replies | Port wall time |
+| --- | ---: | ---: | ---: | ---: |
+| TOC | 64 | 64 | 64 | 32,969 ms |
+| Lua | 1,010 | 1,009 | 1,009 | 374,068 ms |
+| XML | 382 | 382 | 382 | 266,212 ms |
+
+The 900,000 ms operation deadline arrived during a source read after all 1,455 submitted analyzer calls had returned. At first denial the ledger held 276,999 records and 30,335,793 UTF-16 units, below both retention ceilings. The run did not reach final source rereads or directory verification. No final syntax verdicts, skips, diagnostics or invariants are available. Stage 7 remains open. [Reconciled phase receipt](evidence/selected-source-worker-init-corpus-2026-11-18.json)
+
+The immediate next check uses one fixed authored Windows Node 24 workload. Compare warm Lua with Lua→TOC→Lua and Lua→XML→Lua at equal request counts, including rotation at 32. Record client serialization and decode, retirement through acknowledged close, child and thread startup, import, API, termination and parent projection times. Verify identical parser replies and API receipts, exact call counts, UTF-16 ranges and the existing failure and reaping behavior. This check depends on the real supervisor, worker and parent validator. Only the measured bottleneck should drive an implementation decision before another full replay. The two installed observations used different prefixes and host conditions.

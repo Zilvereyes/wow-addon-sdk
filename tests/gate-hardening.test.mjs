@@ -217,3 +217,50 @@ test('backend provenance binds the xmlchars deep modules actually consumed by sa
   assert.match(result.stderr, /unreviewed backend entry point/);
   assert.equal(fs.existsSync(marker), false);
 }));
+
+test('public exports gate requires the declared workspace entry points', () => {
+  for (const [field, value] of [
+    ['type', 'commonjs'],
+    ['main', './dist/alternate.js'],
+    ['types', './dist/alternate.d.ts'],
+  ]) fixture(({ audit, edit }) => {
+    edit('packages/toc-parser/package.json', manifest => { manifest[field] = value; });
+    const result = audit('check-public-exports.mjs');
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 1, result.stdout);
+    assert.ok(result.stderr.includes('toc-parser: wrong package.json ' + field), result.stderr);
+  });
+});
+
+test('backend provenance binds the lock version, integrity and registry URL', () => {
+  const names = ['luaparse', 'saxes', 'xmlchars'];
+  for (const [field, value] of [
+    ['version', '0.0.0'],
+    ['integrity', 'sha512-unreviewed'],
+    ['resolved', 'https://example.invalid/backend.tgz'],
+  ]) fixture(({ audit, edit }) => {
+    edit('package-lock.json', lock => {
+      for (const name of names) lock.packages['node_modules/' + name][field] = value;
+    });
+    const result = audit('check-public-exports.mjs');
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 1, result.stdout);
+    for (const name of names) {
+      assert.ok(result.stderr.includes('lock artifact differs from reviewed ' + name + ' (' + field + ')'), result.stderr);
+    }
+  });
+});
+
+test('backend provenance requires one lock record at the approved install location', () => fixture(({ audit, edit }) => {
+  edit('package-lock.json', lock => {
+    lock.packages['packages/lua-analysis/node_modules/luaparse'] = lock.packages['node_modules/luaparse'];
+    delete lock.packages['node_modules/luaparse'];
+    lock.packages['packages/xml-parser/node_modules/saxes'] = lock.packages['node_modules/saxes'];
+  });
+  const result = audit('check-public-exports.mjs');
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 1, result.stdout);
+  for (const name of ['luaparse', 'saxes']) {
+    assert.ok(result.stderr.includes('lock artifact differs from reviewed ' + name + ' (location)'), result.stderr);
+  }
+}));
