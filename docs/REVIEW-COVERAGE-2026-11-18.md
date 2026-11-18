@@ -77,6 +77,12 @@ Evidence tags overlap: S=18, T=5, H68=31, M07=87, G-recorded=35. A disjoint acco
 
 Code/core gates establish their named build, API, architecture, dependency, package and authored-test properties. Static review supplies source reasoning within its scope. A live installed run supplies only its observed, policy-bound parsing/integrity/coverage result; exit1, missing contexts, unsupported domains and existing diagnostics remain failures/limits. None substitutes for the other layers, and this index adds no permission or durable rule.
 
+### Current TypeScript reference check
+
+The standalone architecture gate compared the final path segment of every project reference. On `1928ac2`, authored root and package references to unrelated directories with the expected final segment passed the gate. An explicit path to an approved default `tsconfig.json` failed. All three new regression cases exited 1 before the correction. The checked-in workspace itself had all eight intended root references and thirteen matching package references.
+
+`scripts/check-architecture.mjs` now resolves the path relative to the configuration that owns the reference and compares the normalized TypeScript config target with the approved package targets. A directory and its explicit default config identify the same target, so repeated references are rejected. `tests/gate-hardening.test.mjs` verifies the root and dependency cases, the explicit config form, and duplicate targets. This check establishes lexical target identity. The ordinary TypeScript build still verifies the actual projects. The remaining package, source and configuration lenses in Q1 retain their individual acceptance criteria.
+
 ## Per-file matrix
 
 The final column identifies the remaining queue action above, not a completed review. Exact repository paths are case-sensitive inventory labels.

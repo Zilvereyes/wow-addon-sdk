@@ -77,6 +77,43 @@ test('gate hardening fixtures preserve legitimate dependency, export and strict-
   }
 }));
 
+test('architecture requires each root reference to resolve to its approved package config', () => fixture(({ audit, edit }) => {
+  edit('tsconfig.json', config => {
+    config.references.find(ref => ref.path === './packages/diagnostics').path = './examples/diagnostics';
+  });
+  const result = audit('check-architecture.mjs');
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stderr, /root tsconfig.*unknown package target/);
+  assert.match(result.stderr, /root tsconfig missing diagnostics/);
+}));
+
+test('architecture requires a dependency reference to resolve relative to the owning package', () => fixture(({ audit, edit }) => {
+  edit('packages/toc-parser/tsconfig.json', config => {
+    config.references.find(ref => ref.path === '../diagnostics').path = '../../examples/diagnostics';
+  });
+  const result = audit('check-architecture.mjs');
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stderr, /toc-parser tsconfig.*unknown package target/);
+  assert.match(result.stderr, /toc-parser: dependency diagnostics is missing from tsconfig.references/);
+}));
+
+test('architecture accepts explicit default config paths and rejects duplicate target references', () => fixture(({ audit, edit }) => {
+  edit('tsconfig.json', config => { config.references[0].path += '/tsconfig.json'; });
+  edit('packages/toc-parser/tsconfig.json', config => { config.references[0].path += '/tsconfig.json'; });
+  const valid = audit('check-architecture.mjs');
+  assert.equal(valid.error, undefined);
+  assert.equal(valid.status, 0, valid.stderr);
+  edit('packages/toc-parser/tsconfig.json', config => {
+    config.references.push({ path: config.references[0].path.replace('/tsconfig.json', '') });
+  });
+  const duplicate = audit('check-architecture.mjs');
+  assert.equal(duplicate.error, undefined);
+  assert.equal(duplicate.status, 1, duplicate.stdout);
+  assert.match(duplicate.stderr, /toc-parser tsconfig.*duplicate reference to/);
+}));
+
 test('architecture and export gates reject alternative SDK runtime dependency fields', () => {
   for (const [field, value] of [
     ['optionalDependencies', { luaparse: '0.3.1' }],

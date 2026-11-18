@@ -23,9 +23,35 @@ const external = new Map([
 ]);
 const errors = [];
 const pkgNames = [...allowed.keys()];
+const configTarget = target => path.normalize(ts.resolveProjectReferencePath({path: target}));
+const packageConfigs = new Map(pkgNames.map(name => [configTarget(path.join(packagesDir, name)), name]));
 const packagePrefix = '@wow-addon/';
 const rootVersion = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
 if (typeof rootVersion !== 'string' || rootVersion.length === 0) errors.push('root package requires a version');
+
+function projectReferences(config, folder, label) {
+  const referenced = new Set();
+  const references = config.references ?? [];
+  if (!Array.isArray(references)) {
+    errors.push(`${label} has invalid references`);
+    return referenced;
+  }
+  for (const reference of references) {
+    if (typeof reference?.path !== 'string' || reference.path.trim() === '') {
+      errors.push(`${label} has an invalid reference path`);
+      continue;
+    }
+    const absolute = path.resolve(folder, reference.path.replaceAll('\\', '/'));
+    const name = packageConfigs.get(configTarget(absolute));
+    if (!name) {
+      errors.push(`${label} references unknown package target ${JSON.stringify(reference.path)}`);
+      continue;
+    }
+    if (referenced.has(name)) errors.push(`${label} has a duplicate reference to ${name}`);
+    referenced.add(name);
+  }
+  return referenced;
+}
 
 function allSources(dir) {
   if (!fs.existsSync(dir)) return [];
@@ -60,12 +86,12 @@ for (const [name, permitted] of allowed) {
   for (const [dep, version] of Object.entries(approvedExternal)) {
     if (pkg.dependencies?.[dep] !== version) errors.push(`${name}: ${dep} requires exact version ${version}`);
   }
-  const referenced = (tsconfig.references ?? []).map(ref => path.basename(ref.path));
+  const referenced = projectReferences(tsconfig, folder, `${name} tsconfig`);
   for (const dep of [...declared, ...referenced]) {
     if (!permitted.includes(dep)) errors.push(`${name}: forbidden declared dependency ${dep}`);
   }
   for (const dep of declared) {
-    if (!referenced.includes(dep)) errors.push(`${name}: dependency ${dep} is missing from tsconfig.references`);
+    if (!referenced.has(dep)) errors.push(`${name}: dependency ${dep} is missing from tsconfig.references`);
   }
   for (const dep of referenced) {
     if (!declared.includes(dep)) errors.push(`${name}: tsconfig reference ${dep} is missing from package dependencies`);
@@ -128,9 +154,8 @@ for (const entry of fs.readdirSync(packagesDir,{withFileTypes:true})) {
   if (entry.isDirectory() && !allowed.has(entry.name)) errors.push(`unapproved package directory: ${entry.name}`);
 }
 const rootTsconfig = JSON.parse(fs.readFileSync(path.join(root,'tsconfig.json'),'utf8'));
-const refs = (rootTsconfig.references ?? []).map(x=>path.basename(x.path));
-for (const name of pkgNames) if (!refs.includes(name)) errors.push(`root tsconfig missing ${name}`);
-for (const name of refs) if (!allowed.has(name)) errors.push(`root tsconfig references unknown package ${name}`);
+const refs = projectReferences(rootTsconfig, root, 'root tsconfig');
+for (const name of pkgNames) if (!refs.has(name)) errors.push(`root tsconfig missing ${name}`);
 // Separate cycle audit of declared dependencies, not just the approved DAG.
 const marks = new Map();
 function dfs(name, ancestors) {
