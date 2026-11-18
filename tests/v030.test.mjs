@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { verifyTypeScriptContract } from './test-node.mjs';
 import * as metadata from '@wow-addon/addon-metadata';
 import { parseToc } from '@wow-addon/toc-parser';
 import { toGlobalDeclarations } from '@wow-addon/toc-metadata-adapter';
@@ -16,12 +16,7 @@ test('v0.3.0 exports independent environment schema and preserves metadata schem
 });
 
 test('public environment and identity types enforce required, readonly and optional contracts', () => {
-  const result = spawnSync(process.execPath, [
-    'node_modules/typescript/bin/tsc', '--noEmit', '--strict', '--exactOptionalPropertyTypes',
-    '--module', 'NodeNext', '--moduleResolution', 'NodeNext', '--target', 'ES2022',
-    'tests/contracts/v030.ts',
-  ], { encoding: 'utf8', windowsHide: true });
-  assert.equal(result.status, 0, result.stdout + result.stderr);
+  verifyTypeScriptContract('tests/contracts/v030.ts');
 });
 
 test('caller identity recipe preserves source variants, mixed paths, case and Unicode', () => {

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { verifyTypeScriptContract } from './test-node.mjs';
 import * as analysis from '@wow-addon/xml-analysis';
 
 const file = 'Å\\Original.xml';
@@ -54,10 +54,7 @@ test('approved mapper export maps clipped literals and retains duplicate query o
 });
 
 test('four mapper exports have readonly typed source parts and literal result schema', () => {
-  const result = spawnSync(process.execPath, ['node_modules/typescript/bin/tsc', '--noEmit', '--strict',
-    '--exactOptionalPropertyTypes', '--module', 'NodeNext', '--moduleResolution', 'NodeNext', '--target', 'ES2022',
-    'tests/contracts/xml-source-mapping.ts'], { encoding: 'utf8', windowsHide: true });
-  assert.equal(result.status, 0, result.stdout + result.stderr);
+  verifyTypeScriptContract('tests/contracts/xml-source-mapping.ts');
 });
 
 test('split identifiers preserve disjoint original contributions rather than a source hull', () => {

@@ -4,8 +4,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
 import { parseToc } from '@wow-addon/toc-parser';
+import { runTestNode } from './test-node.mjs';
 
 const script = path.resolve('scripts/create-toc-selection-probe.mjs');
 function temporary(run) {
@@ -16,16 +16,34 @@ function temporary(run) {
   }
 }
 function generate(out, version = '11508', ...extra) {
-  return spawnSync(process.execPath, [script, out, version, ...extra], { encoding: 'utf8', windowsHide: true });
+  return runTestNode([script, out, version, ...extra]);
 }
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
+
+function readProbeFile(root, relativePath) {
+  const segments = relativePath.split('/');
+  assert.ok(segments.every(segment => segment && segment !== '.' && segment !== '..' && !/[\\:\0]/u.test(segment)),
+    'probe path must use portable relative components');
+  const canonicalRoot = fs.realpathSync(root);
+  const file = fs.realpathSync(path.join(canonicalRoot, ...segments));
+  const fromRoot = path.relative(canonicalRoot, file);
+  assert.ok(fromRoot && !path.isAbsolute(fromRoot) && fromRoot.split(path.sep)[0] !== '..',
+    'canonical probe file must be inside its fixture');
+  assert.ok(fs.statSync(file).isFile(), 'probe output must be a file');
+  return fs.readFileSync(file);
+}
+
+test('test subprocess reports a deadline separately from a child exit code', () => {
+  assert.throws(() => runTestNode(['--eval', 'setTimeout(() => {}, 30000)'], 200), { code: 'ETIMEDOUT' });
+  assert.equal(runTestNode(['--eval', 'process.exitCode = 2']).status, 2);
+});
 
 test('probe generation produces a complete hashed matrix without asserting observed winners', () => temporary(root => {
   const out = path.join(root, 'new-probe');
   const result = generate(out);
   assert.equal(result.status, 0, result.stderr);
   assert.doesNotMatch(result.stdout + result.stderr, /wow-sdk-probe-/);
-  const manifest = JSON.parse(fs.readFileSync(path.join(out, 'probe.ready.json'), 'utf8'));
+  const manifest = JSON.parse(readProbeFile(out, 'probe.ready.json').toString('utf8'));
   assert.equal(manifest.schemaVersion, 1);
   assert.equal(manifest.interfaceVersion, '11508');
   assert.equal(manifest.runtimeVerified, false);
@@ -38,8 +56,7 @@ test('probe generation produces a complete hashed matrix without asserting obser
   for (const item of manifest.files) {
     assert.equal(paths.has(item.path), false);
     paths.add(item.path);
-    assert.ok(!path.isAbsolute(item.path) && !item.path.split('/').includes('..'));
-    const bytes = fs.readFileSync(path.join(out, item.path));
+    const bytes = readProbeFile(out, item.path);
     assert.equal(bytes.length, item.bytes);
     assert.equal(digest(bytes), item.sha256);
     if (item.path.endsWith('.toc')) {
@@ -63,11 +80,12 @@ test('probe output is deterministic and marker Lua only reads runtime values and
   const a = path.join(root, 'a'); const b = path.join(root, 'b');
   assert.equal(generate(a).status, 0);
   assert.equal(generate(b).status, 0);
-  assert.equal(fs.readFileSync(path.join(a, 'probe.ready.json'), 'utf8'), fs.readFileSync(path.join(b, 'probe.ready.json'), 'utf8'));
-  const manifest = JSON.parse(fs.readFileSync(path.join(a, 'probe.ready.json'), 'utf8'));
+  const manifestBytes = readProbeFile(a, 'probe.ready.json');
+  assert.deepEqual(manifestBytes, readProbeFile(b, 'probe.ready.json'));
+  const manifest = JSON.parse(manifestBytes.toString('utf8'));
   const markers = new Set();
   for (const file of manifest.files.filter(f => f.path.endsWith('.lua'))) {
-    const lua = fs.readFileSync(path.join(a, file.path), 'utf8');
+    const lua = readProbeFile(a, file.path).toString('utf8');
     const marker = /SDK_TOC_PROBE\|schema=1\|case=[A-Za-z]+\|variant=[A-Za-z]+/.exec(lua)?.[0];
     assert.ok(marker, file.path);
     assert.equal(markers.has(marker), false);

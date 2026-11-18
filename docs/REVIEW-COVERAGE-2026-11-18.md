@@ -420,3 +420,15 @@ Windows Node 26.13.1 exited 0 with 14 passes and zero skips or failures for the 
 ```powershell
 node --test --test-concurrency=1 tests/selected-source-cli.test.mjs tests/selected-source-analysis-close.test.mjs tests/selected-source-graph.test.mjs
 ```
+
+## TOC probe and TypeScript contract subprocesses
+
+At `ae1ecc1`, the authored TOC probe generator and ten TypeScript no-emit calls ran without a subprocess deadline. The compiler callers all used the same strict flags across nine TS fixtures. They now reuse the test-only `tests/test-node.mjs` runner with a 120-second default. A stalled authored Node child verifies the `ETIMEDOUT` error path. An ordinary exit 2 remains a child result. Compiler failures retain their stdout and stderr, and each existing fixture keeps its exact compiler flags.
+
+Both TOC probe test paths now check each generated file's canonical location and regular-file status before reading it. The ordinary checks still verify all 16 TOC hashes and 16 Lua marker hashes per generated matrix, deterministic manifest bytes, TOC metadata, and refusal to stage into the authored AddOns and alias directories. The generator continues to use synthetic staging. Lua markers are inspected as text.
+
+Windows Node 26.13.1 exited 0 with 217 passes and zero skips or failures for the following command.
+
+```powershell
+node --test --test-concurrency=1 tests/toc-selection-probe.test.mjs tests/lua-analysis.test.mjs tests/lua-entry-context.test.mjs tests/v030.test.mjs tests/v031.test.mjs tests/v032.test.mjs tests/v033.test.mjs tests/v034.test.mjs tests/xml-analysis.test.mjs tests/xml-parser.test.mjs tests/xml-source-mapping.test.mjs
+```

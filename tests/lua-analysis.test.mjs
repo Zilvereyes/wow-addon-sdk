@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { verifyTypeScriptContract } from './test-node.mjs';
 import { parseToc } from '@wow-addon/toc-parser';
 import { WoWClient } from '@wow-addon/addon-metadata';
 import { resolveGlobalRegistry, toGlobalDeclarations } from '@wow-addon/toc-metadata-adapter';
@@ -24,10 +25,7 @@ const condition = () => ({ providerId: '@wow-addon/toc-metadata-adapter', name: 
   source: { file: 'Header.toc', range: { start: { line: 0, column: 2 }, end: { line: 0, column: 29 } } } });
 
 test('three approved Lua exports have readonly contracts without exposing a backend AST', () => {
-  const result = spawnSync(process.execPath, ['node_modules/typescript/bin/tsc', '--noEmit', '--strict',
-    '--exactOptionalPropertyTypes', '--module', 'NodeNext', '--moduleResolution', 'NodeNext', '--target', 'ES2022',
-    'tests/contracts/lua-analysis.ts'], { encoding: 'utf8', windowsHide: true });
-  assert.equal(result.status, 0, result.stdout + result.stderr);
+  verifyTypeScriptContract('tests/contracts/lua-analysis.ts');
 });
 
 const catalog = JSON.parse(fs.readFileSync('tests/fixtures/lua-xml-syntax.json', 'utf8'));

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { verifyTypeScriptContract } from './test-node.mjs';
 import * as adapter from '@wow-addon/toc-metadata-adapter';
 import { parseToc } from '@wow-addon/toc-parser';
 import { buildGlobalRegistry, listGlobals } from '@wow-addon/global-registry';
@@ -31,10 +31,7 @@ function freeze(value) {
 const codes = result => result.issues.map(i => i.code);
 
 test('v0.3.3 provides five approved beta exports and readonly TypeScript contracts', () => {
-  const result = spawnSync(process.execPath, ['node_modules/typescript/bin/tsc', '--noEmit', '--strict',
-    '--exactOptionalPropertyTypes', '--module', 'NodeNext', '--moduleResolution', 'NodeNext', '--target', 'ES2022',
-    'tests/contracts/v033.ts'], { encoding: 'utf8', windowsHide: true });
-  assert.equal(result.status, 0, result.stdout + result.stderr);
+  verifyTypeScriptContract('tests/contracts/v033.ts');
 });
 
 test('legacy missing/empty provenance never upgrades conditional or unknown activation', () => {

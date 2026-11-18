@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { verifyTypeScriptContract } from './test-node.mjs';
 import * as adapter from '@wow-addon/toc-metadata-adapter';
 import { parseToc } from '@wow-addon/toc-parser';
 import { listGlobals } from '@wow-addon/global-registry';
@@ -44,10 +44,7 @@ function freeze(value) {
 const records = result => result.entries.flatMap(entry => entry.declarations);
 
 test('v0.3.4 provides the six approved beta contracts and a distinct readonly result schema', () => {
-  const result = spawnSync(process.execPath, ['node_modules/typescript/bin/tsc', '--noEmit', '--strict',
-    '--exactOptionalPropertyTypes', '--module', 'NodeNext', '--moduleResolution', 'NodeNext', '--target', 'ES2022',
-    'tests/contracts/v034.ts'], { encoding: 'utf8', windowsHide: true });
-  assert.equal(result.status, 0, result.stdout + result.stderr);
+  verifyTypeScriptContract('tests/contracts/v034.ts');
 });
 
 test('select before evaluation: no non-selected symbols, declarations or false scope conflict', () => {
