@@ -49,8 +49,8 @@ export function createGraphBudget(context, {now = () => performance.now(), accou
     },
     remainingReadBytes: () => limits.readBytes - counters.readBytes,
     metrics: () => ({...counters}),
-    /** Reserve each owned record/string before copying. An incomplete copy never escapes. */
-    copy(input, reclaim) {
+    /** Reserve before copying. A trusted synchronous check can reject the copy before it escapes. */
+    copy(input, reclaim, validate) {
       let records = 0, units = 0;
       function reserve(r, u) {retain(r, u, reclaim); records += r; units += u;}
       function copy(value, depth = 0) {
@@ -79,7 +79,11 @@ export function createGraphBudget(context, {now = () => performance.now(), accou
         }
         return result;
       }
-      try {return copy(input);}
+      try {
+        const owned = copy(input);
+        validate?.(owned);
+        return owned;
+      }
       catch (error) {release('retainedRecords', records); release('retainedStringUnits', units); throw error;}
     },
   };

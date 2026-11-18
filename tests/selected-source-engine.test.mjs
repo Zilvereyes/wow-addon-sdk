@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {traceSelectedSources} from '../scripts/selected-source-engine.mjs';
-import {createGraphBudget} from '../scripts/selected-source-budget.mjs';
+import {createGraphBudget, bindGraphHostBudget} from '../scripts/selected-source-budget.mjs';
 import {emptyGraphCalls} from '../scripts/selected-source-analysis.mjs';
 import {context, memoryHost, simple, slash} from './selected-source-engine-fixtures.mjs';
 
@@ -15,6 +15,67 @@ test('shared graph budget denies before allocation and rolls back rejected owned
   assert.deepEqual(budget.metrics(), before);
   budget.use('readBytes', 10); assert.throws(() => budget.use('readBytes', 1), error => error.code === 'SGRAPH0005');
   now = 900000; assert.throws(() => budget.check(), error => error.code === 'SGRAPH0005');
+});
+
+test('rejecting a copied projection returns only its own debit after cache reclamation', () => {
+  const prepared = context(input => {input.profile.limits = {retainedRecords: 4, retainedStringUnits: 32};});
+  const budget = createGraphBudget(prepared, {accountContext: false});
+  budget.retain(3, 7);
+  let reclaims = 0;
+  const rejected = new Error('Authored projection rejected.');
+  assert.throws(() => budget.copy([{child: {}}], () => {
+    reclaims++; budget.release('retainedRecords', 2); budget.release('retainedStringUnits', 4);
+  }, owned => {
+    assert.deepEqual(owned, [{child: {}}]);
+    throw rejected;
+  }), error => error === rejected);
+  assert.equal(reclaims, 1);
+  assert.equal(budget.metrics().retainedRecords, 1);
+  assert.equal(budget.metrics().retainedStringUnits, 3);
+});
+
+test('discarded engine directory copies return their own retention charges', async () => {
+  async function reject(early) {
+    const prepared = context(), budget = createGraphBudget(prepared);
+    const fixture = memoryHost({}, host => {
+      host.listDirectory = async () => ({fingerprint: early ? false : 'authored',
+        entries: [{name: 'NotAValidEntry', kind: 'invalid', reparsePoint: false}]});
+    });
+    bindGraphHostBudget(fixture.host, budget, prepared);
+    const trace = await traceSelectedSources(prepared, fixture.host);
+    assert.equal(trace.directories.size, 0);
+    assert.ok(trace.issues.some(issue => issue.code === 'SGRAPH0007'));
+    assert.equal(fixture.closes, 1);
+    return {metrics: budget.metrics(), issues: trace.issues};
+  }
+  assert.deepEqual(await reject(false), await reject(true));
+});
+
+test('discarded engine analysis copies return their own retention charges', async () => {
+  async function reject(early) {
+    const tocPath = 'Demo/Demo_Vanilla.toc';
+    const prepared = context(input => {input.profile.addons[0].tocPaths = [tocPath];});
+    const budget = createGraphBudget(prepared);
+    const fixture = memoryHost({[tocPath]: 'Main.lua', 'Demo/Main.lua': 'One=1; Two=2'}, host => {
+      const analyze = host.analyze;
+      host.analyze = async input => {
+        const reply = await analyze(input);
+        if (input.language === 'lua') {
+          reply.result.result.declarations.at(-1).source.file = 'Wrong.lua';
+          if (early) reply.unexpected = true;
+        }
+        return reply;
+      };
+    });
+    bindGraphHostBudget(fixture.host, budget, prepared);
+    const trace = await traceSelectedSources(prepared, fixture.host);
+    assert.equal(trace.analyses.length, 1);
+    assert.equal(trace.groups[0].resolutionEligible, false);
+    assert.ok(trace.issues.some(issue => issue.code === 'SGRAPH0007'));
+    assert.equal(fixture.closes, 1);
+    return {metrics: budget.metrics(), issues: trace.issues};
+  }
+  assert.deepEqual(await reject(false), await reject(true));
 });
 
 test('actual selected graph traverses depth-first, retains duplicates and reuses only identical analyses', async () => {

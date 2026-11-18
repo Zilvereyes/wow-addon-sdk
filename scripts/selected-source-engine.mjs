@@ -38,7 +38,7 @@ export async function traceSelectedSources(context, host) {
   let pinnedSourcePath = null;
   let detachReclaimer = null;
   const reserve = (records, units) => budget.retain(records, units, reclaimText);
-  const retain = value => budget.copy(value, reclaimText);
+  const retain = (value, validate) => budget.copy(value, reclaimText, validate);
   function problem(code, group, sources = [], occurrenceId) {
     const issue = retain({code, ...(group ? {logicalAddonId: group.logicalAddonId} : {}),
       ...(occurrenceId === undefined ? {} : {occurrenceId}), sources}); trace.issues.push(issue);
@@ -58,15 +58,18 @@ export async function traceSelectedSources(context, host) {
         budget.check(); own(raw, ['fingerprint', 'entries']);
         assert.ok(typeof raw.fingerprint === 'string' && raw.fingerprint.length > 0 && raw.fingerprint.length <= 4096 && Array.isArray(raw.entries));
         if (!shared) budget.use('directoryEntries', raw.entries.length);
-        const value = retain(raw), seen = new Set();
-        for (const row of value.entries) {
-          own(row, ['name', 'kind', 'reparsePoint']);
-          assert.ok(typeof row.name === 'string' && ['file', 'directory', 'link', 'unsupported'].includes(row.kind) && typeof row.reparsePoint === 'boolean');
-          assert.equal(seen.has(row.name), false); seen.add(row.name);
-          const parsed = normalizeGraphPath(row.name, [], {maximumUnits: limits.pathUnits});
-          if (row.kind !== 'unsupported') assert.ok(parsed.status === 'ready' && parsed.components.length === 1);
-        }
-        reserve(2, key.length); trace.directories.set(key, {...value, consumers: new Set(), valid: true});
+        const value = retain(raw, owned => {
+          const seen = new Set();
+          for (const row of owned.entries) {
+            budget.check(); own(row, ['name', 'kind', 'reparsePoint']);
+            assert.ok(typeof row.name === 'string' && ['file', 'directory', 'link', 'unsupported'].includes(row.kind) && typeof row.reparsePoint === 'boolean');
+            assert.equal(seen.has(row.name), false); seen.add(row.name);
+            const parsed = normalizeGraphPath(row.name, [], {maximumUnits: limits.pathUnits});
+            if (row.kind !== 'unsupported') assert.ok(parsed.status === 'ready' && parsed.components.length === 1);
+          }
+          reserve(2, key.length);
+        });
+        trace.directories.set(key, {...value, consumers: new Set(), valid: true});
         failedDirectories.delete(key);
       } finally {
         host.releaseHandoff?.(raw);
@@ -237,8 +240,9 @@ export async function traceSelectedSources(context, host) {
       catch (error) {
         value.failed++; let confirmed = false;
         if (['graph-analysis-backend', 'graph-analysis-resource', 'graph-analysis-invariant'].includes(error?.message) && Object.hasOwn(error, 'confirmedApiCalls')) try {
-          const checked = retain({result: null, failure: classify(error), confirmedApiCalls: error.confirmedApiCalls});
-          verifyGraphAnalysisReply(checked, input); value.failedCalls.push(checked.confirmedApiCalls); confirmed = true;
+          const checked = retain({result: null, failure: classify(error), confirmedApiCalls: error.confirmedApiCalls},
+            owned => verifyGraphAnalysisReply(owned, input));
+          value.failedCalls.push(checked.confirmedApiCalls); confirmed = true;
         } catch { /* Invalid or over-budget receipts never gain direct-call credit. */ }
         if (!confirmed) value.unknownStages++;
         throw failure(classify(error));
@@ -246,11 +250,13 @@ export async function traceSelectedSources(context, host) {
       let record, facts;
       try {
         own(response, ['result', 'confirmedApiCalls']);
-        record = retain({analysisId: trace.analyses.length, sourcePath, result: response.result, confirmedApiCalls: response.confirmedApiCalls});
-        verifyGraphAnalysisReply({result: record.result, confirmedApiCalls: record.confirmedApiCalls, failure: null}, input);
-        facts = disposition(record.result);
-        if (facts.verdict !== null && value.verdict !== null && facts.verdict !== value.verdict) {invalidate(value, false, 'invariant'); throw failure('invariant');}
-        reserve(1, key.length);
+        record = retain({analysisId: trace.analyses.length, sourcePath, result: response.result, confirmedApiCalls: response.confirmedApiCalls},
+          owned => {
+            verifyGraphAnalysisReply({result: owned.result, confirmedApiCalls: owned.confirmedApiCalls, failure: null}, input);
+            facts = disposition(owned.result);
+            if (facts.verdict !== null && value.verdict !== null && facts.verdict !== value.verdict) {invalidate(value, false, 'invariant'); throw failure('invariant');}
+            reserve(1, key.length);
+          });
       } catch (error) {value.failed++; value.unknownStages++; throw error?.code === 'SGRAPH0005' ? error : failure('invariant');}
       trace.analyses.push(record); analysisCache.set(key, record.analysisId); value.completed++;
       if (facts.verdict !== null) value.verdict = facts.verdict;
