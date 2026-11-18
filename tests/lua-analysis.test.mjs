@@ -366,3 +366,22 @@ test('scope correction preserves recursive local functions, implicit self and ne
   assert.deepEqual(names(result), ['Inside', 'DB']);
   assert.deepEqual(result.declarations.map(d => d.activationState), ['unknown', 'unconditional']);
 });
+
+test('successive sibling scopes restore outer bindings and preserve repeated global assignment ranges', () => {
+  const prelude = ['-- 😀', ...Array.from({ length: 120 }, (_, index) => `local Binding${index + 1} = ${index}`)];
+  const sibling = 'do local Binding1 = Binding1; local Scratch; Scratch = Binding1 end; observe("😀"); Scratch = Binding1';
+  const blockCount = 64;
+  const content = [...prelude, ...Array(blockCount).fill(sibling), 'Binding1 = 0; Binding120 = 0'].join('\r\n');
+  const result = analyze(content);
+
+  assert.equal(result.complete, true);
+  assert.deepEqual(result.diagnostics, []);
+  assert.deepEqual(names(result), Array(blockCount).fill('Scratch'));
+  assert.ok(result.declarations.every(declaration => declaration.activationState === 'unconditional'));
+  const column = sibling.lastIndexOf('Scratch');
+  const coordinate = index => ({ line: prelude.length + index, column });
+  assert.deepEqual(result.declarations.map(declaration => declaration.source.range),
+    Array.from({ length: blockCount }, (_, index) => ({
+      start: coordinate(index), end: { ...coordinate(index), column: column + 'Scratch'.length },
+    })));
+});
