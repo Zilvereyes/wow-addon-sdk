@@ -1,0 +1,173 @@
+{
+  "sourceTree": "53c7e98a0fe9aa6315882075684f10a7d1546c9a",
+  "platform": "Windows",
+  "node": "24.22.3",
+  "hostSession": 17354,
+  "buildExitCode": 0,
+  "exitCode": 1,
+  "request": {
+    "profiles": 4,
+    "logicalGroups": 100,
+    "tocCandidates": 227,
+    "operationMilliseconds": 900000
+  },
+  "sourceCommit": "9faaacdf91dde9322e04ada0e9413d3cf76460fa",
+  "sourceSnapshotDigest": "797ccb7897ad8f8959d6a5f996b8b1392bf77b63832911da2a3075fd7ecb6355",
+  "phases": {
+    "bootstrap": {
+      "calls": 1,
+      "returned": 1,
+      "rejected": 0,
+      "rows": 0,
+      "elapsedMilliseconds": 23140.221600000004
+    },
+    "windowsInspect": {
+      "calls": 37055,
+      "returned": 37055,
+      "rejected": 0,
+      "rows": 73903,
+      "elapsedMilliseconds": 162484.7132999873
+    },
+    "listDirectory": {
+      "calls": 1946,
+      "returned": 1946,
+      "rejected": 0,
+      "rows": 0,
+      "elapsedMilliseconds": 115060.01659999983
+    },
+    "readSource": {
+      "calls": 1350,
+      "returned": 1350,
+      "rejected": 0,
+      "rows": 0,
+      "elapsedMilliseconds": 114616.58320000084
+    },
+    "analyze-toc": {
+      "calls": 44,
+      "returned": 44,
+      "rejected": 0,
+      "rows": 0,
+      "elapsedMilliseconds": 30896.387299999857
+    },
+    "analyze-xml": {
+      "calls": 371,
+      "returned": 371,
+      "rejected": 0,
+      "rows": 0,
+      "elapsedMilliseconds": 160984.8281000013
+    },
+    "analyze-lua": {
+      "calls": 935,
+      "returned": 934,
+      "rejected": 1,
+      "rows": 0,
+      "elapsedMilliseconds": 442546.405499999
+    },
+    "close": {
+      "calls": 1,
+      "returned": 1,
+      "rejected": 0,
+      "rows": 0,
+      "elapsedMilliseconds": 133.0287000000244
+    },
+    "windowsClose": {
+      "calls": 1,
+      "returned": 1,
+      "rejected": 0,
+      "rows": 0,
+      "elapsedMilliseconds": 131.02040000003763
+    }
+  },
+  "hashMilliseconds": 147.13939999995637,
+  "elapsedMilliseconds": 904913,
+  "submitted": 1350,
+  "operationFailures": {
+    "toc": {},
+    "lua": {
+      "graph-analysis-timeout": 1
+    },
+    "xml": {}
+  },
+  "nativeFailures": {
+    "total": 0,
+    "first": null,
+    "counts": {}
+  },
+  "portEvidence": {
+    "toc": {
+      "validatedReplies": 44,
+      "rootApiReturns": 44,
+      "completeProjection": 43,
+      "otherDiagnostics": 0,
+      "diagnosticsByCode": {
+        "TOC0001": 10
+      }
+    },
+    "lua": {
+      "validatedReplies": 934,
+      "rootApiReturns": 934,
+      "completeProjection": 646,
+      "otherDiagnostics": 0,
+      "diagnosticsByCode": {
+        "LUA0004": 972
+      }
+    },
+    "xml": {
+      "validatedReplies": 371,
+      "rootApiReturns": 371,
+      "completeProjection": 368,
+      "otherDiagnostics": 0,
+      "diagnosticsByCode": {
+        "XML0002": 3
+      }
+    }
+  },
+  "observerErrors": 0,
+  "sameProfileBytes": true,
+  "hostCloseConfirmed": true,
+  "prototypeCommit": "a3d3b0545d0f3984eda718cec01a93330f26c73a",
+  "parserProcesses": {
+    "starts": {
+      "lua": 30,
+      "tocXml": 13,
+      "boundedLua": 0
+    },
+    "exits": 43,
+    "cleanCloses": 41,
+    "signalledCloses": 2,
+    "otherCloses": 0,
+    "maxLive": 2,
+    "live": 0
+  },
+  "baselineOverlap": 310,
+  "baselineFirstReadMatches": 309,
+  "aggregateAvailable": false,
+  "status": "failed",
+  "completeUnderPolicy": false,
+  "inputReadOnlyOpenCalls": 1350,
+  "inputPathsOpened": 1350,
+  "pathsReread": 0,
+  "firstLastHashMatchesOnReread": 0,
+  "budgetFailureLimits": [
+    "operationMilliseconds"
+  ],
+  "failure": {
+    "kind": "budget",
+    "limit": "operationMilliseconds"
+  },
+  "finalPerLanguage": null,
+  "finalIntegrity": null,
+  "terminalBudgetCounters": {
+    "sourceNodes": 1350,
+    "analysisRecords": 1350,
+    "referenceOccurrences": 1329,
+    "occurrences": 2186,
+    "graphDepth": 0,
+    "directoryDepth": 0,
+    "directoryEntries": 15577,
+    "readBytes": 22251276,
+    "textCacheBytes": 0,
+    "retainedRecords": 221811,
+    "retainedStringUnits": 6704284
+  }
+}

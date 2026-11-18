@@ -409,3 +409,19 @@ Discovery was marked incomplete after directory verification. All 309 submitted 
 The native port returned 309 reads, rejected 252, and performed 310 read-only opens in total. All 309 source verifications failed without reopening a source. The aggregate reports 2,293 `SGRAPH0006` issues and 96 `SGRAPH0008` issues. Four of six overlapping TOC first reads differed in content at the same byte length compared with the prior observation. The profile files matched at start and close. These observations establish a read/integrity failure, with the common cause and timing of source differences still open. The observer counted native calls but did not retain the fixed reasons behind the failed boolean source and directory checks. [Prototype comparison](PROPOSAL-SELECTED-SOURCE-LAUNCHER-REUSE.md#isolated-prototype-results)
 
 Four focused authored native controls passed on Windows Node 24.22.3 after this trial. They verified source and directory snapshot invalidation, refusal before opening unchanged bytes, parent replacement at open and changed root identity. These controls establish plausible refusal paths. The next observer should separately count fixed `graph-native-*` read failures and false source and directory verifications, with attribution by phase and no private names in public output. Retain the read-only guard, intended selection and original budgets. Review the lifecycle and memory tradeoffs separately before production adoption. Stage 7 remains open.
+
+## Full diagnostic replay with the isolated launcher prototype
+
+The approved read-only replay used SDK source `9faaacdf91dde9322e04ada0e9413d3cf76460fa`, experiment `a3d3b0545d0f3984eda718cec01a93330f26c73a`, Windows Node 24.22.3 and host session 17354. It rebuilt with `node node_modules/typescript/bin/tsc -b --force --pretty false` (exit 0). The four selected profiles matched the earlier trial and their start and end bytes agreed. The same 100 groups, 227 candidate rows and 900,000 ms operation limit applied. The trial exited 1 after 904,913 ms and reached no final verification or corpus aggregate. [Public receipt](evidence/selected-source-native-diagnostic-corpus-2026-11-18.json)
+
+| Language | Submissions | Validated parser replies | Complete projections | Port diagnostics |
+| --- | ---: | ---: | ---: | --- |
+| TOC | 44 | 44 | 43 | 10 `TOC0001` |
+| Lua | 935 | 934 | 646 | 972 `LUA0004` |
+| XML | 371 | 371 | 368 | 3 `XML0002` |
+
+The last Lua call timed out at the operation boundary. All 1,350 calls to the read-only source port returned, and the observer saw zero native failure events. The diagnostic replay did not reproduce the earlier integrity failure in the observed prefix. No source rereads or directory checks were reached. The 310 overlapping paths with the previous trial had 309 matching first reads. The table measures validated parser-port replies before graph integrity reconciliation. Final discovered, parsed, skipped, diagnostic and invariant counts are unavailable.
+
+The prototype started 30 Lua and 13 TOC/XML processes. All 43 closes were confirmed, including 41 clean closes and two signalled closes, with at most two live processes. Analyzer wall time was 442.5 s for Lua, 161.0 s for XML and 30.9 s for TOC. Native list and source-read calls took 229.7 s, including Windows attribute work. The separate attribute duration overlaps these phases. Terminal retention was 221,811 records and 6,704,284 UTF-16 units.
+
+The next authored timing control should divide the Lua port time between fresh Worker creation, SDK import, the public parser call, Worker join, wire serialization and independent source-bound validation. Compare equal inputs with exact replies and receipts under the current caps before proposing a performance change. Keep native failure observation available for the original full replay. Stage 7 remains open.
