@@ -393,3 +393,7 @@ The inclusion batch alone leaves40of69Q3paths for complete review; the XML lens 
 - **Current documentation.** Two passes inspected 27 tracked status and contract documents. The README, roadmap and architecture now point to the implemented reference graph and separate installed acceptance evidence. The plan retains the historical approval and verification records. Further passes should keep the older milestone wording explicitly dated.
 
 These scoped reviews leave the original index attribution intact. Newly introduced and changed files require evidence tied to their own commits.
+
+## Follow-up at 73dd5a2
+
+Reviewed `tests/selected-source-retention.test.mjs`, `tests/toc-selection-probe.test.mjs` and `tests/v030.test.mjs` through `tests/v033.test.mjs` in full, covering 57 declared tests. The retention controls pair denied reads with real TOC/Lua analysis on authored in-memory sources. The probe uses temporary output and validates generated TOC structure and hashes. The versioned tests exercise schema and variant identity, selector policy, duplicate condition provenance and the evaluator truth table. The test harness should validate resolved manifest path containment before reading probe output and add explicit timeouts to the probe and no-emit compiler subprocesses. The audit used static sources. The probe has no evidence of game-client execution.
