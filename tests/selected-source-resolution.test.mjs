@@ -4,6 +4,7 @@ import {resolveGlobalRegistry} from '@wow-addon/toc-metadata-adapter';
 import {traceSelectedSources} from '../scripts/selected-source-engine.mjs';
 import {composeGraphResolution} from '../scripts/selected-source-resolution.mjs';
 import {getGraphRequest} from '../scripts/selected-source-context.mjs';
+import {analyzeSelectedSources} from '../scripts/selected-source-graph.mjs';
 import {context, memoryHost, simple, slash} from './selected-source-engine-fixtures.mjs';
 
 async function run(input = simple(), alterContext = () => {}, alterHost = () => {}) {
@@ -27,19 +28,27 @@ test('composition uses actual selected SDK resolution and ordinal origins for id
   assert.deepEqual(core.map(origin => origin.providerBatchIndex), [2, 3, 4]);
   assert.equal(result.declarationOrigins.find(origin => origin.declaration.name === 'Out').mapping.mappings[0].parts.length, 2);
   const request = getGraphRequest(prepared), group = trace.groups[0];
+  const analysisOf = name => trace.analyses.find(analysis => slash(analysis.sourcePath) === 'Demo/' + name).result;
+  const providers = [
+    analysisOf('Child.xml').inline[0].analysis.declarations,
+    analysisOf('View.xml').inline[0].analysis.declarations,
+    ...Array(3).fill(analysisOf('Core.lua').result.declarations),
+  ].map(declarations => ({providerId: '@wow-addon/lua-analysis', tocVariantId: group.selection.selectedVariantId, declarations}));
   const expected = resolveGlobalRegistry(request.environment, [{logicalAddonId: group.logicalAddonId, addonBaseName: 'Demo',
     candidates: group.candidates.map(({loaded}) => ({identity: {logicalAddonId: group.logicalAddonId,
       tocVariantId: JSON.stringify([group.logicalAddonId, loaded.sourcePath]), tocPath: loaded.sourcePath,
       tocSuffix: loaded.parsed.metadata.tocSuffix, source: {file: loaded.sourcePath, range: {start: {line: 0, column: 0}, end: {line: 0, column: 0}}}},
-    metadata: loaded.parsed.metadata})), selectionPolicy: request.selectionPolicy, providers: trace.providerBatches.get(0)}], request.conditionPolicy);
+    metadata: loaded.parsed.metadata})), selectionPolicy: request.selectionPolicy, providers}], request.conditionPolicy);
   assert.deepEqual(result.resolved, expected);
   assert.equal(result.complete, false); // Invalid identifier/duplicate diagnostics remain analysis evidence.
 });
 
 test('origin or exact-variant invariant failure excludes the whole group while an independent group survives', async () => {
-  for (const corrupt of [trace => trace.originInputs[0].providerDeclarationIndex++, trace => trace.providerBatches.get(0)[0].tocVariantId = 'wrong',
+  for (const corrupt of [trace => trace.providerBatches.get(0)[0].providerBatchIndex++, trace => trace.providerBatches.get(0)[0].tocVariantId = 'wrong',
     trace => trace.providerBatches.get(0)[0].providerId = 'wrong-provider',
-    trace => trace.originInputs[0].mapping.mappings[0].parts[0].source.range.start.column++]) {
+    trace => trace.providerBatches.get(0)[0].inlineElementIndex++,
+    trace => trace.providerBatches.get(0)[0].analysisId++,
+    trace => trace.providerBatches.get(0)[0].occurrenceId = -1]) {
     const prepared = context(input => input.profile.addons.push({logicalAddonId: '__proto__', directory: 'Other', addonBaseName: 'Other', tocPaths: ['Other/Other.toc']}));
     const fixture = memoryHost({...simple(), 'Other/Other.toc': '## SavedVariables: OtherDB\nCore.lua', 'Other/Core.lua': 'OtherGlobal=1'});
     const trace = await traceSelectedSources(prepared, fixture.host); corrupt(trace);
@@ -59,14 +68,13 @@ test('late changed source blocks all affected declarations including automatic S
   assert.equal(result.complete, false);
 });
 
-test('XML frame origins bind to actual analysis ordinals even when batch and sidecar are coherently forged or omitted', async () => {
-  for (const corrupt of [trace => {
-    trace.providerBatches.get(0)[0].declarations[0].name = 'Forged'; trace.originInputs[0].declaration.name = 'Forged';
-  }, trace => {trace.providerBatches.get(0).length = 0; trace.originInputs.length = 0;}]) {
+test('XML frame origins bind to actual analysis ordinals when a batch is redirected or omitted', async () => {
+  for (const corrupt of [trace => {trace.providerBatches.get(0)[0].frameIndex = 1;},
+    trace => {trace.providerBatches.get(0).length = 0;}]) {
     const prepared = context(), fixture = memoryHost({'Demo/Demo_Vanilla.toc': 'View.xml', 'Demo/Demo_Mainline.toc': '',
-      'Demo/View.xml': '<Ui><Frame name="Authored"/></Ui>'});
+      'Demo/View.xml': '<Ui><Frame name="Authored"/><Frame name="Second"/></Ui>'});
     const trace = await traceSelectedSources(prepared, fixture.host);
-    const control = composeGraphResolution(prepared, trace); assert.deepEqual(control.resolved.entries.map(row => row.name), ['Authored']);
+    const control = composeGraphResolution(prepared, trace); assert.deepEqual(control.resolved.entries.map(row => row.name), ['Authored', 'Second']);
     corrupt(trace); const result = composeGraphResolution(prepared, trace);
     assert.equal(result.groups[0].resolutionEligible, false); assert.deepEqual(result.resolved.entries, []);
     assert.equal(result.issues[0].code, 'SGRAPH0007');
@@ -89,8 +97,8 @@ test('whole and shortened Lua or inline batches cannot omit validated declaratio
     files[inline ? 'Demo/View.xml' : 'Demo/Core.lua'] = inline ? '<Ui><Script>Out=1; Other=2</Script></Ui>' : 'Out=1; Other=2';
     const fixture = memoryHost(files), trace = await traceSelectedSources(prepared, fixture.host);
     assert.deepEqual(composeGraphResolution(prepared, trace).resolved.activeGlobals, ['Out', 'Other']);
-    if (omit) {trace.providerBatches.get(0).length = 0; trace.originInputs.length = 0;}
-    else {trace.providerBatches.get(0)[0].declarations.length = 1; trace.originInputs.length = 1;}
+    if (omit) trace.providerBatches.get(0).length = 0;
+    else trace.providerBatches.get(0)[0].declarationCount = 1;
     const result = composeGraphResolution(prepared, trace);
     assert.equal(result.groups[0].resolutionEligible, false); assert.deepEqual(result.resolved.entries, []);
     assert.equal(result.issues[0].code, 'SGRAPH0007');
@@ -103,8 +111,14 @@ test('owned resolution and origins cannot mutate the trace, prepared context, or
   const other = composeGraphResolution(prepared, trace);
   result.resolved.entries[0].declarations[0].declaration.source.file = 'changed';
   result.declarationOrigins.at(-1).declaration.source.range.start.column = 999;
+  const inline = origin => origin.declarationOrigins.find(row => row.declaration.name === 'Out');
+  inline(result).mapping.mappings[0].parts[0].source.range.start.column = 999;
   assert.notEqual(other.resolved.entries[0].declarations[0].declaration.source.file, 'changed');
-  assert.notEqual(trace.originInputs.at(-1).declaration.source.range.start.column, 999);
+  const originalLua = trace.analyses.find(row => row.result.language === 'lua').result.result;
+  assert.notEqual(originalLua.declarations[0].source.range.start.column, 999);
+  const originalInline = trace.analyses.find(row => slash(row.sourcePath) === 'Demo/View.xml').result.inline[0];
+  assert.notEqual(originalInline.mapping.mappings[0].parts[0].source.range.start.column, 999);
+  assert.notEqual(inline(other).mapping.mappings[0].parts[0].source.range.start.column, 999);
   assert.notEqual(other.declarationOrigins.at(-1).declaration.source.range.start.column, 999);
   assert.equal(Object.isFrozen(getGraphRequest(prepared)), true);
 });
@@ -114,6 +128,33 @@ test('composition budget expiry publishes no resolver prefix', async () => {
   const fixture = memoryHost(simple(), host => {host.nowMilliseconds = () => now;});
   const trace = await traceSelectedSources(prepared, fixture.host); now = 900000;
   assert.throws(() => composeGraphResolution(prepared, trace), error => error.code === 'SGRAPH0005');
+});
+
+test('a declaration-heavy graph fits the lower retained-record limit with full ownership and ordering', async () => {
+  const tocPath = 'Demo/Demo_Vanilla.toc';
+  const names = ['Alpha'], targets = [], files = {};
+  for (let file = 0; file < 6; file++) {
+    const target = 'Part' + file + '.lua';
+    const declarations = Array.from({length: 200}, (_, line) => 'Fixture_' + file + '_' + line);
+    targets.push(target);
+    names.push(...declarations);
+    files['Demo/' + target] = declarations.map(name => name + '=1').join('\n');
+  }
+  files[tocPath] = ['## SavedVariables: Alpha', ...targets].join('\n');
+  const prepared = context(input => {
+    input.profile.addons[0].tocPaths = [tocPath];
+    input.profile.limits = {retainedRecords: 47000};
+  });
+  const fixture = memoryHost(files);
+  const result = await analyzeSelectedSources(getGraphRequest(prepared), fixture.host);
+  assert.equal(result.aggregate.status, 'passed');
+  assert.equal(fixture.closes, 1);
+  assert.deepEqual(result.resolved.activeGlobals, names);
+  assert.deepEqual(result.declarationOrigins.map(origin => origin.declaration.name), names);
+  assert.deepEqual(result.declarationOrigins.slice(1).map(origin => [
+    origin.providerBatchIndex, origin.providerDeclarationIndex,
+    origin.declaration.source.range.start.line, origin.resolvedEntryIndex, origin.resolvedDeclarationIndex,
+  ]), names.slice(1).map((_, index) => [Math.floor(index / 200), index % 200, index % 200, index + 1, 0]));
 });
 
 test('declaration-free unknown guard and all-no-match selection remain incomplete tool evidence', async () => {

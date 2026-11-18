@@ -53,12 +53,20 @@ test('disposable text and line maps yield retention to the same complete graph f
     ['retainedStringUnits', 2048, 2048],
   ]) {
     await t.test(`${key}: cached source cannot displace permanent analysis/provider/origin facts`, async () => {
-      const limit = permanent[key] + headroom;
+      // The compact final result can be smaller than the active XML line map.
+      // Leave room to reach the last analyzer call, with pressure on its reply.
+      const analysisPeak = Math.max(...[...ample.atAnalysis.values()].map(metrics => metrics[key]));
+      const limit = Math.max(permanent[key] + headroom, analysisPeak + 32);
       const bounded = await graph({[key]: limit});
       assert.ifError(bounded.error);
       // All source-cache insertions and real SDK calls must have succeeded;
       // this pressure is on retained reply/provider/origin copies afterwards.
       assert.deepEqual(bounded.fixture.calls, ample.fixture.calls);
+      if (key === 'retainedRecords') {
+        const beforeReply = bounded.atAnalysis.get('lua');
+        assert.ok(beforeReply.textCacheBytes > files['Demo/Earlier.xml'].length * 2);
+        assert.ok(limit - beforeReply.retainedRecords < names.length);
+      }
       assert.equal(bounded.result.completeUnderPolicy, true);
       assert.equal(bounded.result.aggregate.status, 'passed');
       assert.deepEqual(bounded.result, ample.result);
@@ -113,7 +121,8 @@ test('currently validated source stays charged when input plus reply exceeds str
   assert.deepEqual(ample.result.resolved.activeGlobals, ['Saved', ...names]);
   const permanent = ample.budget.metrics();
   assert.equal(permanent.textCacheBytes, 0);
-  const limit = permanent.retainedStringUnits + 2048;
+  const active = ample.atAnalysis.get('lua').retainedStringUnits;
+  const limit = Math.max(permanent.retainedStringUnits + 2048, active + 128);
   const denied = await graph({retainedStringUnits: limit}, sourceFiles);
   // The active input fits and reaches the actual SDK. Its source text is still
   // needed to validate the reply, so that cache entry cannot fund the copy by

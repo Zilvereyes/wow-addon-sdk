@@ -30,7 +30,7 @@ export async function traceSelectedSources(context, host) {
   } catch (error) {await host.close(); throw error;}
   const trace = {schemaVersion: 1, groups: [], nodes: [], analyses: [], references: [], occurrences: [], guardEvaluations: [], issues: [],
     discovery: {complete: true, entriesVisited: 0, found: {toc: 0, lua: 0, xml: 0}, rejectedLinks: 0, unrepresentableEntries: 0},
-    files: new Map(), directories: new Map(), providerBatches: new Map(), originInputs: [], budget, fatal: null};
+    files: new Map(), directories: new Map(), providerBatches: new Map(), budget, fatal: null};
   const emergency = {code: 'SGRAPH0005', sources: []};
   const analysisCache = new Map(), textCache = new Map(), failedDirectories = new Set();
   // Candidate loads and DFS loads are awaited serially; one existing key is
@@ -284,13 +284,15 @@ export async function traceSelectedSources(context, host) {
     reserve(records, units);
     return {owner, loaded, events: events(result), cursor: 0, depth, records, units};
   }
-  function batch(group, owner, declarations, providerId, mapping = null) {
-    if (!declarations.length) return;
-    const rows = trace.providerBatches.get(group.index), providerBatchIndex = rows.length;
-    rows.push(retain({providerId, tocVariantId: owner.tocVariantId, declarations}));
-    declarations.forEach((declaration, index) => trace.originInputs.push(retain({occurrenceId: owner.occurrenceId, declaration,
-      origin: 'provider', tocDeclarationIndex: null, providerBatchIndex, providerDeclarationIndex: index,
-      mapping: mapping === null ? null : {...mapping, mappings: [mapping.mappings[index]]}, resolvedEntryIndex: null, resolvedDeclarationIndex: null})));
+  function batch(group, owner, declarationCount, providerId, frameIndex = null) {
+    if (declarationCount === 0) return;
+    const rows = trace.providerBatches.get(group.index);
+    // Only the validated analysis owns declarations during traversal.
+    rows.push(retain({
+      providerBatchIndex: rows.length, occurrenceId: owner.occurrenceId, analysisId: owner.analysisId,
+      tocVariantId: owner.tocVariantId, providerId, declarationCount, frameIndex,
+      inlineElementIndex: owner.inlineElementIndex,
+    }));
   }
   async function walk(group, root, variantId) {
     const selected = occurrence(group, root.record.sourcePath, null, null, variantId, [], 'active', root, 1);
@@ -302,7 +304,7 @@ export async function traceSelectedSources(context, host) {
       const event = frame.events[frame.cursor++];
       try {
         if (event.type === 'frame') {
-          if (event.frame.declarationIndex !== null) batch(group, owner, [frame.loaded.record.result.provider.declarations[event.frame.declarationIndex]], '@wow-addon/xml-analysis');
+          if (event.frame.declarationIndex !== null) batch(group, owner, 1, '@wow-addon/xml-analysis', event.index);
           continue;
         }
         if (event.type === 'inline') {
@@ -310,7 +312,7 @@ export async function traceSelectedSources(context, host) {
             owner.conditions, owner.guard, frame.loaded, frame.depth + 1, inline);
           if (inline.status === 'missing-context' || !inline.analysis?.complete) group.analysisComplete = false;
           if (inline.analysis?.diagnostics.some(row => ['LUA0002', 'LUA0003', 'LUA0005'].includes(row.code))) group.graphComplete = false;
-          if (inline.analysis) batch(group, child, inline.analysis.declarations, '@wow-addon/lua-analysis', inline.mapping);
+          if (inline.analysis) batch(group, child, inline.analysis.declarations.length, '@wow-addon/lua-analysis');
           continue;
         }
         budget.use('referenceOccurrences', 1);
@@ -363,7 +365,7 @@ export async function traceSelectedSources(context, host) {
         const facts = disposition(loaded.record.result);
         if (facts.blocked) group.graphComplete = false;
         if (!facts.complete) group.analysisComplete = false;
-        if (loaded.record.result.language === 'lua') batch(group, child, loaded.record.result.result.declarations, '@wow-addon/lua-analysis');
+        if (loaded.record.result.language === 'lua') batch(group, child, loaded.record.result.result.declarations.length, '@wow-addon/lua-analysis');
         active.set(sourcePath, child.occurrenceId);
         stack.push(makeFrame(loaded, child, frame.depth + 1));
       } catch (error) {block(group, error, [event.source ?? frame.loaded.record.result.parsed?.entries[0].source].filter(Boolean), owner.occurrenceId);}

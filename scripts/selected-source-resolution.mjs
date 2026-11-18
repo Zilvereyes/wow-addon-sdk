@@ -41,7 +41,6 @@ export function composeGraphResolution(context, trace) {
     budget.check(); assert.ok(!owners.has(owner.occurrenceId), 'graph-resolution-invariant');
     budget.retain(1, 0); owners.set(owner.occurrenceId, owner);
   }
-  for (const origin of trace.originInputs) {budget.check(); assert.ok(owners.has(origin.occurrenceId), 'graph-resolution-invariant');}
   for (let index = 0; index < trace.groups.length; index++) {
     budget.check();
     const group = trace.groups[index], status = groups[index], before = budget.metrics();
@@ -56,9 +55,8 @@ export function composeGraphResolution(context, trace) {
           return {identity: {logicalAddonId: profile.logicalAddonId, tocVariantId: JSON.stringify([profile.logicalAddonId, sourcePath]),
             tocPath: sourcePath, tocSuffix: loaded.parsed.metadata.tocSuffix,
             source: {file: sourcePath, range: {start: {line: 0, column: 0}, end: {line: 0, column: 0}}}}, metadata: loaded.parsed.metadata};
-        }), selectionPolicy: request.selectionPolicy, providers: trace.providerBatches.get(index) ?? []});
+        }), selectionPolicy: request.selectionPolicy, providers: []});
       const variant = group.selection.status === 'selected' ? group.selection.selectedVariantId : null;
-      for (const provider of input.providers) {budget.check(); same(provider.tocVariantId, variant); assert.ok(provider.declarations.length > 0, 'graph-resolution-invariant');}
       const selected = variant === null ? null : input.candidates.find(candidate => candidate.identity.tocVariantId === variant);
       const roots = trace.occurrences.filter(owner => owner.logicalAddonId === group.logicalAddonId && owner.parentOccurrenceId === null);
       budget.retain(4, 0); const originRows = [], rows = [], xmlCursors = new Map(), luaOwners = new Map();
@@ -77,52 +75,64 @@ export function composeGraphResolution(context, trace) {
         });
         same(ordinal, declarations.length);
       } else if (status.resolutionEligible && variant !== null) assert.fail('graph-resolution-invariant');
-      const providerOrigins = trace.originInputs.filter(origin => owners.get(origin.occurrenceId)?.logicalAddonId === group.logicalAddonId);
-      let ordinal = 0;
-      let batchOwner = null;
-      input.providers.forEach((provider, providerBatchIndex) => provider.declarations.forEach((declaration, providerDeclarationIndex) => {
-        budget.check(); const origin = providerOrigins[ordinal++], owner = owners.get(origin?.occurrenceId);
-        assert.ok(origin && owner, 'graph-resolution-invariant');
-        if (providerDeclarationIndex === 0) batchOwner = owner.occurrenceId;
-        else same(owner.occurrenceId, batchOwner);
-        same(owner.tocVariantId, variant); same(origin.origin, 'provider'); same(origin.tocDeclarationIndex, null);
-        same(origin.providerBatchIndex, providerBatchIndex); same(origin.providerDeclarationIndex, providerDeclarationIndex);
-        same(origin.resolvedEntryIndex, null); same(origin.resolvedDeclarationIndex, null); same(origin.declaration, declaration);
+      const batches = trace.providerBatches.get(index) ?? [];
+      for (let providerBatchIndex = 0; providerBatchIndex < batches.length; providerBatchIndex++) {
+        budget.check();
+        const batch = batches[providerBatchIndex], owner = owners.get(batch?.occurrenceId);
+        assert.ok(owner, 'graph-resolution-invariant');
+        same(batch.providerBatchIndex, providerBatchIndex);
+        same(owner.logicalAddonId, group.logicalAddonId);
+        same(owner.tocVariantId, variant); same(batch.tocVariantId, variant);
+        same(batch.analysisId, owner.analysisId); same(batch.inlineElementIndex, owner.inlineElementIndex);
+        assert.ok(variant !== null && Number.isSafeInteger(owner.analysisId), 'graph-resolution-invariant');
         const analysis = trace.analyses[owner.analysisId];
         same(analysis?.analysisId, owner.analysisId); same(analysis?.sourcePath, owner.sourcePath);
+        let declarations, mapping = null;
         if (owner.kind === 'inline-chunk' || owner.kind === 'inline-handler') {
-          same(provider.providerId, '@wow-addon/lua-analysis');
+          same(analysis.result.language, 'xml'); same(batch.frameIndex, null);
           const inline = analysis.result.inline.find(value => value.elementIndex === owner.inlineElementIndex);
           assert.ok(inline?.analysis && inline.mapping, 'graph-resolution-invariant');
-          same(provider.declarations.length, inline.analysis.declarations.length);
-          same(declaration, inline.analysis.declarations[providerDeclarationIndex]);
-          same(origin.mapping, {...inline.mapping, mappings: [inline.mapping.mappings[providerDeclarationIndex]]});
+          same(owner.kind, 'inline-' + inline.kind);
+          declarations = inline.analysis.declarations;
+          mapping = inline.mapping;
+          same(mapping.mappings.length, declarations.length);
+        } else if (analysis.result.language === 'lua') {
+          same(owner.kind, 'file'); same(batch.frameIndex, null);
+          declarations = analysis.result.result.declarations;
         } else {
-          same(origin.mapping, null);
-          same(provider.providerId, analysis.result.language === 'lua' ? '@wow-addon/lua-analysis' : '@wow-addon/xml-analysis');
-          if (analysis.result.language === 'lua') {
-            same(provider.declarations.length, analysis.result.result.declarations.length);
-            same(declaration, analysis.result.result.declarations[providerDeclarationIndex]);
-          }
-          else {
-            // XML emits one batch per declared frame in preorder. Bind that
-            // ordinal to the validated analysis, never just batch/sidecar equality.
-            same(analysis.result.language, 'xml'); same(providerDeclarationIndex, 0); same(provider.declarations.length, 1);
-            const frames = analysis.result.provider.frames;
-            let cursor = xmlCursors.get(owner.occurrenceId) ?? 0;
-            while (cursor < frames.length && frames[cursor].declarationIndex === null) {budget.check(); cursor++;}
-            assert.ok(cursor < frames.length, 'graph-resolution-invariant');
-            same(declaration, analysis.result.provider.declarations[frames[cursor].declarationIndex]);
-            if (!xmlCursors.has(owner.occurrenceId)) budget.retain(1, 0);
-            xmlCursors.set(owner.occurrenceId, cursor + 1);
-          }
+          same(owner.kind, 'file'); same(analysis.result.language, 'xml');
+          const frames = analysis.result.provider.frames;
+          let cursor = xmlCursors.get(owner.occurrenceId) ?? 0;
+          while (cursor < frames.length && frames[cursor].declarationIndex === null) {budget.check(); cursor++;}
+          assert.ok(cursor < frames.length, 'graph-resolution-invariant');
+          same(batch.frameIndex, cursor);
+          const declaration = analysis.result.provider.declarations[frames[cursor].declarationIndex];
+          assert.ok(declaration, 'graph-resolution-invariant');
+          budget.retain(2, 0); // A single-element input array and its reference.
+          declarations = [declaration];
+          if (!xmlCursors.has(owner.occurrenceId)) budget.retain(1, 0);
+          xmlCursors.set(owner.occurrenceId, cursor + 1);
         }
-        if (provider.providerId === '@wow-addon/lua-analysis' && providerDeclarationIndex === 0) {
+        const providerId = batch.frameIndex === null ? '@wow-addon/lua-analysis' : '@wow-addon/xml-analysis';
+        same(batch.providerId, providerId);
+        assert.ok(declarations.length > 0, 'graph-resolution-invariant');
+        same(batch.declarationCount, declarations.length);
+        if (providerId === '@wow-addon/lua-analysis') {
           same(luaOwners.has(owner.occurrenceId), false); budget.retain(1, 0); luaOwners.set(owner.occurrenceId, true);
         }
-        append(origin, provider.providerId);
-      }));
-      same(providerOrigins.length, ordinal);
+        // The SDK reads these inputs synchronously and owns its output. Origins
+        // need separate owned copies because they are returned alongside the analyses.
+        const provider = budget.copy({providerId, tocVariantId: variant, declarations: null});
+        provider.declarations = declarations;
+        input.providers.push(provider);
+        for (let providerDeclarationIndex = 0; providerDeclarationIndex < declarations.length; providerDeclarationIndex++) {
+          budget.check();
+          append({occurrenceId: owner.occurrenceId, declaration: declarations[providerDeclarationIndex],
+            origin: 'provider', tocDeclarationIndex: null, providerBatchIndex, providerDeclarationIndex,
+            mapping: mapping === null ? null : {...mapping, mappings: [mapping.mappings[providerDeclarationIndex]]},
+            resolvedEntryIndex: null, resolvedDeclarationIndex: null}, providerId);
+        }
+      }
       if (status.resolutionEligible) {
         for (const owner of trace.occurrences) {
           budget.check(); if (owner.logicalAddonId !== group.logicalAddonId) continue;
