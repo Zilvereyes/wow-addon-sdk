@@ -45,6 +45,25 @@ test('real supervised TOC/Lua calls preserve duplicate entries, paths and inheri
   } finally { await client.close(); }
 });
 
+test('graph Lua projection checks the exact enumerable shape independently of field order', () => {
+  const input = request('lua', 'Exact=1', [condition()]);
+  const analysis = analyzeLua(input.content, input.sourcePath, {addonId: input.addonId, conditions: input.conditions});
+  const declaration = Object.fromEntries(Object.entries(analysis.declarations[0]).reverse());
+  const reply = {result: {language: 'lua', result: {...analysis, declarations: [declaration]}},
+    confirmedApiCalls: receipts('analyzeLua'), failure: null};
+  assert.deepEqual(verifyGraphAnalysisReply(reply, input), {
+    result: reply.result, confirmedApiCalls: reply.confirmedApiCalls, failure: null,
+  });
+  const withHiddenName = structuredClone(reply);
+  const changed = withHiddenName.result.result.declarations[0];
+  Object.defineProperty(changed, 'name', {enumerable: false});
+  changed.extra = 'Exact';
+  assert.throws(() => verifyGraphAnalysisReply(withHiddenName, input));
+  const wrongRange = structuredClone(reply);
+  wrongRange.result.result.declarations[0].source.range.start.column++;
+  assert.throws(() => verifyGraphAnalysisReply(wrongRange, input));
+});
+
 test('real XML provider and inline analysis preserve requester and exact disjoint original mapping', async () => {
   const input = request('xml', xml, [condition()]), client = createGraphAnalyzer();
   try {

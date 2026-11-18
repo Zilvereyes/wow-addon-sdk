@@ -69,8 +69,10 @@ function lines(text) {
   function range(value) { const a = offset(value.start), b = offset(value.end); assert.ok(b >= a); return [a, b]; }
   return { offset, position, range };
 }
+const enumerable = Object.prototype.propertyIsEnumerable;
 const exact = (value, fields) => {
-  assert.ok(record(value)); assert.deepEqual(Object.keys(value).sort(), [...fields].sort());
+  assert.ok(record(value) && Object.keys(value).length === fields.length &&
+    fields.every(field => enumerable.call(value, field)));
 };
 const summary = () => ({ discoveredBodies: 0, eligibleBodies: 0, skippedMissingContext: 0, attemptedBodies: 0,
   syntaxAccepted: 0, syntaxRejected: 0, resourceBlockedBodies: 0, backendBlockedBodies: 0,
@@ -90,13 +92,16 @@ export function verifyLuaProjection(analysis, body, context, decodedSourcePath,
     exact(source.range, ['start', 'end']); const offsets = decoded.range(source.range); queries.push(source.range);
     return offsets;
   }
+  const conditioned = association.conditions.length > 0;
+  const declarationFields = ['name', 'addonId', 'kind', 'activationState', 'source'];
+  if (conditioned) declarationFields.push('conditions');
+  const activation = conditioned ? 'conditional' : 'unconditional';
   for (const declaration of analysis.declarations) {
-    exact(declaration, ['name', 'addonId', 'kind', 'activationState', 'source',
-      ...(association.conditions.length ? ['conditions'] : [])]);
+    exact(declaration, declarationFields);
     assert.ok(identifier(declaration.name)); assert.equal(declaration.addonId, association.addonId);
-    if (association.conditions.length) assert.deepEqual(declaration.conditions, association.conditions);
+    if (conditioned) assert.deepEqual(declaration.conditions, association.conditions);
     assert.equal(declaration.kind, 'lua-global');
-    assert.ok([association.conditions.length ? 'conditional' : 'unconditional', 'unknown'].includes(declaration.activationState));
+    assert.ok(declaration.activationState === activation || declaration.activationState === 'unknown');
     if (context.kind === 'function-body') {
       assert.equal(declaration.activationState, 'unknown'); assert.equal(context.parameters.includes(declaration.name), false);
     }
