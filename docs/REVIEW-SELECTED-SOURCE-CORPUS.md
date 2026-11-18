@@ -263,6 +263,20 @@ With the same authored files, the CLI path held 256,734 records at reply 1,000 a
 
 The focused Windows Node 24.22.3 command exited 0 with two passes. The lower cap yields a resource failure in the full graph and the same aggregate as the ample-budget full graph in the CLI path. The corrupted XML control withholds XML syntax credit in both paths.
 
+### Full installed replay through the CLI aggregate path
+
+The read-only observer ran `d17bfea5937987c2b199bfec453f543f2cda68c0` on Windows Node 24.22.3, with four byte-identical profiles and the same work ceilings as the prior Node 24 run. The request still covered 100 groups and 227 TOC candidates. Host session 11693 exited 1 in 900,480 ms. It opened 741 distinct files read-only and reached at least one candidate open in 23 groups. The first operation-time denial held 189,636 records and 24,496,470 UTF-16 units. No retention limit denied a reservation. [Reconciled phase receipt](evidence/selected-source-cli-aggregate-corpus-2026-11-18.json)
+
+| Language | Opened | Analyzer submissions | Port replies | Port rejections | Analyzer wall time |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| TOC | 36 | 36 | 35 | 1 | 33,259 ms |
+| Lua | 564 | 564 | 564 | 0 | 423,510 ms |
+| XML | 141 | 141 | 141 | 0 | 224,112 ms |
+
+The run ended before final source or directory verification. No aggregate, final verdict counts, skips, diagnostics or invariant totals were issued. The port counts record traversal progress. The observer reconciled all read-only opens, four profile byte comparisons and 13 runtime file hashes. Retention figures came from the shared operation ledger. The receipt contains aggregate operational counts and repository identities.
+
+The earlier Node 24 run reached 1,072 submissions, so these installed measurements cover different prefixes. The authored equal-work comparison gives the direct retention evidence. Profile the remaining wall time on Windows Node 24 with fixed authored cases. Compare bare Node, one-shot TOC/XML, and the transition from an idle corpus Lua launcher to a TOC/XML request. Record startup, launcher close, SDK import, API, serialization, and parent validation times with exact reply/receipt equality before changing implementation. Stage 7 requires the original full input and final integrity verification.
+
 ```powershell
 node --test --test-name-pattern 'aggregate-only validation' tests/selected-source-graph.test.mjs
 ```

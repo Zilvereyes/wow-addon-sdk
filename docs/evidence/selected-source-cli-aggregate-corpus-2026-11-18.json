@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "selected-source-cli-aggregate-observation",
+  "sourceCommit": "d17bfea5937987c2b199bfec453f543f2cda68c0",
+  "sourceTree": "46772ea2d6adb98bb1bb71b9eb27baa83c2ca6d2",
+  "platform": "windows",
+  "nodeVersion": "24.22.3",
+  "hostSession": 11693,
+  "exitCode": 1,
+  "profiles": {
+    "unchanged": 4,
+    "groups": 100,
+    "candidateFiles": 227,
+    "groupsWithOpenedCandidate": 23
+  },
+  "limits": {
+    "operationMilliseconds": 900000,
+    "retainedRecords": 1000000,
+    "retainedStringUnits": 67108864
+  },
+  "elapsedMilliseconds": 900480,
+  "status": "failed",
+  "aggregateAvailable": false,
+  "inputReadOnlyOpenCalls": 741,
+  "pathsReread": 0,
+  "verifySource": 0,
+  "verifyDirectory": 0,
+  "bootstrapMilliseconds": 9936,
+  "listDirectoryMilliseconds": 118844,
+  "readSourceMilliseconds": 78284,
+  "windowsInspect": {
+    "calls": 44401,
+    "rows": 55402,
+    "elapsedMilliseconds": 150186
+  },
+  "firstDenial": {
+    "limit": "operationMilliseconds",
+    "elapsedMilliseconds": 900027,
+    "metrics": {
+      "sourceNodes": 741,
+      "analysisRecords": 741,
+      "referenceOccurrences": 707,
+      "occurrences": 1262,
+      "graphDepth": 0,
+      "directoryDepth": 0,
+      "directoryEntries": 12723,
+      "readBytes": 20134280,
+      "textCacheBytes": 38310934,
+      "retainedRecords": 189636,
+      "retainedStringUnits": 24496470
+    }
+  },
+  "finalMetrics": {
+    "sourceNodes": 741,
+    "analysisRecords": 741,
+    "referenceOccurrences": 707,
+    "occurrences": 1262,
+    "graphDepth": 0,
+    "directoryDepth": 0,
+    "directoryEntries": 12723,
+    "readBytes": 20134280,
+    "textCacheBytes": 0,
+    "retainedRecords": 157518,
+    "retainedStringUnits": 4700269
+  },
+  "analyses": {
+    "toc": {
+      "opened": 36,
+      "submitted": 36,
+      "replied": 35,
+      "rejected": 1,
+      "elapsedMilliseconds": 33259
+    },
+    "lua": {
+      "opened": 564,
+      "submitted": 564,
+      "replied": 564,
+      "rejected": 0,
+      "elapsedMilliseconds": 423510
+    },
+    "xml": {
+      "opened": 141,
+      "submitted": 141,
+      "replied": 141,
+      "rejected": 0,
+      "elapsedMilliseconds": 224112
+    }
+  },
+  "verifiedSourceFiles": 13,
+  "finalSyntaxVerdicts": null,
+  "finalSkips": null,
+  "finalDiagnostics": null,
+  "finalInvariantResults": null
+}
