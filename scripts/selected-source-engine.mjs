@@ -9,6 +9,8 @@ import {verifyGraphAnalysisReply, snapshotGraphAnalysisRequest} from './selected
 
 const fold = value => value.replace(/[A-Z]/gu, unit => unit.toLowerCase());
 const language = value => ({'.toc': 'toc', '.lua': 'lua', '.xml': 'xml'})[path.extname(value).toLowerCase()] ?? null;
+const directoryEntryFields = ['name', 'kind', 'reparsePoint'];
+const directoryEntryKeyUnits = directoryEntryFields.reduce((sum, field) => sum + field.length, 0);
 const own = (value, fields) => assert.ok(value && typeof value === 'object' && !Array.isArray(value) &&
   Object.keys(value).length === fields.length && fields.every(field => Object.hasOwn(value, field)));
 const failure = (kind, reason = kind) => Object.assign(Error('Selected-source graph operation failed.'), {kind, reason});
@@ -33,6 +35,7 @@ export async function traceSelectedSources(context, host) {
     files: new Map(), directories: new Map(), providerBatches: new Map(), budget, fatal: null};
   const emergency = {code: 'SGRAPH0005', sources: []};
   const analysisCache = new Map(), textCache = new Map(), failedDirectories = new Set();
+  let directoryListRecords = 0, directoryListUnits = 0;
   // Candidate loads and DFS loads are awaited serially; one existing key is
   // sufficient and needs no additional owned Set/container or entry copies.
   let pinnedSourcePath = null;
@@ -58,18 +61,23 @@ export async function traceSelectedSources(context, host) {
         budget.check(); own(raw, ['fingerprint', 'entries']);
         assert.ok(typeof raw.fingerprint === 'string' && raw.fingerprint.length > 0 && raw.fingerprint.length <= 4096 && Array.isArray(raw.entries));
         if (!shared) budget.use('directoryEntries', raw.entries.length);
+        let entryUnits = 'entries'.length;
         const value = retain(raw, owned => {
           const seen = new Set();
           for (const row of owned.entries) {
-            budget.check(); own(row, ['name', 'kind', 'reparsePoint']);
+            budget.check(); own(row, directoryEntryFields);
             assert.ok(typeof row.name === 'string' && ['file', 'directory', 'link', 'unsupported'].includes(row.kind) && typeof row.reparsePoint === 'boolean');
             assert.equal(seen.has(row.name), false); seen.add(row.name);
             const parsed = normalizeGraphPath(row.name, [], {maximumUnits: limits.pathUnits});
             if (row.kind !== 'unsupported') assert.ok(parsed.status === 'ready' && parsed.components.length === 1);
+            entryUnits += directoryEntryKeyUnits + row.name.length + row.kind.length;
           }
           reserve(2, key.length);
         });
         trace.directories.set(key, {...value, consumers: new Set(), valid: true});
+        // The retained copy charges the array, each row and each string field.
+        directoryListRecords += 1 + value.entries.length;
+        directoryListUnits += entryUnits;
         failedDirectories.delete(key);
       } finally {
         host.releaseHandoff?.(raw);
@@ -123,6 +131,21 @@ export async function traceSelectedSources(context, host) {
     const value = textCache.get(key); textCache.delete(key);
     budget.release('textCacheBytes', value.bytes); budget.release('retainedRecords', value.records);
     budget.release('retainedStringUnits', value.units);
+  }
+  function discardTraversalData() {
+    for (const key of textCache.keys()) evict(key);
+    if (directoryListRecords) {
+      for (const value of trace.directories.values()) delete value.entries;
+      budget.release('retainedRecords', directoryListRecords);
+      budget.release('retainedStringUnits', directoryListUnits);
+      directoryListRecords = 0; directoryListUnits = 0;
+    }
+    let keyUnits = 0;
+    for (const key of analysisCache.keys()) keyUnits += key.length;
+    budget.release('retainedRecords', analysisCache.size);
+    budget.release('retainedStringUnits', keyUnits);
+    analysisCache.clear();
+    failedDirectories.clear();
   }
   function reclaimText(records, units) {
     for (const key of textCache.keys()) {
@@ -414,9 +437,9 @@ export async function traceSelectedSources(context, host) {
         await walk(group, root, variantId);
       }
     }
-    // Traversal is over. Integrity verification reads original bytes again and
-    // needs no cached text; free it before native verification allocates state.
-    for (const key of textCache.keys()) evict(key);
+    // Integrity verification uses fingerprints and consumers from the trace.
+    // Release the traversal lookups before native verification allocates state.
+    discardTraversalData();
     for (const value of trace.files.values()) {
       budget.check(); if (value.fingerprint === null) continue;
       value.integrity.checked++;
@@ -456,7 +479,7 @@ export async function traceSelectedSources(context, host) {
     return trace;
   } finally {
     detachReclaimer?.();
-    for (const key of textCache.keys()) evict(key);
+    discardTraversalData();
     try {await host.close();} catch {
       trace.fatal = 'worker'; emergency.code = 'SGRAPH0007'; if (!trace.issues.includes(emergency)) trace.issues.push(emergency);
       for (const group of trace.groups) {group.graphComplete = false; group.analysisComplete = false; group.resolutionEligible = false;}

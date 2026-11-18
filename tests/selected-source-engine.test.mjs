@@ -78,6 +78,41 @@ test('discarded engine analysis copies return their own retention charges', asyn
   assert.deepEqual(await reject(false), await reject(true));
 });
 
+test('traversal-only directory rows yield their budget before final integrity checks', async () => {
+  async function run(padding, changed = false) {
+    const prepared = context(), budget = createGraphBudget(prepared);
+    const files = simple();
+    for (let index = 0; index < padding; index++) files['Demo/AuthoredExtra' + index + '.txt'] = '';
+    const beforeIntegrity = [];
+    const fixture = memoryHost(files, host => {
+      const verifySource = host.verifySource, verifyDirectory = host.verifyDirectory;
+      host.verifySource = async (...args) => {
+        if (beforeIntegrity.length === 0) beforeIntegrity.push(budget.metrics());
+        return verifySource(...args);
+      };
+      host.verifyDirectory = async (key, fingerprint) =>
+        changed && key === 'Demo' ? false : verifyDirectory(key, fingerprint);
+    });
+    bindGraphHostBudget(fixture.host, budget, prepared);
+    const trace = await traceSelectedSources(prepared, fixture.host);
+    assert.equal(fixture.closes, 1);
+    assert.equal(beforeIntegrity.length, 1);
+    return {trace, beforeIntegrity: beforeIntegrity[0], afterIntegrity: budget.metrics()};
+  }
+  const small = await run(0), padded = await run(128);
+  assert.deepEqual(padded.beforeIntegrity, small.beforeIntegrity);
+  assert.deepEqual(padded.afterIntegrity, small.afterIntegrity);
+  assert.deepEqual(padded.trace.analyses, small.trace.analyses);
+  assert.deepEqual(padded.trace.occurrences, small.trace.occurrences);
+  assert.equal(padded.trace.discovery.entriesVisited - small.trace.discovery.entriesVisited, 128);
+  assert.ok(padded.trace.groups.every(group => group.resolutionEligible));
+  const changed = await run(128, true);
+  assert.equal(changed.trace.directories.get('Demo').valid, false);
+  assert.equal(changed.trace.discovery.complete, false);
+  assert.ok(changed.trace.issues.some(issue => issue.code === 'SGRAPH0006'));
+  assert.ok(changed.trace.groups.every(group => !group.resolutionEligible));
+});
+
 test('actual selected graph traverses depth-first, retains duplicates and reuses only identical analyses', async () => {
   const fixture = memoryHost(simple());
   const trace = await traceSelectedSources(context(), fixture.host);
