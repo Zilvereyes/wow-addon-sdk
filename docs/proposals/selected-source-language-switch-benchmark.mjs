@@ -13,11 +13,16 @@ const make = (language, index, content) => ({
   addonId: 'authored-fixture', conditions: [], luaProfile: 'corpus',
   allowShebang: false, xmlPolicy, inlineProfile,
 });
-const lua = Array.from({length: 13}, (_, i) => make('lua', i, '-- framed \u{1F642}\r\nGlobal' + i + ' = 1'));
+const [option, ...extraOptions] = process.argv.slice(2);
+assert.ok((option === undefined || option === '--rotation') && extraOptions.length === 0,
+  'Usage: node docs/proposals/selected-source-language-switch-benchmark.mjs [--rotation]');
+const rotation = option === '--rotation';
+const lua = Array.from({length: rotation ? 47 : 13},
+  (_, i) => make('lua', i, '-- framed \u{1F642}\r\nGlobal' + i + ' = 1'));
 const toc = Array.from({length: 3}, (_, i) => make('toc', i, '## Interface: 11509\r\nCore.lua\r\n'));
 const xml = Array.from({length: 3}, (_, i) => make('xml', i, '<Ui><Include file="Core&amp;Helper.xml"/><Script>AuthoredValue=1</Script></Ui>'));
 const grouped = [...lua, ...toc, ...xml];
-const mixed = [...toc.flatMap((item, i) => [...lua.slice(i * 4, i * 4 + 4), item, xml[i]]), lua[12]];
+const mixed = [...toc.flatMap((item, i) => [...lua.slice(i * 4, i * 4 + 4), item, xml[i]]), ...lua.slice(12)];
 let expected;
 for (const [mode, requests] of [['grouped', grouped], ['mixed', mixed], ['mixed', mixed], ['grouped', grouped]]) {
   const children = new Set();
@@ -29,7 +34,9 @@ for (const [mode, requests] of [['grouped', grouped], ['mixed', mixed], ['mixed'
   const retireToClose = [];
   let activeRequest;
   let completed = 0;
+  let consecutiveLua = 0;
   const timings = {lua: [], toc: [], xml: []};
+  const rotationTimings = {first: [], last: [], afterRotation: []};
   const outputs = new Map();
   const client = createGraphAnalyzer({spawnProcess(executable, args, options) {
     if (children.size) overlap++;
@@ -60,8 +67,13 @@ for (const [mode, requests] of [['grouped', grouped], ['mixed', mixed], ['mixed'
       const start = performance.now();
       activeRequest = request.language;
       const reply = await client.analyze(request);
+      const elapsed = performance.now() - start;
       completed++;
-      timings[request.language].push(performance.now() - start);
+      timings[request.language].push(elapsed);
+      consecutiveLua = request.language === 'lua' ? consecutiveLua + 1 : 0;
+      if (consecutiveLua === 1) rotationTimings.first.push(Math.round(elapsed));
+      if (consecutiveLua === 32) rotationTimings.last.push(Math.round(elapsed));
+      if (consecutiveLua === 33) rotationTimings.afterRotation.push(Math.round(elapsed));
       outputs.set(request.sourcePath, JSON.stringify(reply));
     }
   } catch (error) {
@@ -75,14 +87,19 @@ for (const [mode, requests] of [['grouped', grouped], ['mixed', mixed], ['mixed'
   assert.equal(children.size, 0);
   assert.ok(cleanCloses.every(Boolean));
   assert.equal(reaped, started.launchers + started.oneShot);
-  assert.equal(started.launchers, mode === 'mixed' ? 4 : 1);
+  const bursts = mode === 'mixed' ? 4 : 1;
+  assert.equal(started.launchers, bursts + Number(rotation));
   assert.equal(started.oneShot, 6);
-  assert.equal(outputs.size, 19);
+  assert.equal(outputs.size, requests.length);
+  assert.equal(rotationTimings.first.length, bursts);
+  assert.equal(rotationTimings.last.length, Number(rotation));
+  assert.equal(rotationTimings.afterRotation.length, Number(rotation));
+  assert.equal(startsToFirstBytes.length, reaped);
   const ordered = [...outputs.entries()].sort(([a], [b]) => a.localeCompare(b));
   if (expected) assert.deepEqual(ordered, expected);
   else expected = ordered;
   console.log(JSON.stringify({
-    mode, total, started, reaped, replyCount: outputs.size, startsToFirstBytes, retireToClose,
+    mode, total, started, reaped, replyCount: outputs.size, startsToFirstBytes, retireToClose, rotationTimings,
     replyDigest: createHash('sha256').update(JSON.stringify(ordered)).digest('hex'),
     perLanguageMilliseconds: Object.fromEntries(Object.entries(timings)
       .map(([language, values]) => [language, Math.round(values.reduce((a, b) => a + b, 0))])),

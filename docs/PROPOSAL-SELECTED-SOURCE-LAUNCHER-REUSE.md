@@ -4,9 +4,11 @@ Status: proposed for an authored prototype and review. The runtime follows [the 
 
 ## Dependency and measured problem
 
-Stage 7 needs the original full 100-group Windows replay with four selected profiles, a 900-second operation limit, final read-only integrity and reconciled source and diagnostic counts. The full replay on `e5931e2` reached 342 submissions and 339 replies. Two XML requests timed out before the global deadline and one timed out at it. The same three sources returned all 12 replies in the subsequent isolated checks. The earlier replay on `6c7d7d5` reached 838 submissions and 835 replies. [Current replay](https://github.com/Zilvereyes/wow-addon-sdk/pull/30) · [Earlier receipt](evidence/selected-source-windows-helper-v102-corpus-2026-11-18.json) · [Isolated phase results](REVIEW-SELECTED-SOURCE-ANALYSIS.md#follow-up-on-the-three-xml-timeouts)
+Stage 7 needs the original full 100-group Windows replay with four selected profiles, a 900-second operation limit, final read-only integrity and reconciled source and diagnostic counts. The full replay on `7d4ab84` reached 185 submissions and 156 validated replies, with 27 TOC, one Lua and one XML timeout. All six isolated calls on three of the TOC timeout sources subsequently returned matching replies. Previous full runs encountered XML timeouts as well. [Full replay and TOC isolation](REVIEW-SELECTED-SOURCE-CORPUS.md#full-replay-with-batched-windows-attributes-and-bounded-xml-indexing) · [Isolated XML phase results](REVIEW-SELECTED-SOURCE-ANALYSIS.md#follow-up-on-the-three-xml-timeouts)
 
 The supervisor closes an idle corpus Lua launcher at a language switch and starts a process for each TOC or XML. The larger authored Windows comparison measured 10,856 ms from spawn to first worker marker across nine processes and 1,558 ms for six XML parent validations. The sample does not establish installed throughput. [Measurements](REVIEW-SELECTED-SOURCE-ANALYSIS.md#larger-authored-phase-comparison)
+
+The authored stock-process baseline now crosses rotation in grouped and mixed orders. Use those same inputs and compare each full reply, burst first reply, call 32, first reply after rotation and acknowledged close against the prototype. The widest stock one-shot startup-to-first-byte interval approached the ordinary 10-second call cap. Report durations for each series and the range even when process counts agree. [Rotation measurements](REVIEW-SELECTED-SOURCE-ANALYSIS.md#stock-process-timing-across-lua-rotation)
 
 ## Candidate lifecycle
 

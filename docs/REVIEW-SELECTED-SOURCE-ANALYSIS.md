@@ -81,6 +81,23 @@ The checked-in benchmark path reran successfully on the same runtime sources. Gr
 
 The next private observer records actual language transitions and launcher starts under the existing policy. It reports only counts and phase timings. This will establish the frequency of this cost in the installed request and show whether the next review should focus on Lua launcher lifetime or one-shot startup. A change to the approved process lifetime or concurrency requires a separate design decision. Stage 7 still requires the original full request, final integrity and policy-bound accounting.
 
+### Stock process timing across Lua rotation
+
+On Windows Node 24.22.3 (session 50049, exit 0), the authored benchmark used the stock parser port from `f5aef05a567a2404583507e8ef672767b0cf5345`. The extended mode ran grouped, mixed, mixed, grouped with 47 identical Lua inputs by source across series and three TOCs and three XML files in each series. In the mixed order three four-file Lua bursts preceded the final 35-file burst. Each order crossed the 32-file lifetime. The original 19-request mode also passed all four series.
+
+```powershell
+node docs/proposals/selected-source-language-switch-benchmark.mjs --rotation
+```
+
+| Series | Total | Lua process starts | TOC/XML process starts | Lua call 32 | First Lua call after rotation |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Grouped 1 | 13,709 ms | 2 | 6 | 168 ms | 383 ms |
+| Mixed 1 | 13,174 ms | 5 | 6 | 211 ms | 384 ms |
+| Mixed 2 | 25,552 ms | 5 | 6 | 138 ms | 418 ms |
+| Grouped 2 | 24,417 ms | 2 | 6 | 196 ms | 586 ms |
+
+All 212 validated replies and API receipts matched by source against the first series. Each of 38 started processes produced a first response and closed cleanly before the next process started. Lua burst first replies took 295–1,461 ms. The spawn-to-first-byte interval for one-shot TOC/XML calls was 290–8,809 ms. The maximum occurred during a grouped TOC call. Overall times varied substantially even across repeated series with identical requests and process counts. Compare cold first replies, replies after rotation, and verified process close in the same timed workload before judging a different lifecycle. These observations use authored files under the current lifecycle. Full installed-corpus acceptance remains open.
+
 ## Larger authored phase comparison
 
 Windows Node 24.22.3 at `d6941a7b33101e64a3f0ba0de66f73bb4003641b`. The stock and temporary instrumented supervisors produced 14 identical full replies and API receipts across six Lua, six XML and two TOC inputs. Lua inputs ranged from 58,459 to 235,821 bytes. Three XML inputs had 420 Includes each and produced 1,102,216-byte replies. Three had 48 inline scripts each. All 144 inline Lua calls and original-range maps were observed.
