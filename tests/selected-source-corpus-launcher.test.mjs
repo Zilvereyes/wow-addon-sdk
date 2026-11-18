@@ -155,7 +155,7 @@ test('an idle launcher exit blocks new writes and replacement until direct close
     first.child.emit('exit', 0, null);
 
     const input = request(2);
-    const next = client.analyze(input);
+    const next = assert.rejects(client.analyze(input), withoutReceipts('graph-analysis-exit'));
     let settled = false;
     next.then(() => { settled = true; }, () => { settled = true; });
     await setImmediate();
@@ -165,7 +165,9 @@ test('an idle launcher exit blocks new writes and replacement until direct close
     assert.equal(first.closed, false);
 
     first.acknowledge();
-    assert.deepEqual(await next, expected(input));
+    await next;
+    assert.equal(launches.length, 1);
+    assert.deepEqual(await client.analyze(input), expected(input));
     assert.equal(launches.length, 2);
     assert.equal(launches[1].requests.length, 1);
   } finally { await harness.close(); }
@@ -249,6 +251,8 @@ test('corpus response cap resets per request and idle output retires the launche
     await assert.rejects(client.analyze(input, 1), withoutReceipts('graph-analysis-timeout'));
     assert.equal(launches.length, 2);
     second.acknowledge(null);
+    await assert.rejects(client.analyze(input), withoutReceipts('graph-analysis-invariant'));
+    assert.equal(launches.length, 2);
     assert.deepEqual(await client.analyze(input), expected(input));
     assert.equal(launches.length, 3);
   } finally { await harness.close(); }

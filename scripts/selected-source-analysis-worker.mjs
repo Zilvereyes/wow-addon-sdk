@@ -1,4 +1,4 @@
-/** Fixed graph worker with an opt-in launcher for sequential corpus Lua requests. */
+/** Fixed graph worker with a fresh parser thread for every retained-launcher request. */
 import {Worker, isMainThread, parentPort, workerData} from 'node:worker_threads';
 import {createInterface} from 'node:readline';
 import {emptyGraphCalls} from './selected-source-analysis-receipts.mjs';
@@ -75,7 +75,8 @@ async function analyze(request) {
 if (!isMainThread) parentPort.postMessage(await analyze(workerData));
 else {
   const corpusLauncher = process.argv[2] === '--corpus-launcher';
-  const maxRequests = corpusLauncher ? 32 : 1;
+  const tocXmlLauncher = process.argv[2] === '--xml-toc-launcher';
+  const maxRequests = corpusLauncher || tocXmlLauncher ? 32 : 1;
   const input = createInterface({input: process.stdin, crlfDelay: Infinity});
   let requests = 0;
   for await (const line of input) {
@@ -83,12 +84,15 @@ else {
       const request = JSON.parse(line);
       const isCorpusLua = request.language === 'lua' && request.luaProfile === 'corpus';
       if (corpusLauncher && !isCorpusLua) throw Error('Expected corpus Lua request.');
+      if (tocXmlLauncher && request.language !== 'toc' && request.language !== 'xml') {
+        throw Error('Expected TOC or XML request.');
+      }
       let reply;
-      if (isCorpusLua) {
-        // The actual API wrapper and receipts run in the 8MiB parser stack,
-        // not around postMessage (which would only confirm message submission).
+      if (isCorpusLua || tocXmlLauncher) {
+        const resourceLimits = isCorpusLua ? {maxOldGenerationSizeMb: 2048, stackSizeMb: 8} :
+          {maxOldGenerationSizeMb: 256, stackSizeMb: 4};
         const thread = new Worker(new URL(import.meta.url), {workerData: request, execArgv: [],
-          resourceLimits: {maxOldGenerationSizeMb: 2048, stackSizeMb: 8}});
+          resourceLimits});
         try {
           reply = await new Promise((resolve, reject) => {
             thread.once('message', resolve); thread.once('error', reject);

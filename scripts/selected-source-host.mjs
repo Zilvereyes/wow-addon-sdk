@@ -7,7 +7,7 @@ import {createGraphBudget, bindGraphHostBudget} from './selected-source-budget.m
 export async function createSelectedSourceHost(root, context, {now = () => performance.now(), ...nativeOptions} = {}) {
   const budget = createGraphBudget(context, {now});
   const files = await createGraphFileHost(root, context, {...nativeOptions, now, budget, transientHandoffs: true});
-  const analyzer = createGraphAnalyzer({now});
+  const analyzer = createGraphAnalyzer({now, cleanupDeadline: budget.cleanupDeadline});
   const host = {
     listDirectory: files.listDirectory, verifyDirectory: files.verifyDirectory,
     readSource: files.readSource, verifySource: files.verifySource,

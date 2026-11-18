@@ -41,6 +41,9 @@ export function createGraphBudget(context, {now = () => performance.now(), accou
   }
   const ledger = {
     check, remaining: check, use, release, retain,
+    // The operation budget expires before cleanup. An overrun consumes part of
+    // this fixed allowance and cannot renew the deadline during reap.
+    cleanupDeadline: () => began + limits.operationMilliseconds + 10_000,
     attachRetentionReclaimer(reclaim) {
       if (typeof reclaim !== 'function' || retentionReclaimer !== null) throw projectionError();
       retentionReclaimer = reclaim;
