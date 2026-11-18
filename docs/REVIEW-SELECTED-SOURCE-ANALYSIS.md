@@ -105,3 +105,25 @@ The graph and inline validators check the exact own enumerable field set by key 
 An authored comparison on Windows Node 24.22.3 used actual SDK Lua projections with 2,000 and 12,000 declarations. After three warmup calls per implementation, 14 alternating calls per implementation measured only the projection validator. The upper middle observation fell from 19.57 to 5.29 ms and from 158.25 to 48.79 ms respectively. Both validators returned identical results and rejected the same four authored mutations. Host session 54018 exited 0. This measures one validator invocation and gives no estimate for complete corpus throughput.
 
 The Windows Node 24.22.3 focused run (host session 91245) exited 0 with 43 passes. It covered the graph analyzer and engine, legacy inline validation and the inline worker. The new regression accepts reordered properties and rejects a non-enumerable required key with an extra enumerable key or a relocated range. Exact-head supported CI and the installed corpus checkpoint are tracked in [PR #30](https://github.com/Zilvereyes/wow-addon-sdk/pull/30).
+
+## Follow-up on the three XML timeouts
+
+A private Windows Node 24.22.3 check used the three source identities recorded by the timed-out full run on `e5931e268307592ada3927d169a6ec7beb279a86`. It verified their original bytes through the same native read port, used the approved XML and inline profiles, inferred the requester from the containing AddOn and supplied empty inherited conditions. Each source ran twice in both the stock analyzer and a temporary phase-instrumented copy. The two passes alternated ordering. All 12 one-shot calls returned, all six pairs matched in their full projections and receipts, and all three sources passed the final native reread. The command exited 0. Local command result is `c5d74e`.
+
+| Observed phase | Range across six instrumented calls |
+| --- | ---: |
+| Spawn to first Node marker | 115–261 ms |
+| Spawn to first worker module marker | 119–267 ms |
+| SDK imports | 41–94 ms |
+| `parseXml` / `analyzeXml` | 12–41 / 12–72 ms |
+| Spawn to first frame | 202–571 ms |
+| Parent projection validation | 7–95 ms |
+| Complete instrumented call | 225–758 ms |
+
+Stock calls took 271–661 ms. The two spawn intervals overlap. This isolates the same bytes and parser settings under an available host. The original inherited conditions and remaining graph budget may differ. Two rejections in the full graph occurred before the global deadline and the third at the deadline. The isolated timings do not determine the cause of those earlier rejections. [Full run and CI](https://github.com/Zilvereyes/wow-addon-sdk/pull/30)
+
+## Authored single-thread stack prerequisite
+
+A separate Windows Node 24.22.3 check used the existing 256 MiB old-generation process flag. Each temporary candidate process handled one authored request in one fresh Worker with empty `execArgv`, a 256 MiB old-generation request and the default stack. The Worker had to exit cleanly before its reply was framed. It reported a 4 MiB stack and 448 MiB effective V8 heap limit across all five launches. Effective heap includes V8 overhead.
+
+All five candidate replies matched the stock one-shot results and receipts, including XML depth 255 and 256 with inline Lua, depth 257 returning `XML0003`, a 380-reference XML with UTF-16/entity coverage, and duplicate TOC rows. The command exited 0 (local run `6be70e`). The threaded variant took 87–209 ms longer per pair in these one-shot comparisons. This includes starting and joining a thread in a newly spawned process. Testing reuse across a mixed workload, memory and the remaining platform matrix belongs to the proposed prototype. [Prototype acceptance](PROPOSAL-SELECTED-SOURCE-LAUNCHER-REUSE.md#prototype-and-acceptance)

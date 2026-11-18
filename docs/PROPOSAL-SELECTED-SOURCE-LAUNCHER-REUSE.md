@@ -4,7 +4,7 @@ Status: proposed for an authored prototype and review. The runtime follows [the 
 
 ## Dependency and measured problem
 
-Stage 7 needs the original full 100-group Windows replay with four selected profiles, a 900-second operation limit, final read-only integrity and reconciled source and diagnostic counts. The latest full replay reached 838 analyzer submissions and 835 replies in 900,375 ms. Three XML port calls rejected without finer codes. [Replay receipt](evidence/selected-source-windows-helper-v102-corpus-2026-11-18.json)
+Stage 7 needs the original full 100-group Windows replay with four selected profiles, a 900-second operation limit, final read-only integrity and reconciled source and diagnostic counts. The full replay on `e5931e2` reached 342 submissions and 339 replies. Two XML requests timed out before the global deadline and one timed out at it. The same three sources returned all 12 replies in the subsequent isolated checks. The earlier replay on `6c7d7d5` reached 838 submissions and 835 replies. [Current replay](https://github.com/Zilvereyes/wow-addon-sdk/pull/30) · [Earlier receipt](evidence/selected-source-windows-helper-v102-corpus-2026-11-18.json) · [Isolated phase results](REVIEW-SELECTED-SOURCE-ANALYSIS.md#follow-up-on-the-three-xml-timeouts)
 
 The supervisor closes an idle corpus Lua launcher at a language switch and starts a process for each TOC or XML. The larger authored Windows comparison measured 10,856 ms from spawn to first worker marker across nine processes and 1,558 ms for six XML parent validations. The sample does not establish installed throughput. [Measurements](REVIEW-SELECTED-SOURCE-ANALYSIS.md#larger-authored-phase-comparison)
 
@@ -24,6 +24,8 @@ The 32nd reply waits for its launcher to close cleanly. Any worker fault, unsoli
 2. Keep idle Lua during one-shot TOC/XML. This saves Lua restarts, adds a second live child and still requires a new process per TOC/XML file.
 3. Share the existing Lua launcher for all languages. The 2,048 MiB launcher flag experimentally overrides the effective heap of a Worker requesting 256 MiB, so this fails the existing TOC/XML memory constraint.
 4. Use a neutral launcher without a Node old-generation flag, with separate Worker caps. The authored Windows probe distinguished the caps in this setup. Launcher memory under framing and projection pressure would need an independently enforceable bound.
+
+The isolated authored prerequisite on Windows Node 24.22.3 matched XML depth 255/256, the resource result at 257, wide XML with source maps, and duplicate TOC rows with the default 4 MiB Worker stack. Its five one-shot Worker comparisons incurred 87–209 ms of additional elapsed time. The mixed-workload prototype should compare split launchers and Lua-only retention with the current exclusive lifecycle. Compare savings from removed process starts with the cost of fresh thread starts. Evaluate Windows and Ubuntu with Node 22 and 24. [Stack and timing observations](REVIEW-SELECTED-SOURCE-ANALYSIS.md#authored-single-thread-stack-prerequisite)
 
 ## Prototype and acceptance
 
