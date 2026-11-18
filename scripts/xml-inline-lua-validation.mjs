@@ -183,6 +183,18 @@ export function composeXmlInlineLua(content, filename, syntax, provider, options
   try {
     if (verifyXmlProvider(provider, syntax, content, filename, options.policy, association).outcome !== 'validated') return blocked('provider-blocked');
   } catch { return blocked('provider-blocked'); }
+  return composeInlineBodies(content, filename, syntax, provider, options, association, analyzeLua, mapXmlValueRanges);
+}
+
+/** The graph preserves a confirmed provider failure and rejects malformed projections. */
+export function composeGraphXmlInlineLua(content, filename, syntax, provider, options, analyzeLua, mapXmlValueRanges) {
+  const {association} = options;
+  if (verifyXmlProvider(provider, syntax, content, filename, options.policy, association).outcome !== 'validated') return null;
+  return composeInlineBodies(content, filename, syntax, provider, options, association, analyzeLua, mapXmlValueRanges);
+}
+
+function composeInlineBodies(content, filename, syntax, provider, options, association, analyzeLua, mapXmlValueRanges) {
+  const blocked = status => ({ schemaVersion: 1, status, bodies: [] });
   const scripts = provider.scripts;
   if (scripts.length > 5000 || scripts.reduce((sum, script) => sum + script.body.value.length, 0) > 1024 * 1024) return blocked('resource');
   let records = 0;
@@ -237,12 +249,31 @@ export function verifyXmlInlineLua(result, content, filename, syntax, provider, 
   assert.ok(Array.isArray(result.bodies));
   if (result.status !== 'completed') { assert.deepEqual(result.bodies, []); return { status: result.status, metrics: null, complete: false }; }
   assert.equal(verifyXmlProvider(provider, syntax, content, filename, policy, association).outcome, 'validated');
-  assert.ok(provider.scripts.length <= 5000); assert.equal(result.bodies.length, provider.scripts.length);
+  return verifyInlineBodies(result.bodies, content, filename, syntax, provider, profile, fileOrdinal, association);
+}
+
+/** Validate the graph's wire projection in a single provider pass. */
+export function verifyGraphXmlInlineLua(inline, content, filename, syntax, provider, policy, profile, association) {
+  assert.ok(Array.isArray(inline));
+  if (verifyXmlProvider(provider, syntax, content, filename, policy, association).outcome !== 'validated') {
+    assert.deepEqual(inline, []);
+    return 0;
+  }
+  const bodies = inline.map((row, index) => {
+    exact(row, ['elementIndex', 'kind', 'status', 'analysis', 'mapping']);
+    return {...row, decodedSourcePath: `decoded:xml-inline:0:${index}`};
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(bodies)), bodies);
+  return verifyInlineBodies(bodies, content, filename, syntax, provider, profile, 0, association).metrics.attemptedBodies;
+}
+
+function verifyInlineBodies(bodies, content, filename, syntax, provider, profile, fileOrdinal, association) {
+  assert.ok(provider.scripts.length <= 5000); assert.equal(bodies.length, provider.scripts.length);
   assert.ok(provider.scripts.reduce((sum, script) => sum + script.body.value.length, 0) <= 1024 * 1024);
-  const metrics = summary(); metrics.discoveredBodies = result.bodies.length;
+  const metrics = summary(); metrics.discoveredBodies = bodies.length;
   const originalLines = lines(content);
   let records = 0;
-  for (const [index, row] of result.bodies.entries()) {
+  for (const [index, row] of bodies.entries()) {
     exact(row, ['elementIndex', 'kind', 'decodedSourcePath', 'status', 'analysis', 'mapping']);
     const script = provider.scripts[index], context = bodyContext(script, syntax, profile);
     assert.equal(row.elementIndex, script.elementIndex); assert.equal(row.kind, script.kind);

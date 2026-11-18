@@ -1,7 +1,7 @@
 /** Private graph analysis boundary. Profiles select policy, never executable code. */
 import assert from 'node:assert/strict';
-import {validateXmlProviderProfile, verifyXmlProvider} from './xml-provider-validation.mjs';
-import {validateXmlInlineProfile, verifyXmlInlineLua, verifyLuaProjection} from './xml-inline-lua-validation.mjs';
+import {validateXmlProviderProfile} from './xml-provider-validation.mjs';
+import {validateXmlInlineProfile, verifyGraphXmlInlineLua, verifyLuaProjection} from './xml-inline-lua-validation.mjs';
 import {verifyXmlSyntax} from './selected-source-syntax-validation.mjs';
 
 export const graphApis = Object.freeze(['parseToc', 'parseXml', 'analyzeLua', 'analyzeXml', 'mapXmlValueRanges']);
@@ -237,18 +237,10 @@ export function verifyGraphAnalysisReply(reply, request) {
     if (!result.syntax.complete) { assert.equal(result.provider, null); assert.deepEqual(result.inline, []); }
     else {
       one('analyzeXml');
-      const checked = verifyXmlProvider(result.provider, result.syntax, request.content, request.sourcePath, request.xmlPolicy, association);
-      if (checked.outcome !== 'validated') assert.deepEqual(result.inline, []);
-      else {
-        const bodies = result.inline.map((row, index) => {
-          exact(row, ['elementIndex', 'kind', 'status', 'analysis', 'mapping']);
-          return {...row, decodedSourcePath: `decoded:xml-inline:0:${index}`};
-        });
-        const checkedInline = verifyXmlInlineLua({schemaVersion: 1, status: 'completed', bodies}, request.content,
-          request.sourcePath, result.syntax, result.provider, request.xmlPolicy, request.inlineProfile, 0, association);
-        expected.analyzeLua = {invoked: checkedInline.metrics.attemptedBodies, returned: checkedInline.metrics.attemptedBodies};
-        expected.mapXmlValueRanges = {...expected.analyzeLua};
-      }
+      const attemptedBodies = verifyGraphXmlInlineLua(result.inline, request.content, request.sourcePath, result.syntax,
+        result.provider, request.xmlPolicy, request.inlineProfile, association);
+      expected.analyzeLua = {invoked: attemptedBodies, returned: attemptedBodies};
+      expected.mapXmlValueRanges = {...expected.analyzeLua};
     }
   }
   assert.deepEqual(calls, expected);

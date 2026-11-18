@@ -75,6 +75,26 @@ test('syntax rejection is a real returned API verdict and suppresses downstream 
   } finally { await client.close(); }
 });
 
+test('confirmed XML provider resource denial retains its verdict and suppresses inline calls', async () => {
+  const text = '<Ui>' + '<Frame name="Authored"/>'.repeat(100) + '<Script>Out=1</Script></Ui>';
+  const input = request('xml', text, Array.from({length: 256}, condition));
+  const client = createGraphAnalyzer();
+  try {
+    const reply = await client.analyze(input), {syntax, provider, inline} = reply.result;
+    assert.equal(syntax.complete, true);
+    assert.equal(provider.complete, false);
+    assert.deepEqual(provider.diagnostics.map(diagnostic => diagnostic.code), ['XUI0003']);
+    assert.deepEqual(inline, []);
+    assert.deepEqual(reply.confirmedApiCalls, receipts('parseXml', 'analyzeXml'));
+    const withInline = {...structuredClone(reply), failure: null};
+    withInline.result.inline.push({elementIndex: 101, kind: 'chunk', status: 'missing-context', analysis: null, mapping: null});
+    assert.throws(() => verifyGraphAnalysisReply(withInline, input));
+    const malformed = {...structuredClone(reply), failure: null};
+    malformed.result.provider.diagnostics[0].source.file = 'Wrong.xml';
+    assert.throws(() => verifyGraphAnalysisReply(malformed, input));
+  } finally { await client.close(); }
+});
+
 test('graph-specific association is strict while legacy provider/inline defaults remain strict', () => {
   const input = request('xml', xml, [condition()]), association = {addonId: input.addonId, conditions: input.conditions};
   const syntax = parseXml(xml, input.sourcePath, {namespaceAware: true});

@@ -1,8 +1,7 @@
 /** Fixed one-request graph worker. Lua/XML text is parsed, never executed. */
 import {Worker, isMainThread, parentPort, workerData} from 'node:worker_threads';
 import {createInterface} from 'node:readline';
-import {composeXmlInlineLua} from './xml-inline-lua-validation.mjs';
-import {verifyXmlProvider} from './xml-provider-validation.mjs';
+import {composeGraphXmlInlineLua} from './xml-inline-lua-validation.mjs';
 import {emptyGraphCalls} from './selected-source-analysis.mjs';
 
 function requireExports(sdk, ...names) {
@@ -57,10 +56,10 @@ async function analyze(request) {
       if (syntax.complete) {
         const association = {addonId, conditions};
         result.provider = call('analyzeXml', analyzeXml)(content, sourcePath, {addonId, conditions, policy: request.xmlPolicy});
-        if (verifyXmlProvider(result.provider, syntax, content, sourcePath, request.xmlPolicy, association).outcome === 'validated') {
-          const inline = composeXmlInlineLua(content, sourcePath, syntax, result.provider,
-            {policy: request.xmlPolicy, profile: request.inlineProfile, fileOrdinal: 0, association},
-            call('analyzeLua', analyzeLua), call('mapXmlValueRanges', mapXmlValueRanges));
+        const inline = composeGraphXmlInlineLua(content, sourcePath, syntax, result.provider,
+          {policy: request.xmlPolicy, profile: request.inlineProfile, fileOrdinal: 0, association},
+          call('analyzeLua', analyzeLua), call('mapXmlValueRanges', mapXmlValueRanges));
+        if (inline !== null) {
           if (inline.status !== 'completed') return {result: null, confirmedApiCalls,
             failure: ['resource', 'invariant'].includes(inline.status) ? inline.status : 'backend'};
           result.inline = inline.bodies.map(({decodedSourcePath: _label, ...row}) => row);
