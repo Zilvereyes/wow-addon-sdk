@@ -1,0 +1,342 @@
+{
+  "sourceCommit": "7d4ab8450fd64be3c8a1a336bb196ec0b8ea6b4f",
+  "phases": {
+    "bootstrap": {
+      "calls": 1,
+      "returned": 1,
+      "rejected": 0,
+      "rows": 0,
+      "elapsedMilliseconds": 11391.391599999999
+    },
+    "windowsInspect": {
+      "calls": 18378,
+      "returned": 18378,
+      "rejected": 0,
+      "rows": 39800,
+      "elapsedMilliseconds": 87757.46880000224
+    },
+    "listDirectory": {
+      "calls": 1713,
+      "returned": 1713,
+      "rejected": 0,
+      "rows": 0,
+      "elapsedMilliseconds": 95577.4719000002
+    },
+    "readSource": {
+      "calls": 186,
+      "returned": 185,
+      "rejected": 1,
+      "rows": 0,
+      "elapsedMilliseconds": 15991.219699999841
+    },
+    "analyze-toc": {
+      "calls": 35,
+      "returned": 8,
+      "rejected": 27,
+      "rows": 0,
+      "elapsedMilliseconds": 343131.7462000001
+    },
+    "analyze-xml": {
+      "calls": 53,
+      "returned": 52,
+      "rejected": 1,
+      "rows": 0,
+      "elapsedMilliseconds": 261108.36069999996
+    },
+    "analyze-lua": {
+      "calls": 97,
+      "returned": 96,
+      "rejected": 1,
+      "rows": 0,
+      "elapsedMilliseconds": 170916.41369999998
+    },
+    "close": {
+      "calls": 1,
+      "returned": 1,
+      "rejected": 0,
+      "rows": 0,
+      "elapsedMilliseconds": 212.12450000003446
+    },
+    "windowsClose": {
+      "calls": 1,
+      "returned": 1,
+      "rejected": 0,
+      "rows": 0,
+      "elapsedMilliseconds": 211.66289999999572
+    }
+  },
+  "hashMilliseconds": 12.734799999336246,
+  "elapsedMilliseconds": 905356,
+  "submitted": 185,
+  "operationFailures": {
+    "toc": {
+      "graph-analysis-timeout": 27
+    },
+    "lua": {
+      "graph-analysis-timeout": 1
+    },
+    "xml": {
+      "graph-analysis-timeout": 1
+    }
+  },
+  "portEvidence": {
+    "toc": {
+      "validatedReplies": 8,
+      "rootApiReturns": 8,
+      "completeProjection": 8,
+      "otherDiagnostics": 0,
+      "diagnosticsByCode": {}
+    },
+    "lua": {
+      "validatedReplies": 96,
+      "rootApiReturns": 96,
+      "completeProjection": 79,
+      "otherDiagnostics": 0,
+      "diagnosticsByCode": {
+        "LUA0004": 19
+      }
+    },
+    "xml": {
+      "validatedReplies": 52,
+      "rootApiReturns": 52,
+      "completeProjection": 52,
+      "otherDiagnostics": 0,
+      "diagnosticsByCode": {}
+    }
+  },
+  "observerErrors": 0,
+  "sameProfileBytes": true,
+  "hostCloseConfirmed": true,
+  "baselineOverlap": 6,
+  "baselineFirstReadMatches": 6,
+  "aggregateAvailable": false,
+  "status": "failed",
+  "completeUnderPolicy": false,
+  "inputReadOnlyOpenCalls": 185,
+  "inputPathsOpened": 185,
+  "pathsReread": 0,
+  "firstLastHashMatchesOnReread": 0,
+  "budgetFailureLimits": [
+    "operationMilliseconds"
+  ],
+  "failure": {
+    "kind": "budget",
+    "limit": "operationMilliseconds"
+  },
+  "sourceTree": "f88e4ffeed44ee42843968439a37915ce1f089dd",
+  "runtimeDigest": "da2e01e892be430a22c65fb235612606c8e48c83b2205368eda08a15ff2c12a4",
+  "platform": "Windows",
+  "node": "24.22.3",
+  "hostSession": 26427,
+  "exitCode": 1,
+  "request": {
+    "profiles": 4,
+    "logicalGroups": 100,
+    "tocCandidates": 227,
+    "operationMilliseconds": 900000
+  },
+  "finalIntegrity": null,
+  "finalPerLanguage": null,
+  "tocIsolation": {
+    "hostSession": 19566,
+    "exitCode": 0,
+    "sourceCommit": "7d4ab8450fd64be3c8a1a336bb196ec0b8ea6b4f",
+    "node": "24.22.3",
+    "setupStatus": "completed",
+    "closed": true,
+    "exactPairs": 3,
+    "verifiedRereads": 3,
+    "verifiedOldBytes": 3,
+    "nativeReadOnlyOpens": 6,
+    "diagnostics": {},
+    "probes": [
+      {
+        "caseNumber": 1,
+        "round": 1,
+        "mode": "stock",
+        "error": null,
+        "elapsedMilliseconds": 3416,
+        "phases": {
+          "first-frame": {
+            "events": 1,
+            "milliseconds": 3267
+          },
+          "close": {
+            "events": 1,
+            "milliseconds": 3400
+          }
+        }
+      },
+      {
+        "caseNumber": 1,
+        "round": 1,
+        "mode": "observed",
+        "error": null,
+        "elapsedMilliseconds": 4890,
+        "phases": {
+          "node-entry": {
+            "events": 1,
+            "milliseconds": 4089
+          },
+          "worker-entry": {
+            "events": 1,
+            "milliseconds": 4100
+          },
+          "sdk-import": {
+            "events": 1,
+            "milliseconds": 15
+          },
+          "api/parseToc": {
+            "events": 1,
+            "milliseconds": 10
+          },
+          "serialize": {
+            "events": 1,
+            "milliseconds": 0
+          },
+          "first-frame": {
+            "events": 1,
+            "milliseconds": 4235
+          },
+          "close": {
+            "events": 1,
+            "milliseconds": 4874
+          },
+          "parent-decode": {
+            "events": 1,
+            "milliseconds": 0
+          },
+          "parent-project": {
+            "events": 1,
+            "milliseconds": 8
+          }
+        }
+      },
+      {
+        "caseNumber": 2,
+        "round": 1,
+        "mode": "observed",
+        "error": null,
+        "elapsedMilliseconds": 3799,
+        "phases": {
+          "node-entry": {
+            "events": 1,
+            "milliseconds": 3455
+          },
+          "worker-entry": {
+            "events": 1,
+            "milliseconds": 3469
+          },
+          "sdk-import": {
+            "events": 1,
+            "milliseconds": 16
+          },
+          "api/parseToc": {
+            "events": 1,
+            "milliseconds": 6
+          },
+          "serialize": {
+            "events": 1,
+            "milliseconds": 0
+          },
+          "first-frame": {
+            "events": 1,
+            "milliseconds": 3636
+          },
+          "close": {
+            "events": 1,
+            "milliseconds": 3792
+          },
+          "parent-decode": {
+            "events": 1,
+            "milliseconds": 1
+          },
+          "parent-project": {
+            "events": 1,
+            "milliseconds": 3
+          }
+        }
+      },
+      {
+        "caseNumber": 2,
+        "round": 1,
+        "mode": "stock",
+        "error": null,
+        "elapsedMilliseconds": 3754,
+        "phases": {
+          "first-frame": {
+            "events": 1,
+            "milliseconds": 3615
+          },
+          "close": {
+            "events": 1,
+            "milliseconds": 3747
+          }
+        }
+      },
+      {
+        "caseNumber": 3,
+        "round": 1,
+        "mode": "stock",
+        "error": null,
+        "elapsedMilliseconds": 3160,
+        "phases": {
+          "first-frame": {
+            "events": 1,
+            "milliseconds": 3037
+          },
+          "close": {
+            "events": 1,
+            "milliseconds": 3149
+          }
+        }
+      },
+      {
+        "caseNumber": 3,
+        "round": 1,
+        "mode": "observed",
+        "error": null,
+        "elapsedMilliseconds": 2329,
+        "phases": {
+          "node-entry": {
+            "events": 1,
+            "milliseconds": 1953
+          },
+          "worker-entry": {
+            "events": 1,
+            "milliseconds": 1997
+          },
+          "sdk-import": {
+            "events": 1,
+            "milliseconds": 12
+          },
+          "api/parseToc": {
+            "events": 1,
+            "milliseconds": 9
+          },
+          "serialize": {
+            "events": 1,
+            "milliseconds": 1
+          },
+          "first-frame": {
+            "events": 1,
+            "milliseconds": 2104
+          },
+          "close": {
+            "events": 1,
+            "milliseconds": 2316
+          },
+          "parent-decode": {
+            "events": 1,
+            "milliseconds": 1
+          },
+          "parent-project": {
+            "events": 1,
+            "milliseconds": 7
+          }
+        }
+      }
+    ],
+    "totalElapsedMs": 34381
+  }
+}

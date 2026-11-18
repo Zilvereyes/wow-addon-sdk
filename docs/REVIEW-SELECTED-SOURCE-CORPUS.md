@@ -379,3 +379,17 @@ Windows Node 24.22.3 host session 62043 ran a temporary observer on `b77f8ede131
 | Files passing native source reread verification | 189 |
 
 The corrected isolated run exited 0 after 168,650 ms, including 136,737 ms in analyzer calls. The exit establishes transport, projection and source integrity for this sample. The two syntax diagnostics remain. A first observer exited 1 before opening any file because it rewrote the native Windows path separators. The native read port requires its exact resolved identity. The corrected observer uses the unchanged ledger paths. The three original graph transport rejections did not recur. This scope does not recreate inherited TOC conditions, language transitions or the original global budget pressure. Stage 7 still requires the full original graph and final graph integrity. [Aggregate receipt](evidence/selected-source-xml-isolation-2026-11-18.json)
+
+## Full replay with batched Windows attributes and bounded XML indexing
+
+The guarded replay on `7d4ab8450fd64be3c8a1a336bb196ec0b8ea6b4f` ran on Windows Node 24.22.3 (session 26427). It used the four previously selected profiles, 100 logical groups, 227 TOC candidate rows and the 900,000 ms operation ceiling. It exited 1 after 905,356 ms and confirmed host closure. The four profiles matched their respective start-of-run bytes. All 185 source opens used the native read-only port, and the six first reads shared with the preceding observer ledger matched. Final source rereads and directory verification did not run. [Aggregate phase receipt](evidence/selected-source-batched-windows-full-corpus-2026-11-18.json)
+
+| Language | Submissions | Validated port replies with SDK parse receipt | Complete projections | Timeout rejections | Diagnostics in observed replies |
+| --- | ---: | ---: | ---: | ---: | --- |
+| TOC | 35 | 8 | 8 | 27 | 0 |
+| Lua | 97 | 96 | 79 | 1 | 19 `LUA0004` |
+| XML | 53 | 52 | 52 | 1 | 0 |
+
+These are interim analyzer-port counts and cover the observed traversal prefix. Final corpus counts, skips, diagnostics and source-position or serialization invariant results are unavailable. The Windows helper completed 18,378 inspections over 39,800 attribute rows in 87,757 ms. That duration overlaps the native discovery and read phases. The observed prefixes and timings vary across full replays, so the full-run counts do not establish a throughput comparison.
+
+The follow-up on the same source commit used the production one-shot transport and the same selected profile files (Windows Node 24.22.3, session 19566, exit 0). The first three distinct TOC timeout cases each received an exact matching stock and instrumented reply. The file bytes matched the earlier first read and the follow-up verification read for all three cases. Across the instrumented calls, startup to Node entry took 1,953–4,089 ms, SDK import took 12–16 ms and `parseToc` took 6–10 ms. The six complete calls took 2,329–4,890 ms each. No timeout recurred in isolation. The phase measurements justify measuring cold first replies and replies after rotation in any launcher comparison. Stage 7 remains open.
