@@ -1,4 +1,4 @@
-/** Fixed one-request graph worker. Lua/XML text is parsed, never executed. */
+/** Fixed graph worker with an opt-in launcher for sequential corpus Lua requests. */
 import {Worker, isMainThread, parentPort, workerData} from 'node:worker_threads';
 import {createInterface} from 'node:readline';
 import {composeGraphXmlInlineLua} from './xml-inline-lua-validation.mjs';
@@ -72,12 +72,17 @@ async function analyze(request) {
 
 if (!isMainThread) parentPort.postMessage(await analyze(workerData));
 else {
+  const corpusLauncher = process.argv[2] === '--corpus-launcher';
+  const maxRequests = corpusLauncher ? 32 : 1;
   const input = createInterface({input: process.stdin, crlfDelay: Infinity});
+  let requests = 0;
   for await (const line of input) {
     try {
       const request = JSON.parse(line);
+      const isCorpusLua = request.language === 'lua' && request.luaProfile === 'corpus';
+      if (corpusLauncher && !isCorpusLua) throw Error('Expected corpus Lua request.');
       let reply;
-      if (request.language === 'lua' && request.luaProfile === 'corpus') {
+      if (isCorpusLua) {
         // The actual API wrapper and receipts run in the 8MiB parser stack,
         // not around postMessage (which would only confirm message submission).
         const thread = new Worker(new URL(import.meta.url), {workerData: request, execArgv: [],
@@ -90,7 +95,13 @@ else {
         } finally { await thread.terminate(); }
       } else reply = await analyze(request);
       process.stdout.write(JSON.stringify({id: request.id, ...reply}) + '\n');
-    } catch { process.stderr.write('Graph analysis worker failure.\n'); process.exitCode = 2; }
-    input.close(); break;
+      requests++;
+      if (requests === maxRequests || reply.failure !== null) break;
+    } catch {
+      process.stderr.write('Graph analysis worker failure.\n');
+      process.exitCode = 2;
+      break;
+    }
   }
+  input.close();
 }
