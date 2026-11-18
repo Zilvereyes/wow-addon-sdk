@@ -127,7 +127,8 @@ async function measure(mode, createHost, root, {request, files, hash}) {
   const opens = new Map();
   const io = {...fs, openSync(filename, flags, ...options) {
     assert.equal(typeof flags, 'number');
-    assert.equal(flags & ~fs.constants.O_NOFOLLOW, fs.constants.O_RDONLY);
+    const readOnlyFlags = (fs.constants.O_NOFOLLOW ?? 0) | (fs.constants.O_NONBLOCK ?? 0);
+    assert.equal(flags & ~readOnlyFlags, fs.constants.O_RDONLY);
     assert.ok(files.has(filename), 'source open must match an authored file');
     const descriptor = fs.openSync(filename, flags, ...options);
     opens.set(filename, (opens.get(filename) ?? 0) + 1);
