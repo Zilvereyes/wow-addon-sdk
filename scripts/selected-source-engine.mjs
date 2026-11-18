@@ -13,6 +13,10 @@ const directoryEntryFields = ['name', 'kind', 'reparsePoint'];
 const directoryEntryKeyUnits = directoryEntryFields.reduce((sum, field) => sum + field.length, 0);
 const own = (value, fields) => assert.ok(value && typeof value === 'object' && !Array.isArray(value) &&
   Object.keys(value).length === fields.length && fields.every(field => Object.hasOwn(value, field)));
+function ownEnumerable(value, fields) {
+  own(value, fields);
+  assert.ok(fields.every(field => Object.prototype.propertyIsEnumerable.call(value, field)));
+}
 const failure = (kind, reason = kind) => Object.assign(Error('Selected-source graph operation failed.'), {kind, reason});
 const classify = error => {
   const message = error?.message;
@@ -24,7 +28,7 @@ const classify = error => {
   return ['resource', 'invariant', 'worker', 'backend', 'encoding', 'read'].includes(error?.kind) ? error.kind : 'read';
 };
 
-export async function traceSelectedSources(context, host) {
+export async function traceSelectedSources(context, host, {keepXmlSyntax = true} = {}) {
   let request, limits, shared, budget;
   try {
     request = getGraphRequest(context); limits = request.profile.limits;
@@ -42,6 +46,36 @@ export async function traceSelectedSources(context, host) {
   let detachReclaimer = null;
   const reserve = (records, units) => budget.retain(records, units, reclaimText);
   const retain = (value, validate) => budget.copy(value, reclaimText, validate);
+  function retainAnalysis(record, sourceLanguage, validate) {
+    if (keepXmlSyntax || sourceLanguage !== 'xml') return retain(record, validate);
+    ownEnumerable(record.result, ['language', 'syntax', 'provider', 'inline']);
+    const {language, syntax, provider, inline} = record.result;
+    ownEnumerable(syntax, ['schemaVersion', 'complete', 'diagnostics', 'elements', 'text']);
+    const {schemaVersion, complete, diagnostics, elements, text} = syntax;
+    let temporaryRecords = 0, temporaryUnits = 0;
+    const charge = (_owned, records, units) => {
+      temporaryRecords += records; temporaryUnits += units;
+    };
+    try {
+      const keyUnits = 'elements'.length + 'text'.length;
+      reserve(0, keyUnits); temporaryUnits += keyUnits;
+      const ownedElements = retain(elements, charge);
+      const ownedText = retain(text, charge);
+      const verdict = {schemaVersion, complete, diagnostics};
+      return retain({...record, result: {language, syntax: verdict, provider, inline}}, owned => {
+        const checkedSyntax = owned.result.syntax;
+        checkedSyntax.elements = ownedElements;
+        checkedSyntax.text = ownedText;
+        // The same full owned reply is required for validation. Only its
+        // verdict and diagnostics are needed by aggregate composition.
+        try {validate(owned);}
+        finally {delete checkedSyntax.elements; delete checkedSyntax.text;}
+      });
+    } finally {
+      budget.release('retainedRecords', temporaryRecords);
+      budget.release('retainedStringUnits', temporaryUnits);
+    }
+  }
   function problem(code, group, sources = [], occurrenceId) {
     const issue = retain({code, ...(group ? {logicalAddonId: group.logicalAddonId} : {}),
       ...(occurrenceId === undefined ? {} : {occurrenceId}), sources}); trace.issues.push(issue);
@@ -273,7 +307,7 @@ export async function traceSelectedSources(context, host) {
       let record, facts;
       try {
         own(response, ['result', 'confirmedApiCalls']);
-        record = retain({analysisId: trace.analyses.length, sourcePath, result: response.result, confirmedApiCalls: response.confirmedApiCalls},
+        record = retainAnalysis({analysisId: trace.analyses.length, sourcePath, result: response.result, confirmedApiCalls: response.confirmedApiCalls}, value.language,
           owned => {
             verifyGraphAnalysisReply({result: owned.result, confirmedApiCalls: owned.confirmedApiCalls, failure: null}, input);
             facts = disposition(owned.result);

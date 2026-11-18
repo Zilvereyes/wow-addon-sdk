@@ -250,3 +250,19 @@ Windows Node 26.13.1 ran seven samples per fixture through an instrumented copy 
 | 250 frames, 25 scripts | 3181.4 | 132.3 | 28.2 | 95.0 | 211.3 | 244.5 | 138.8 |
 
 Spawn to worker entry was the largest measured phase for all three inputs. The larger fixtures also showed substantive parent validation work. One additional check cloned and revalidated the reply separately. That measurement took 2.5, 422.7 and 254.9 ms respectively and excluded the graph's own metered copy. The phase comparison is authored timing under observed host load. It leaves the split between bare Node startup and worker initialization open. Compare bare Node and the exact XML worker using the supported Windows runtimes before proposing another process lifetime change.
+
+### Retention by owner and the CLI XML tree lifetime
+
+The supported Windows Node 24.22.3 replay at `9eda570e4c5b809d06b76c849304434f58cc17c9` used the same 100 groups, 227 candidate paths, four profiles and runtime source. Host 58783 exited 1 after 900,975 ms at the operation deadline. It submitted 36 TOC, 739 Lua and 297 XML analyses. The port returned 36, 738 and 296 replies, and 23 groups reached a candidate open. At the first deadline denial it held 999,288 records. Neither final integrity phase started and no aggregate, final syntax verdicts, skips, diagnostics or invariant results were available. [Reconciled result and CI](https://github.com/Zilvereyes/wow-addon-sdk/pull/30#supported-windows-node-24-follow-up)
+
+An isolated Windows comparison used 25 authored groups and 1,000 real SDK replies in process through a memory host. The attribution re-metered the owned analysis rows with the original copier. At reply 1,000 the ledger held 593,010 records. Analyses accounted for 557,829, while references held 8,775, occurrences 2,000, guard evaluations 2,925, the text cache 7,529, analysis keys 1,000, and engine directory entries 1,051. The provider batches held 5,490. Another 6,411 covered node rows and the residual owners. This measures logical reservations in the authored graph.
+
+XML syntax alone accounted for 336,776 records in 250 replies. The CLI only publishes the allowlisted aggregate. Its internal entry point copies and validates the full XML syntax, then retains the verdict and diagnostics after returning the exact reservations for the copied element and text arrays. It preserves provider results, inline Lua and original source spans. The existing private graph entry point retains complete XML trees and returns its original shape. Profiles and parser limits are unchanged.
+
+With the same authored files, the CLI path held 256,734 records at reply 1,000 and 247,088 after integrity, down from 593,010 and 583,364 respectively in the full path. All 1,000 per-file integrity comparisons passed in both measured graphs. Separate regressions use identical SDK replies to check the wire result and read order under a 10,000-record cap, and verify rejection of corrupted syntax in both modes. [Graph regression controls](../tests/selected-source-graph.test.mjs)
+
+The focused Windows Node 24.22.3 command exited 0 with two passes. The lower cap yields a resource failure in the full graph and the same aggregate as the ample-budget full graph in the CLI path. The corrupted XML control withholds XML syntax credit in both paths.
+
+```powershell
+node --test --test-name-pattern 'aggregate-only validation' tests/selected-source-graph.test.mjs
+```

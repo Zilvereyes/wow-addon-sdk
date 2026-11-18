@@ -4,15 +4,27 @@ import {traceSelectedSources} from './selected-source-engine.mjs';
 import {composeGraphResolution} from './selected-source-resolution.mjs';
 import {buildSelectedSourceAggregate} from './selected-source-accounting.mjs';
 
-export async function analyzeSelectedSources(request, host) {
+async function analyzeGraph(request, host, keepXmlSyntax) {
   let context;
   try {context = prepareGraphContext(request);}
   catch (error) {await host.close(); throw error;}
   // trace always closes/reaps the host before resolver publication. If no quota
   // remains for a complete owned result, reject rather than publish a prefix.
-  const trace = await traceSelectedSources(context, host), budget = trace.budget;
+  const trace = await traceSelectedSources(context, host, {keepXmlSyntax}), budget = trace.budget;
   const composition = composeGraphResolution(context, trace);
   const aggregate = buildSelectedSourceAggregate(context, trace, composition);
+  return {trace, composition, aggregate};
+}
+
+export async function analyzeSelectedSourceAggregate(request, host) {
+  const {trace, aggregate} = await analyzeGraph(request, host, false);
+  trace.budget.check();
+  return aggregate;
+}
+
+export async function analyzeSelectedSources(request, host) {
+  const {trace, composition, aggregate} = await analyzeGraph(request, host, true);
+  const {budget} = trace;
   const diagnostics = [];
   budget.retain(3 + trace.issues.length + composition.issues.length, 0);
   const append = rows => {
