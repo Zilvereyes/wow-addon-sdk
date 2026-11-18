@@ -56,13 +56,22 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     handoffs.delete(result);
     release(charge.count,charge.units);
   }
-  async function statChecked(absolute,previous){
+  function statLinkFree(absolute){
     check();const stat=io.lstatSync(absolute,{bigint:true});if(stat.isSymbolicLink())fail('link');
-    if(inspector&&(previous===undefined||stamp(previous)!==stamp(stat))){
-      let row;
-      try{[row]=await inspector.inspect([absolute],remaining());}catch{check();fail('attributes');}
-      if(!row.ok)fail('attributes');if(row.reparsePoint)fail('link');
+    return stat;
+  }
+  async function inspectLinkFree(paths){
+    let rows;
+    try{rows=await inspector.inspect(paths,remaining());}catch{check();fail('attributes');}
+    if(!Array.isArray(rows)||rows.length!==paths.length)fail('attributes');
+    for(const row of rows){
+      if(!row?.ok)fail('attributes');
+      if(row.reparsePoint)fail('link');
     }
+  }
+  async function statChecked(absolute,previous){
+    const stat=statLinkFree(absolute);
+    if(inspector&&(previous===undefined||stamp(previous)!==stamp(stat)))await inspectLinkFree([absolute]);
     check();return stat;
   }
   function inside(absolute){
@@ -71,9 +80,21 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
   }
   async function rootCheck(){
     check();let stat;
-    for(const row of ancestors){
-      stat=await statChecked(row.absolute);
-      if(identity(stat)!==row.identity)fail('changed');
+    const paths=inspector&&ancestors.length>1&&ancestors.length<=128?ancestors.map(row=>row.absolute):null;
+    // Test the maximum sequence width before moving any checks into a batch.
+    if(paths&&Buffer.byteLength(JSON.stringify({id:Number.MAX_SAFE_INTEGER,paths})+'\n')<=1024*1024){
+      for(const row of ancestors){
+        stat=statLinkFree(row.absolute);
+        if(identity(stat)!==row.identity)fail('changed');
+      }
+      await inspectLinkFree(paths);
+      // Keep the pre-inspection root stamp for adjacent cache validation.
+      for(const row of ancestors)if(identity(statLinkFree(row.absolute))!==row.identity)fail('changed');
+    }else{
+      for(const row of ancestors){
+        stat=await statChecked(row.absolute);
+        if(identity(stat)!==row.identity)fail('changed');
+      }
     }
     if(io.realpathSync(root)!==canonicalRoot)fail('changed');
     return stat;

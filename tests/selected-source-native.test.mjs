@@ -116,7 +116,7 @@ test('cached directory changes block content opening even when the requested byt
 }));
 
 test('warm source reads coalesce only unchanged adjacent root attribute checks',()=>fixture(async root=>{
-  const opensAtRootInspection=[];
+  const opensAtRootInspection=[],rootBatches=[];
   let rootStats=0,opens=0,changeOnInspection=false,rootChanged=false;
   const io={...fs,lstatSync(name,...args){
     const stat=fs.lstatSync(name,...args);
@@ -126,8 +126,9 @@ test('warm source reads coalesce only unchanged adjacent root attribute checks',
     return stat;
   },openSync(...args){opens++;return fs.openSync(...args);}};
   const inspectorFactory=()=>({async inspect(paths){
-    if(paths.length===1&&paths[0]===root){
+    if(paths.includes(root)){
       opensAtRootInspection.push(opens);
+      if(paths.length>1)rootBatches.push(paths);
       if(changeOnInspection)rootChanged=true;
     }
     return paths.map(()=>({ok:true,reparsePoint:false}));
@@ -139,8 +140,11 @@ test('warm source reads coalesce only unchanged adjacent root attribute checks',
     rootStats=0;opensAtRootInspection.length=0;
     const unchanged=await host.readSource(sourcePath,1024);
     assert.deepEqual(unchanged,first);
-    assert.equal(rootStats,4);
+    assert.equal(rootStats,6);
     assert.deepEqual(opensAtRootInspection,[1,2]);
+    assert.equal(rootBatches.at(-1)[0],path.parse(root).root);
+    assert.equal(rootBatches.at(-1).at(-1),root);
+    assert.deepEqual(rootBatches.at(-1),rootBatches.at(-2));
 
     rootStats=0;opensAtRootInspection.length=0;
     changeOnInspection=true;
@@ -150,6 +154,53 @@ test('warm source reads coalesce only unchanged adjacent root attribute checks',
     assert.ok(rootStats>=2);
   }finally{await host.close();}
 }));
+
+test('a root attribute batch rejects missing rows, reparse attributes, identity changes and deadline expiry before reading',()=>fixture(async root=>{
+  let mode=null,changed=false,now=0,opens=0;
+  const io={...fs,lstatSync(name,...args){
+    const stat=fs.lstatSync(name,...args);
+    if(changed&&name===root)stat.ino+=1n;
+    return stat;
+  },openSync(...args){opens++;return fs.openSync(...args);}};
+  const factory=()=>({async inspect(paths){
+    const rows=paths.map(()=>({ok:true,reparsePoint:false}));
+    if(mode&&paths.length>1&&paths.at(-1)===root){
+      if(mode==='attributes')rows.pop();
+      if(mode==='link')rows[0].reparsePoint=true;
+      if(mode==='changed')changed=true;
+      if(mode==='budget')now=5000;
+    }
+    return rows;
+  },async close(){}});
+  for(const code of ['attributes','link','changed','budget']){
+    mode=null;changed=false;now=0;
+    const host=await createGraphFileHost(root,context(p=>p.profile.limits={operationMilliseconds:5000}),{io,now:()=>now,inspectorFactory:factory});
+    try{
+      mode=code;
+      await assert.rejects(host.readSource(path.join('Demo','Core.lua'),1024),{code:'graph-native-'+code});
+      assert.equal(opens,0);
+    }finally{await host.close();}
+  }
+}));
+
+test('root chains outside an existing helper frame stay on the serial path',async()=>{
+  const anchor=path.parse(path.resolve(os.tmpdir())).root;
+  const directory={dev:1n,ino:1n,isDirectory:()=>true,isFile:()=>false,isSymbolicLink:()=>false};
+  const io={lstatSync:()=>directory,realpathSync:value=>value};
+  for(const segments of [Array(128).fill('a'),Array(116).fill('b'.repeat(240))]){
+    const requests=[];
+    const inspectorFactory=()=>({async inspect(paths){
+      requests.push(paths.length);
+      return paths.map(()=>({ok:true,reparsePoint:false}));
+    },async close(){}});
+    const host=await createGraphFileHost(path.join(anchor,...segments),context(),{io,inspectorFactory});
+    try{
+      requests.length=0;
+      assert.deepEqual(await host.resolvePath('',{directory:true}),{status:'ready',sourcePath:''});
+      assert.deepEqual(requests,Array(segments.length+1).fill(1));
+    }finally{await host.close();}
+  }
+});
 
 test('an intermediate directory replaced at open yields no source bytes or fingerprint',()=>fixture(async root=>{
   fs.mkdirSync(path.join(root,'Other'));fs.writeFileSync(path.join(root,'Other','Core.lua'),'Wrong=1');
