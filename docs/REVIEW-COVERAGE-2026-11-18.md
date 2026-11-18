@@ -432,3 +432,8 @@ Windows Node 26.13.1 exited 0 with 217 passes and zero skips or failures for the
 ```powershell
 node --test --test-concurrency=1 tests/toc-selection-probe.test.mjs tests/lua-analysis.test.mjs tests/lua-entry-context.test.mjs tests/v030.test.mjs tests/v031.test.mjs tests/v032.test.mjs tests/v033.test.mjs tests/v034.test.mjs tests/xml-analysis.test.mjs tests/xml-parser.test.mjs tests/xml-source-mapping.test.mjs
 ```
+
+## Language-provider static scope at d64ce3b
+
+- The Lua review read the full analysis and syntax source, backend declaration, manifest and API report. It checked original UTF-16 ranges, input and parser budgets, owned options and conditions, explicit Lua 5.1 semantics and the related contract and profile tests. The backend-default snapshot still starts after a warm-up call, leaving first-load behavior uncovered by that assertion.
+- The XML review read the full XML analysis and mapping source and checked exact policy selectors, copied conditions, unresolved references, owned XML spans and atomic UTF-16 source mapping. It cross-checked the provider and source-mapping fixtures. Neither read found a reproducible runtime defect within these scopes. Runtime and installed evidence are recorded separately.

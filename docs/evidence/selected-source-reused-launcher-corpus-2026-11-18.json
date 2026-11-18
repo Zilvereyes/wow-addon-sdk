@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "selected-source-reused-launcher-observation",
+  "sourceCommit": "d64ce3b98d0025e0b11e95e74a814dfd74e61e44",
+  "sourceTree": "01beeaf9980f183c2111178f06c5d6cceac738f0",
+  "platform": "windows",
+  "nodeVersion": "26.13.1",
+  "hostSession": 48773,
+  "exitCode": 1,
+  "profiles": {
+    "unchanged": 4,
+    "groups": 100,
+    "candidateFiles": 227,
+    "groupsWithOpenedCandidate": 23
+  },
+  "elapsedMilliseconds": 902667,
+  "status": "failed",
+  "aggregateAvailable": false,
+  "inputReadOnlyOpenCalls": 939,
+  "pathsReread": 0,
+  "verifySource": 0,
+  "verifyDirectory": 0,
+  "bootstrap": 933,
+  "native": 156368,
+  "windowsInspect": 117591,
+  "deadlineMilliseconds": 900034,
+  "firstDenialRecords": 874778,
+  "firstDenialStringUnits": 40189019,
+  "finalRecords": 840095,
+  "budgetFailures": [
+    "operationMilliseconds"
+  ],
+  "analyses": {
+    "toc": {
+      "opened": 36,
+      "submitted": 36,
+      "replied": 36,
+      "rejected": 0,
+      "elapsedMilliseconds": 51985,
+      "previousElapsedMilliseconds": 28298,
+      "previousSubmitted": 36
+    },
+    "lua": {
+      "opened": 679,
+      "submitted": 679,
+      "replied": 678,
+      "rejected": 1,
+      "elapsedMilliseconds": 339626,
+      "previousElapsedMilliseconds": 548607,
+      "previousSubmitted": 692
+    },
+    "xml": {
+      "opened": 224,
+      "submitted": 224,
+      "replied": 224,
+      "rejected": 0,
+      "elapsedMilliseconds": 341614,
+      "previousElapsedMilliseconds": 154936,
+      "previousSubmitted": 233
+    }
+  },
+  "comparison": {
+    "elapsedMilliseconds": 900396,
+    "submitted": 961,
+    "sourceCommit": "e47a973270cc5654287b245e8d0c5734851dceda"
+  },
+  "verifiedSourceFiles": 13,
+  "finalSyntaxVerdicts": null,
+  "finalSkips": null,
+  "finalDiagnostics": null,
+  "finalInvariantResults": null
+}

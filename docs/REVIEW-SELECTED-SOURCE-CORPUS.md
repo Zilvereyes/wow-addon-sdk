@@ -224,3 +224,29 @@ node --test --test-concurrency=1 tests/selected-source-engine.test.mjs tests/sel
 ```
 
 Before repeating the unchanged full installed request, measure supervised Lua on small and larger authored inputs. Separate worker startup and imports, parsing, transport and the two reply-validation passes. Require equal responses and call receipts before using an optimization on the installed corpus. The approved runtime and retention limits still apply.
+
+### Full installed request with corpus Lua launcher reuse
+
+The read-only observer ran `d64ce3b98d0025e0b11e95e74a814dfd74e61e44` on Windows Node 26.13.1 with the same four profile files, 100 groups, 227 candidate paths and the same budgets. Host session 48773 exited 1 in 902,667 ms. The first deadline denial held 874,778 records and 40,189,019 UTF-16 units. The operation opened 939 files read-only and reached a candidate open in 23 groups. [Phase receipt](evidence/selected-source-reused-launcher-corpus-2026-11-18.json)
+
+| Language | Read-only opens | Submitted | Port replies | Port rejections | Phase seconds |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| TOC | 36 | 36 | 36 | 0 | 52.0 |
+| Lua | 679 | 679 | 678 | 1 | 339.6 |
+| XML | 224 | 224 | 224 | 0 | 341.6 |
+
+The deadline arrived before final source or directory verification. There was no aggregate, final syntax verdict set, skip count, diagnostics count or invariant result. The table records traversal activity at the supervised port. The private observer reconciled all four profile bytes and the hashes of 13 runtime files, plus the count of recorded read-only opens.
+
+The earlier `e47a973` operation submitted 961 requests in 900,396 ms. Its Lua phase took 548.6 s over 692 submissions and XML took 154.9 s over 233 submissions. In the new run Lua took less elapsed time and XML took more elapsed time. The whole run reached fewer requests. These separate runs used the same profiles under varying host load and reached different input sequences. Time the supervised XML path on authored fixtures, separating start, parsing, provider work, inline composition and reply validation, before changing another lifecycle or repeating the installed request.
+
+### Supervised XML timing on authored inputs
+
+Windows Node 26.13.1 ran seven samples per fixture through an instrumented copy of the `d64ce3b` worker under the normal supervisor. Every complete result and API receipt matched the corresponding production response. The process exited 0. Times below are individual medians in milliseconds.
+
+| Authored fixture | Spawn to worker entry | SDK imports | XML syntax | Provider | Inline composition | Reply and close | Parent decoding and validation |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 2 frames, 1 script | 2591.1 | 192.8 | 7.0 | 7.1 | 39.1 | 184.6 | 1.7 |
+| 500 frames, 1 script | 1649.1 | 172.1 | 123.0 | 156.8 | 230.3 | 177.3 | 289.5 |
+| 250 frames, 25 scripts | 3181.4 | 132.3 | 28.2 | 95.0 | 211.3 | 244.5 | 138.8 |
+
+Spawn to worker entry was the largest measured phase for all three inputs. The larger fixtures also showed substantive parent validation work. One additional check cloned and revalidated the reply separately. That measurement took 2.5, 422.7 and 254.9 ms respectively and excluded the graph's own metered copy. The phase comparison is authored timing under observed host load. It leaves the split between bare Node startup and worker initialization open. Compare bare Node and the exact XML worker using the supported Windows runtimes before proposing another process lifetime change.
