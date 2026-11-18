@@ -81,7 +81,7 @@ export function createGraphBudget(context, {now = () => performance.now(), accou
       }
       try {
         const owned = copy(input);
-        validate?.(owned);
+        validate?.(owned, records, units);
         return owned;
       }
       catch (error) {release('retainedRecords', records); release('retainedStringUnits', units); throw error;}

@@ -1,7 +1,11 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {resolveGlobalRegistry} from '@wow-addon/toc-metadata-adapter';
+import {parseToc} from '@wow-addon/toc-parser';
+import {parseXml} from '@wow-addon/xml-parser';
+import {analyzeXml} from '@wow-addon/xml-analysis';
 import {traceSelectedSources} from '../scripts/selected-source-engine.mjs';
+import {emptyGraphCalls} from '../scripts/selected-source-analysis.mjs';
 import {composeGraphResolution} from '../scripts/selected-source-resolution.mjs';
 import {getGraphRequest} from '../scripts/selected-source-context.mjs';
 import {analyzeSelectedSources} from '../scripts/selected-source-graph.mjs';
@@ -155,6 +159,48 @@ test('a declaration-heavy graph fits the lower retained-record limit with full o
     origin.providerBatchIndex, origin.providerDeclarationIndex,
     origin.declaration.source.range.start.line, origin.resolvedEntryIndex, origin.resolvedDeclarationIndex,
   ]), names.slice(1).map((_, index) => [Math.floor(index / 200), index % 200, index % 200, index + 1, 0]));
+});
+
+test('XML-heavy graph fits the final resolver budget with complete ordered provenance', async () => {
+  const addons = [], files = {};
+  for (let group = 0; group < 8; group++) {
+    const directory = 'Fixture' + group, tocPath = directory + '/' + directory + '_Vanilla.toc';
+    addons.push({logicalAddonId: 'authored/fixture-' + group, directory, addonBaseName: directory, tocPaths: [tocPath]});
+    const targets = Array.from({length: 5}, (_, index) => 'Body' + index + '.xml');
+    files[tocPath] = targets.join('\n');
+    for (const [file, target] of targets.entries()) {
+      const frames = Array.from({length: 30}, (_, index) => '<Frame name="Group' + group + 'Doc' + file + 'Name' + index + '"/>');
+      files[directory + '/' + target] = ['<Ui>', ...frames, '</Ui>'].join('\n');
+    }
+  }
+  async function resolve(retainedRecords) {
+    const prepared = context(input => {input.profile.addons = addons; input.profile.limits = {retainedRecords};});
+    const fixture = memoryHost(files, host => {
+      // Real SDK calls with no subprocess timing dependency for this quota control.
+      host.analyze = async ({language, content, sourcePath, addonId, conditions, xmlPolicy}) => {
+        const confirmedApiCalls = emptyGraphCalls();
+        const invoke = (name, call) => {
+          confirmedApiCalls[name].invoked++;
+          const projected = call();
+          confirmedApiCalls[name].returned++;
+          return projected;
+        };
+        const result = language === 'toc'
+          ? {language, parsed: invoke('parseToc', () => parseToc(content, sourcePath))}
+          : {language, syntax: invoke('parseXml', () => parseXml(content, sourcePath)),
+            provider: invoke('analyzeXml', () => analyzeXml(content, sourcePath, {addonId, conditions, policy: xmlPolicy})),
+            inline: []};
+        return {result, confirmedApiCalls};
+      };
+    });
+    const result = await analyzeSelectedSources(getGraphRequest(prepared), fixture.host);
+    assert.equal(fixture.closes, 1);
+    assert.equal(result.declarationOrigins.length, 1200);
+    assert.ok(result.groups.every(group => group.resolutionEligible));
+    assert.ok(result.declarationOrigins.every((origin, index) => origin.resolvedEntryIndex === index && origin.resolvedDeclarationIndex === 0));
+    return result;
+  }
+  assert.deepEqual(await resolve(119000), await resolve(1_000_000));
 });
 
 test('declaration-free unknown guard and all-no-match selection remain incomplete tool evidence', async () => {
