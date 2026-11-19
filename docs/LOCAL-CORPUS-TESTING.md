@@ -262,3 +262,12 @@ On the next run a group is skipped only when its receipt is valid, completed, no
 Stdout and `batch-receipt.json` carry the batch receipt. Its `aggregation` is `sum-of-per-group-runs`. Counts and code histograms are summed. The completeness flags are true only when every group reports true. `status` is `failed` if any group threw or returned `failed`, otherwise `incomplete` if any group is incomplete, otherwise `passed`. This is not one original full request. Files shared between groups are read and counted once per group, and a group with no selected TOC is `incomplete` under the existing single-group rules. The exit code is 0 only for `passed`.
 
 The authored regression test compares the sum of three independent groups with one full run for the additive counts it checks. It also checks resume, tampered receipts, digest invalidation and that no private text reaches a receipt.
+
+
+### Integrity observation per group (issue #11, step 7, task 2)
+
+Every group receipt (schema version 2) also carries an `integrity` summary. Receipts written by schema version 1 are repeated on resume.
+
+- Per phase (`listDirectory`, `readSource`, `verifySource`, `verifyDirectory`): number of calls, rejected calls, and rejections by fixed `graph-native-*` code (anything else is counted as `other`). Verification phases also count false results and how many of those had unchanged content (`falseWithoutChange`), judged by an independent bounded read or a name snapshot.
+- Content: every source the group read is hashed by the observer before the host's first read and again after the group ended. The receipt holds the count of changed or unavailable files and one path-bound digest before and one after. No path, name or content is written.
+- The batch receipt sums the counts (`groupsWithChange` included). Digests are per group and are not merged. The observer does not change the batch status; it reports.
