@@ -114,3 +114,19 @@ The Linux native reader uses both `O_NOFOLLOW` and `O_NONBLOCK` on its read-only
 **D — Installed acceptance.** After the implementation and exact supported CI matrix, use the original four profiles, 100 groups and 227 TOC candidates. Operate read-only with the original 900-second limit. Require final source and directory verification and reconciled language counts, diagnostics, skips and technical outcomes before giving acceptance credit. [Issue #11](https://github.com/Zilvereyes/wow-addon-sdk/issues/11)
 
 The one-child alternative retains the current process contract and pursues measured native or validation improvements. Retaining a Lua worker thread across files is a separate proposal. The previously approved split prototype and its authored results are evidence for this decision. The user approved A–D on the reviewed 017aec4 proposal. Implementation and installed acceptance require their respective verification.
+
+
+## Approved corpus Lua Worker reuse
+
+The user approved A–D from [the Stage 7 lifecycle review](https://github.com/Zilvereyes/wow-addon-sdk/issues/11#issuecomment-7000530863). This amendment supersedes the earlier requirement for a fresh Worker on every corpus Lua request. The TOC/XML launcher continues to use fresh Workers, and bounded Lua keeps its exclusive one-shot path.
+
+The private corpus Lua launcher can use a Worker for up to eight requests and 4,194,304 cumulative UTF-16 units. An accepted input above that threshold uses a dedicated Worker. Only one request executes at a time. One Lua Worker may remain parked while one fresh TOC/XML Worker executes. The parser backend can retain source-derived data in that Worker until a subsequent parse resets it or the Worker exits. Under the existing launcher and graph limits, no source is persisted by this lifetime change.
+
+Retirement completes before a replacement starts. The eighth request, an exact or exceeded reuse threshold, resource diagnostics and launcher rotation wait for confirmed Worker exit before their terminal reply. The outer graph supervisor continues to validate complete frames, source ranges and API receipts and owns the existing per-file deadlines and process cleanup. The original four-profile Classic Era replay and its 900-second deadline remain the Stage 7 acceptance test.
+
+
+### Verification before installed replay
+
+Windows Node 24.22.3 host session 64561 ran the five focused analysis, worker import, corpus launcher, split launcher and Lua Worker ownership suites with `node --test --test-concurrency=1` and exited 0 with 68 passes. The first pass had reproduced an obsolete test observer that assumed non-null initial Worker data. The updated observer counts dispatches under each Worker and checks retirement at the eighth reply and before launcher replacement. The same final session ran `node docs/proposals/measure-selected-source-integration.mjs --stock` and verified eight TOC, 49 Lua and 12 XML files, 24 inline mappings and nine directory checks on authored content. Its incomplete policy verdict is expected. It also reran the historical parser timing benchmark pinned to `52b190d0593b1b5a0c317f27600d0ca5ba6cd239`, matching all 272 expected replies and their previously recorded digest.
+
+The separate authored memory and transport test (`node --test --test-concurrency=1 tests/selected-source-launcher-memory.test.mjs`, Windows Node 24.22.3, host 38589, exit 0) processed 66 mixed replies and compared 11 complete Lua replies with their fresh Worker controls. It observed eight Lua Workers and 33 TOC/XML Workers across the two rotations per launcher class. Both heap and stack limits matched their established values. Six paired memory samples reached 164,728 KiB combined RSS. Two samples captured both Workers live, and five captured parked Lua. Maximum sampling skew was 9 ms. These are authored samples of resident memory. Installed results require their own receipt after the supported CI matrix and integration.
