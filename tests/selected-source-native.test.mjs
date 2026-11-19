@@ -206,6 +206,51 @@ test('warm source reads coalesce only unchanged adjacent root attribute checks',
   }finally{await host.close();}
 }));
 
+test('adjacent directory attestation preserves fresh stamps for walks and verification',()=>fixture(async root=>{
+  const folder=path.join(root,'Demo'),source=path.join('Demo','Core.lua');
+  const absoluteSource=path.join(root,source);
+  let sourceInspections=0,folderInspections=0,changed=false,changeDuringInspection=false,opens=0;
+  const io={...fs,lstatSync(name,...args){
+    const stat=fs.lstatSync(name,...args);
+    if(name===folder&&changed)stat.mtimeNs+=1n;
+    return stat;
+  },openSync(...args){opens++;return fs.openSync(...args);}};
+  const inspectorFactory=()=>({async inspect(paths){
+    if(paths.length===1&&paths[0]===absoluteSource)sourceInspections++;
+    if(paths.length===1&&paths[0]===folder){
+      folderInspections++;
+      if(changeDuringInspection)changed=true;
+    }
+    return paths.map(()=>({ok:true,reparsePoint:false}));
+  },async close(){}});
+  const host=await createGraphFileHost(root,context(),{io,inspectorFactory});
+  try{
+    await host.listDirectory('');
+    folderInspections=0;
+    const snapshot=await host.listDirectory('Demo');
+    assert.equal(folderInspections,2);
+    folderInspections=0;
+    assert.deepEqual(await host.listDirectory('Demo'),snapshot);
+    assert.equal(folderInspections,1);
+
+    folderInspections=0;
+    assert.equal(await host.verifyDirectory('Demo',snapshot.fingerprint),true);
+    assert.equal(folderInspections,2);
+
+    folderInspections=0;
+    sourceInspections=0;
+    assert.equal((await host.readSource(source,1024)).bytes.toString(),'Out = 1');
+    assert.equal(folderInspections,1);
+
+    folderInspections=0;
+    changeDuringInspection=true;
+    await assert.rejects(host.readSource(source,1024),{code:'graph-native-changed'});
+    assert.equal(folderInspections,2);
+    assert.equal(sourceInspections,2);
+    assert.equal(opens,1);
+  }finally{await host.close();}
+}));
+
 test('a root attribute batch rejects missing rows, reparse attributes, identity changes and deadline expiry before reading',()=>fixture(async root=>{
   let mode=null,changed=false,now=0,opens=0;
   const io={...fs,lstatSync(name,...args){
