@@ -1,7 +1,8 @@
 /** Independent original-source XML checks, shared with the graph worker boundary. */
 import assert from "node:assert/strict";
+import {buildSourceLineIndex} from './source-line-index.mjs';
 
-export function verifyXmlSyntax(result, content, filename) {
+export function verifyXmlSyntax(result, content, filename, sourceLines) {
   const exact = (value, keys) => assert.ok(value !== null && typeof value === 'object' && !Array.isArray(value) &&
     Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key)));
   exact(result, ['schemaVersion', 'complete', 'elements', 'text', 'diagnostics']);
@@ -21,12 +22,7 @@ export function verifyXmlSyntax(result, content, filename) {
   assert.equal(typeof result.complete, 'boolean');
   assert.equal(result.complete, result.diagnostics.length === 0);
   assert.ok(Array.isArray(result.elements) && Array.isArray(result.text));
-  const starts = [0], lengths = [];
-  const breaks = /\r\n|\r|\n/gu;
-  for (const match of content.matchAll(breaks)) {
-    lengths.push(match.index - starts.at(-1)); starts.push(match.index + match[0].length);
-  }
-  lengths.push(content.length - starts.at(-1));
+  const {starts, lengths} = sourceLines ?? buildSourceLineIndex(content);
   function offsets(source) {
     assert.equal(source.file, filename);
     const positions = [source.range.start, source.range.end];

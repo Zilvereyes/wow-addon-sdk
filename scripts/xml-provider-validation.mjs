@@ -1,5 +1,6 @@
 /** Tooling-only checks. No corpus text, paths, names or messages are reported. */
 import assert from 'node:assert/strict';
+import {buildSourceLineIndex} from './source-line-index.mjs';
 
 export const XML_PROVIDER_ADDON_ID = 'corpus-xml';
 const roles = ['roots', 'frameElements', 'includeElements', 'scriptElements', 'handlerContainers', 'handlerElements'];
@@ -33,7 +34,7 @@ export function validateXmlProviderProfile(profile) {
 
 /** Validate the whole provider result before returning any aggregate credit. */
 export function verifyXmlProvider(result, syntax, content, filename, policy,
-  association = { addonId: XML_PROVIDER_ADDON_ID, conditions: [] }) {
+  association = { addonId: XML_PROVIDER_ADDON_ID, conditions: [] }, sourceLines) {
   assert.deepEqual(JSON.parse(JSON.stringify(result)), result);
   assert.ok(ownKeys(result, ['schemaVersion', 'complete', 'frames', 'references', 'scripts', 'declarations', 'diagnostics']));
   assert.equal(result.schemaVersion, 1);
@@ -41,11 +42,7 @@ export function verifyXmlProvider(result, syntax, content, filename, policy,
   for (const key of ['frames', 'references', 'scripts', 'declarations', 'diagnostics']) assert.ok(Array.isArray(result[key]));
   assert.equal(result.complete, result.diagnostics.length === 0);
   assert.equal(syntax.complete, true);
-  const starts = [0], lengths = [];
-  for (const match of content.matchAll(/\r\n|\r|\n/gu)) {
-    lengths.push(match.index - starts.at(-1)); starts.push(match.index + match[0].length);
-  }
-  lengths.push(content.length - starts.at(-1));
+  const {starts, lengths} = sourceLines ?? buildSourceLineIndex(content);
   const metrics = { frameCandidates: 0, declarations: 0, references: 0, inlineChunks: 0, inlineHandlers: 0,
     checkedSourceReferences: 0, checkedDecodedMappings: 0, diagnosticsByCode: {} };
   function offsets(source) {

@@ -1,6 +1,7 @@
 /** Trusted tooling composition and checks; no source execution or file access. */
 import assert from 'node:assert/strict';
 import { XML_PROVIDER_ADDON_ID, verifyXmlProvider } from './xml-provider-validation.mjs';
+import {buildSourceLineIndex} from './source-line-index.mjs';
 
 const keywords = new Set(['and', 'break', 'do', 'else', 'elseif', 'end', 'false', 'for', 'function', 'if', 'in',
   'local', 'nil', 'not', 'or', 'repeat', 'return', 'then', 'true', 'until', 'while']);
@@ -50,10 +51,8 @@ export function validateXmlInlineProfile(input) {
   return { schemaVersion: 1, chunkContext, handlers };
 }
 
-function lines(text) {
-  const starts = [0], lengths = [];
-  for (const match of text.matchAll(/\r\n|\r|\n/gu)) { lengths.push(match.index - starts.at(-1)); starts.push(match.index + match[0].length); }
-  lengths.push(text.length - starts.at(-1));
+function lines(text, sourceLines = buildSourceLineIndex(text)) {
+  const {starts, lengths} = sourceLines;
   function offset(position) {
     assert.ok(record(position) && Number.isSafeInteger(position.line) && position.line >= 0 && position.line < starts.length);
     assert.ok(Number.isSafeInteger(position.column) && position.column >= 0 && position.column <= lengths[position.line]);
@@ -194,16 +193,17 @@ export function composeXmlInlineLua(content, filename, syntax, provider, options
 /** The graph preserves a confirmed provider failure and rejects malformed projections. */
 export function composeGraphXmlInlineLua(content, filename, syntax, provider, options, analyzeLua, mapXmlValueRanges) {
   const {association} = options;
-  if (verifyXmlProvider(provider, syntax, content, filename, options.policy, association).outcome !== 'validated') return null;
-  return composeInlineBodies(content, filename, syntax, provider, options, association, analyzeLua, mapXmlValueRanges);
+  const sourceLines = buildSourceLineIndex(content);
+  if (verifyXmlProvider(provider, syntax, content, filename, options.policy, association, sourceLines).outcome !== 'validated') return null;
+  return composeInlineBodies(content, filename, syntax, provider, options, association, analyzeLua, mapXmlValueRanges, sourceLines);
 }
 
-function composeInlineBodies(content, filename, syntax, provider, options, association, analyzeLua, mapXmlValueRanges) {
+function composeInlineBodies(content, filename, syntax, provider, options, association, analyzeLua, mapXmlValueRanges, sourceLines) {
   const blocked = status => ({ schemaVersion: 1, status, bodies: [] });
   const scripts = provider.scripts;
   if (scripts.length > 5000 || scripts.reduce((sum, script) => sum + script.body.value.length, 0) > 1024 * 1024) return blocked('resource');
   let records = 0;
-  const originalLines = lines(content);
+  const originalLines = lines(content, sourceLines);
   const bodies = [];
   try {
     for (const [index, script] of scripts.entries()) {
@@ -258,9 +258,9 @@ export function verifyXmlInlineLua(result, content, filename, syntax, provider, 
 }
 
 /** Validate the graph's wire projection in a single provider pass. */
-export function verifyGraphXmlInlineLua(inline, content, filename, syntax, provider, policy, profile, association) {
+export function verifyGraphXmlInlineLua(inline, content, filename, syntax, provider, policy, profile, association, sourceLines) {
   assert.ok(Array.isArray(inline));
-  if (verifyXmlProvider(provider, syntax, content, filename, policy, association).outcome !== 'validated') {
+  if (verifyXmlProvider(provider, syntax, content, filename, policy, association, sourceLines).outcome !== 'validated') {
     assert.deepEqual(inline, []);
     return 0;
   }
@@ -269,14 +269,14 @@ export function verifyGraphXmlInlineLua(inline, content, filename, syntax, provi
     return {...row, decodedSourcePath: `decoded:xml-inline:0:${index}`};
   });
   assert.deepEqual(JSON.parse(JSON.stringify(bodies)), bodies);
-  return verifyInlineBodies(bodies, content, filename, syntax, provider, profile, 0, association).metrics.attemptedBodies;
+  return verifyInlineBodies(bodies, content, filename, syntax, provider, profile, 0, association, sourceLines).metrics.attemptedBodies;
 }
 
-function verifyInlineBodies(bodies, content, filename, syntax, provider, profile, fileOrdinal, association) {
+function verifyInlineBodies(bodies, content, filename, syntax, provider, profile, fileOrdinal, association, sourceLines) {
   assert.ok(provider.scripts.length <= 5000); assert.equal(bodies.length, provider.scripts.length);
   assert.ok(provider.scripts.reduce((sum, script) => sum + script.body.value.length, 0) <= 1024 * 1024);
   const metrics = summary(); metrics.discoveredBodies = bodies.length;
-  const originalLines = lines(content);
+  const originalLines = lines(content, sourceLines);
   let records = 0;
   for (const [index, row] of bodies.entries()) {
     exact(row, ['elementIndex', 'kind', 'decodedSourcePath', 'status', 'analysis', 'mapping']);
