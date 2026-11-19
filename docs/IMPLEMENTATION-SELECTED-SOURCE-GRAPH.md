@@ -80,3 +80,30 @@ The Windows Node 24.22.3 run (host session 75455, exit 0) built with `node node_
 Windows attribute time is already included in setup and native wall time. Each run validated eight TOC, 49 Lua and 12 XML file replies, 24 inline Lua bodies, and final integrity for all 69 files and nine directories. The fixture preserved unknown declaration availability and produced its expected `incomplete` aggregate. The `--smoke` comparison (Windows Node 26.13.1, host session 90627, exit 0) also matched full replies and aggregates between current stock and the retained prototype on six files.
 
 Parser calls, especially Lua, took the largest share of measured time on this fixture. The installed replay had no phase timing and never reached its final integrity pass. Keep Stage 7 open in [#11](https://github.com/Zilvereyes/wow-addon-sdk/issues/11). The next diagnostic should measure launcher, worker and parser time separately before proposing a production change.
+
+
+## Stage 7 parser timing
+
+The authored benchmark on Windows Node 24.22.3 (`node docs/proposals/measure-selected-source-parser.mjs`, host session 4550, exit 0) used parser source and built SDK packages from `52b190d0593b1b5a0c317f27600d0ca5ba6cd239`. It alternated stock and instrumented copies in stock, observed, observed, stock order. All 272 replies matched in full, with the expected SDK API receipts. Each series closed both launchers and their replacements after rotation. XML fixtures exercised zero, 12 and 120 inline Lua bodies with exact mapping and parser receipts. Reply SHA-256 was `7c7580f6baeb9c338b511950206f9ee62cd7ec1f973625ea0e9f05a23170923b`.
+
+| Warm request | Stock total | Instrumented total | Worker start to first executable marker | SDK import | Worker analysis | SDK calls within analysis | Final frame to validated reply |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Small Lua | 84.0 ms | 103.8 ms | 75.7 ms | 12.3 ms | 7.3 ms | 7.0 ms | 0.2 ms |
+| Medium Lua | 97.7 ms | 118.5 ms | 72.9 ms | 12.6 ms | 15.6 ms | 15.4 ms | 0.8 ms |
+| Large Lua | 153.2 ms | 171.2 ms | 74.2 ms | 11.8 ms | 61.1 ms | 60.4 ms | 6.7 ms |
+| TOC manifest | 83.3 ms | 109.9 ms | 68.5 ms | 8.9 ms | 3.5 ms | 3.3 ms | 3.1 ms |
+| Small XML | 117.9 ms | 141.9 ms | 60.5 ms | 37.6 ms | 19.2 ms | 12.0 ms | 1.9 ms |
+| XML with 12 Lua bodies | 149.6 ms | 217.2 ms | 70.8 ms | 45.2 ms | 54.4 ms | 33.9 ms | 5.7 ms |
+| XML with 120 Lua bodies | 313.2 ms | 371.2 ms | 71.5 ms | 39.8 ms | 160.7 ms | 108.8 ms | 47.4 ms |
+
+Independent medians include different scheduling noise and do not sum to total. The first executable marker follows Worker startup and static dependency evaluation. The import timer covers evaluation from the instrumented copy's resolved URLs. Worker reply and join include timing output to stderr. The last column includes pipe scheduling, decode and projection validation. For rotation request 32, it also includes the wait for confirmed process close. First request, rotation and the first request in the replacement process have separate samples. The eight launcher-entry receipts ranged from 111 to 203 ms and include the startup marker crossing stderr. Stock versus observed totals bound the interpretation because the instrumentation and variation between runs affect wall time.
+
+The separate stock graph control in the same session (exit 0, `node docs/proposals/measure-selected-source-integration.mjs --stock`) reached all 69 final file checks and all nine directory checks. Syntax accepted eight TOC, 49 Lua and 12 XML files. There were 24 validated inline mappings. The authored fixture returned its expected incomplete policy status.
+
+The largest measured component for small Lua and TOC inputs was reaching Worker entry. Larger XML also spent substantial time in analysis and reply handling. This evidence localizes costs on authored inputs. The installed corpus has different sizes, traversal order and machine load. Its prior run stopped at the 900-second deadline with no final integrity result. [Installed acceptance #11](https://github.com/Zilvereyes/wow-addon-sdk/issues/11)
+
+### Next experiment and pending production decision
+
+Rebase the already approved isolated Lua-only prototype from `1ce15f404b9005a49b31bcf58caac973c33cf3c8` onto the current split-launcher implementation. Its [supported CI](https://github.com/Zilvereyes/wow-addon-sdk/actions/runs/44384969359) tested the earlier experiment. Keep separate stock and candidate runs using authored small, medium, syntax-error and large-input boundary controls. Compare exact replies and API receipts, original UTF-16 spans, condition isolation, process rotations and sampled memory at Worker exit. Exercise duplicate or stale internal replies, size-triggered retirement, timeout and termination without acknowledgement.
+
+A production candidate would reuse only the corpus Lua Worker. Preserve the experimental limits of eight files and 4,194,304 cumulative UTF-16 units per Worker, using a dedicated Worker for any file above the reuse threshold. The current parser backend can retain the most recent adapted input in module state until the next parse or Worker exit. The count and size caps, operation cleanup and verified retirement define the proposed lifetime. Keep the existing launcher, process and per-file quotas. The public SDK, host request and reply formats and the 900-second Classic Era acceptance stay as specified. Require all current gates and exact supported CI on any eventual production commit. A separate production decision follows review of the updated isolated evidence because the approved current contract requires a fresh Worker per request.
