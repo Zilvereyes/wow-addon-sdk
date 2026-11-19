@@ -107,3 +107,22 @@ The largest measured component for small Lua and TOC inputs was reaching Worker 
 Rebase the already approved isolated Lua-only prototype from `1ce15f404b9005a49b31bcf58caac973c33cf3c8` onto the current split-launcher implementation. Its [supported CI](https://github.com/Zilvereyes/wow-addon-sdk/actions/runs/44384969359) tested the earlier experiment. Keep separate stock and candidate runs using authored small, medium, syntax-error and large-input boundary controls. Compare exact replies and API receipts, original UTF-16 spans, condition isolation, process rotations and sampled memory at Worker exit. Exercise duplicate or stale internal replies, size-triggered retirement, timeout and termination without acknowledgement.
 
 A production candidate would reuse only the corpus Lua Worker. Preserve the experimental limits of eight files and 4,194,304 cumulative UTF-16 units per Worker, using a dedicated Worker for any file above the reuse threshold. The current parser backend can retain the most recent adapted input in module state until the next parse or Worker exit. The count and size caps, operation cleanup and verified retirement define the proposed lifetime. Keep the existing launcher, process and per-file quotas. The public SDK, host request and reply formats and the 900-second Classic Era acceptance stay as specified. Require all current gates and exact supported CI on any eventual production commit. A separate production decision follows review of the updated isolated evidence because the approved current contract requires a fresh Worker per request.
+
+
+## Stage 7 XML timing and isolated reuse
+
+On Windows Node 24.22.3, the read-only installation replay at `d431fac` reached 595 validated XML replies in 233.1 s of supervised wall time. The 900 s operation stopped before final integrity. [Installed phase receipt](https://github.com/Zilvereyes/wow-addon-sdk/issues/11#issuecomment-7001628053)
+
+From a built checkout with the pinned Git objects available, run `node docs/proposals/measure-selected-source-parser.mjs --xml-only` and `node docs/proposals/measure-selected-source-xml-reuse.mjs`. Both use only authored inputs. The first pins the fresh TOC/XML worker at `d431facca863b120ea7785ce8a63f400bdb4f1ef`. It alternates stock and observed executions and asserts complete reply and receipt equality through launcher rotation. The second derives an isolated candidate from the same revision, compares all production-port replies and observes process reaping and RSS. Production keeps fresh XML Workers under the current approval.
+
+| Warm authored XML | Worker entry | SDK imports | Worker analysis | Parent after final frame | Instrumented total |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Small, no inline body | 61.5 ms | 32.6 ms | 14.7 ms | 1.5 ms | 122.7 ms |
+| Medium, 12 inline bodies | 55.0 ms | 33.1 ms | 36.9 ms | 5.4 ms | 142.9 ms |
+| Large, 120 inline bodies | 70.1 ms | 38.2 ms | 143.2 ms | 57.3 ms | 352.5 ms |
+
+The fresh probe checked 136 identical replies. Entry includes static dependency evaluation, and the final-frame interval includes scheduling, decoding and validation. The columns are separate medians. SDK-call totals appear separately for `parseXml`, `analyzeXml`, `analyzeLua` and `mapXmlValueRanges`.
+
+The mixed 51-request probe checked 204 identical replies, including ordinary malformed XML, the depth-limit diagnostic, exact ranges and inline mappings. Stock batches took 11.490 and 11.783 s, and candidate batches took 4.298 and 4.447 s. The TOC/XML launcher classes used 44 Workers per stock batch and nine per candidate batch. All Worker exits and launcher closes were acknowledged. The highest paired sampled RSS was 146,128 KiB stock and 163,280 KiB candidate, with samples paired within 25 ms. Both scripts ran in Windows host session 70652. These times describe authored fixtures.
+
+The [A–D production proposal](https://github.com/Zilvereyes/wow-addon-sdk/issues/11#issuecomment-7001715103) specifies the lifetime and byte tradeoff and leaves final installed acceptance open.
