@@ -1,7 +1,7 @@
 /** Resumable per-group selected-source runner. Private tooling, opt-in and read-only.
  *
  * Each requested group runs as its own single-group request with the unchanged profiles and limits.
- * A group receipt stores only the derived aggregate counts, a timing number and an input digest.
+ * A group receipt stores only the derived aggregate counts, a timing number, a source fingerprint, a count-only integrity summary and an input digest.
  * It never stores paths, addon identities, file names or error messages.
  * The final batch receipt is the sum of the per-group runs and is not one original full request.
  */
@@ -21,7 +21,11 @@ const GROUP_STATUSES = new Set(['passed', 'incomplete', 'failed']);
 const FLAG_PATHS = new Set(['completeUnderPolicy', 'fullParsing', 'clientConformance', 'discovery.complete',
   'resolution.coreComplete', 'resolution.complete']);
 const KEY = /^[A-Za-z][A-Za-z0-9]*$/u;
-const FAILURE_CODE = /^[A-Za-z]{3,8}\d{4}$/u;
+// Fixed, bounded codes only: legacy SGRAPH0005-style codes and the fixed graph-* and grouped-* transport codes.
+const FAILURE_CODE = /^(?:[A-Za-z]{3,8}\d{4}|(?:graph|grouped)(?:-[a-z0-9]{1,24}){1,4})$/u;
+const FINGERPRINT = /^[0-9a-f]{64}$/u;
+const SOURCE_EXTENSIONS = /\.(?:toc|lua|xml)$/iu;
+const SOURCE_FILE_LIMIT = 64 * 1024 * 1024;
 const BATCH_FILE = 'batch-receipt.json';
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const integer = value => Number.isSafeInteger(value) && value >= 0;
@@ -29,10 +33,52 @@ const invalidReceipt = () => Object.assign(new Error('Invalid grouped receipt.')
 
 function sha256(value) {return createHash('sha256').update(JSON.stringify(value)).digest('hex');}
 export const groupFileName = index => `group-${String(index + 1).padStart(4, '0')}.json`;
+const failedFileName = index => `group-${String(index + 1).padStart(4, '0')}.failed.json`;
 
 /** The digest binds one group to the exact profiles, policies and runtime label that produced its receipt. */
 export function groupDigest(request, group, runtimeId = '') {
   return sha256({runtimeId, request: {...request, profile: {...request.profile, addons: [group]}}});
+}
+
+/**
+ * Hashes the TOC, Lua and XML bytes of one group directory without following links. Only the digest is kept.
+ * Returns null when the directory cannot be read completely, so an unverifiable group is never reused or accepted.
+ * Non-source entries and linked directories are not part of the fingerprint; a linked source file makes it unverifiable.
+ */
+export function fingerprintGroup(root, group) {
+  try {
+    if (typeof group?.directory !== 'string' || group.directory.includes('\0')) return null;
+    const base = path.resolve(root), directory = path.resolve(base, group.directory);
+    if (directory === base || !directory.startsWith(base + path.sep)) return null;
+    const stat = fs.lstatSync(directory);
+    if (!stat.isDirectory() || stat.isSymbolicLink()) return null;
+    const files = [];
+    const walk = relative => {
+      for (const entry of fs.readdirSync(path.join(directory, relative), {withFileTypes: true})) {
+        const child = relative ? path.join(relative, entry.name) : entry.name;
+        if (entry.isSymbolicLink()) {
+          if (SOURCE_EXTENSIONS.test(entry.name)) throw invalidReceipt();
+        } else if (entry.isDirectory()) walk(child);
+        else if (entry.isFile() && SOURCE_EXTENSIONS.test(entry.name)) files.push(child);
+      }
+    };
+    walk('');
+    files.sort();
+    const hash = createHash('sha256');
+    for (const file of files) {
+      const bytes = readBoundedFile(path.join(directory, file), SOURCE_FILE_LIMIT);
+      hash.update(`${file.split(path.sep).join('/')}\0${bytes.length}\0`);
+      hash.update(createHash('sha256').update(bytes).digest());
+    }
+    return hash.digest('hex');
+  } catch {return null;}
+}
+
+function safeFingerprint(fingerprint, root, group) {
+  try {
+    const value = fingerprint(root, group);
+    return typeof value === 'string' && FINGERPRINT.test(value) ? value : null;
+  } catch {return null;}
 }
 
 function checkedDirectory(directory) {
@@ -90,28 +136,31 @@ export function mergeAggregates(aggregates) {
       } else throw invalidReceipt();
     });
   }
-  // Fixed-shape keys must be present in every aggregate, so sums never hide a shape change.
-  const expected = [];
-  visit(aggregates[0], '', (where) => expected.push(where));
+  // The fixed shape must be identical in every aggregate, in both directions, so sums never hide a shape change.
+  // Histogram contents (paths containing ByCode) are keyed by diagnostic code and may differ between groups.
+  const shape = aggregate => {
+    const keys = new Set();
+    visit(aggregate, '', where => {if (!where.includes('ByCode')) keys.add(where);});
+    return keys;
+  };
+  const expected = shape(aggregates[0]);
   for (const aggregate of aggregates) {
-    const seen = [];
-    visit(aggregate, '', (where) => seen.push(where));
-    for (const where of expected) {
-      if (!where.includes('ByCode') && !seen.includes(where)) throw invalidReceipt();
-    }
+    const seen = shape(aggregate);
+    if (seen.size !== expected.size || [...expected].some(where => !seen.has(where))) throw invalidReceipt();
   }
   const plain = value => record(value) ? Object.fromEntries(Object.entries(value).map(([k, v]) => [k, plain(v)])) : value;
   return plain(merged);
 }
 
-function readReceipt(directory, index, digest) {
+function readReceipt(directory, index, digest, sourceFingerprint) {
   const name = groupFileName(index);
   if (!fs.existsSync(path.join(directory, name))) return null;
   try {
     const receipt = JSON.parse(new TextDecoder('utf-8', {fatal: true}).decode(readBoundedFile(path.join(directory, name), RECEIPT_LIMIT)));
     if (!record(receipt) || receipt.schemaVersion !== GROUPED_SCHEMA_VERSION || receipt.kind !== 'selected-source-group' ||
       receipt.index !== index || receipt.digest !== digest || receipt.outcome !== 'completed' ||
-      !integer(receipt.durationMilliseconds) || !integer(receipt.peakRssKiB)) return null;
+      receipt.sourceFingerprint !== sourceFingerprint ||
+      !integer(receipt.durationMilliseconds) || !integer(receipt.parentPeakRssKiB)) return null;
     mergeAggregates([receipt.aggregate]);
     if (!validIntegrity(receipt.integrity)) return null;
     // A run that returned status failed may have hit a transient read or timing fault, so it is repeated.
@@ -120,13 +169,17 @@ function readReceipt(directory, index, digest) {
 }
 
 /**
- * Runs every group in order. A group that already has a matching completed receipt is not repeated.
+ * Runs every group in order. A group that already has a matching completed receipt is not repeated, and that match
+ * includes a fingerprint of the group's current TOC/Lua/XML bytes, so a changed AddOn is analyzed again.
+ * The fingerprint is taken before and after each analysis; a group whose bytes changed meanwhile, or whose bytes
+ * cannot be fingerprinted, is recorded as failed with a fixed code and never receipted as completed.
  * A group that throws is recorded as failed and retried on the next resume; later groups still run.
- * Test seams (`prepare`, `createHost`, `analyze`, `now`) are trusted internal parameters, never CLI data.
+ * `parentPeakRssKiB` is the lifetime maximum of this parent process; it is neither per group nor inclusive of children.
+ * Test seams (`prepare`, `createHost`, `analyze`, `fingerprint`, `now`) are trusted internal parameters, never CLI data.
  */
 export async function runGroupedSelectedSources({root, request, receiptDirectory, runtimeId = '', resume = true,
   prepare = prepareGraphContext, createHost = createSelectedSourceHost, analyze = analyzeSelectedSourceAggregate,
-  now = () => performance.now()}) {
+  fingerprint = fingerprintGroup, now = () => performance.now()}) {
   const directory = checkedDirectory(receiptDirectory);
   prepare(request); // The complete request must pass preflight before any host or receipt exists.
   const groups = request.profile.addons, completed = [], integrities = [], timings = [], failedIndexes = [];
@@ -134,7 +187,8 @@ export async function runGroupedSelectedSources({root, request, receiptDirectory
   for (let index = 0; index < groups.length; index++) {
     const single = {...request, profile: {...request.profile, addons: [groups[index]]}};
     const digest = groupDigest(request, groups[index], runtimeId);
-    const reused = resume ? readReceipt(directory, index, digest) : null;
+    const before = safeFingerprint(fingerprint, root, groups[index]);
+    const reused = resume && before !== null ? readReceipt(directory, index, digest, before) : null;
     if (reused) {
       resumed++; completed.push(reused.aggregate); integrities.push(reused.integrity); timings.push(reused.durationMilliseconds); continue;
     }
@@ -148,27 +202,30 @@ export async function runGroupedSelectedSources({root, request, receiptDirectory
       mergeAggregates([aggregate]);
     } catch (error) {
       aggregate = null;
-      code = typeof error?.code === 'string' && FAILURE_CODE.test(error.code) ? error.code : null;
+      code = typeof error?.code === 'string' && error.code.length <= 64 && FAILURE_CODE.test(error.code) ? error.code : null;
     }
     try {integrity = observer?.finish() ?? null;} catch {integrity = null;}
-    if (aggregate && !validIntegrity(integrity)) aggregate = null; // A result without a valid observation is not a completed group.
+    if (aggregate && !validIntegrity(integrity)) {aggregate = null; code = 'grouped-integrity';} // No valid observation, no completed group.
+    const after = safeFingerprint(fingerprint, root, groups[index]);
+    if (aggregate && (before === null || after === null)) {aggregate = null; code = 'grouped-fingerprint';}
+    else if (aggregate && before !== after) {aggregate = null; code = 'grouped-source-changed';}
     const durationMilliseconds = Math.max(0, Math.round(now() - started));
-    const peakRssKiB = Math.max(0, Math.round(process.resourceUsage().maxRSS));
+    const parentPeakRssKiB = Math.max(0, Math.round(process.resourceUsage().maxRSS));
     timings.push(durationMilliseconds);
     if (aggregate) {
       writeAtomic(directory, groupFileName(index), {schemaVersion: GROUPED_SCHEMA_VERSION, kind: 'selected-source-group',
-        index, digest, outcome: 'completed', aggregate, integrity, durationMilliseconds, peakRssKiB});
+        index, digest, outcome: 'completed', sourceFingerprint: before, aggregate, integrity, durationMilliseconds, parentPeakRssKiB});
       completed.push(aggregate); integrities.push(integrity);
     } else {
       failedIndexes.push(index);
       fs.rmSync(path.join(directory, groupFileName(index)), {force: true});
-      writeAtomic(directory, `group-${String(index + 1).padStart(4, '0')}.failed.json`, {schemaVersion: GROUPED_SCHEMA_VERSION,
-        kind: 'selected-source-group', index, digest, outcome: 'failed', code, durationMilliseconds, peakRssKiB});
+      writeAtomic(directory, failedFileName(index), {schemaVersion: GROUPED_SCHEMA_VERSION,
+        kind: 'selected-source-group', index, digest, outcome: 'failed', code, durationMilliseconds, parentPeakRssKiB});
     }
   }
   // A group that later completes must not leave a stale failure record behind.
   for (let index = 0; index < groups.length; index++) {
-    if (!failedIndexes.includes(index)) fs.rmSync(path.join(directory, `group-${String(index + 1).padStart(4, '0')}.failed.json`), {force: true});
+    if (!failedIndexes.includes(index)) fs.rmSync(path.join(directory, failedFileName(index)), {force: true});
   }
   const counts = {total: groups.length, completed: completed.length, threw: failedIndexes.length, resumed,
     passed: 0, incomplete: 0, faulted: 0};

@@ -118,7 +118,7 @@ test('the runner stores the summary in each group receipt, sums it into the batc
     ({logicalAddonId: `private/${name}`, directory: name, addonBaseName: name, tocPaths: [`${name}/${name}.toc`]}))}, luaInputProfile: 'bounded'};
   let analyses = 0;
   const clock = (() => {let t = 0; return () => (t += 5);})();
-  const run = () => runGroupedSelectedSources({root, request, receiptDirectory: receipts, prepare: () => ({}), createHost: async () => ({readSource: read}), now: clock,
+  const run = () => runGroupedSelectedSources({root, request, receiptDirectory: receipts, prepare: () => ({}), createHost: async () => ({readSource: read}), fingerprint: () => 'b'.repeat(64), now: clock,
     analyze: async (single, host) => {analyses++; await host.readSource('PrivateAddon/PrivateCore.lua', 10); return {schemaVersion: 1, status: 'passed', completeUnderPolicy: true, selection: {selected: 1}, issuesByCode: {}};}});
   const first = await run();
   assert.equal(first.report.integrity.filesObserved, 2); assert.equal(first.report.integrity.phases.readSource.calls, 2);
