@@ -52,4 +52,8 @@ test('composed host operation clock starts before traversal and cannot reset aft
   now = 100;
   const trace = await traceSelectedSources(input, host);
   assert.equal(trace.fatal, 'resource'); assert.equal(opened, 0); assert.deepEqual(trace.analyses, []);
+  assert.equal(trace.budget.cleanupDeadline(), 10_100);
+  now = 10_100;
+  assert.equal(trace.budget.cleanupDeadline(), 10_100);
+  assert.throws(() => trace.budget.remaining(), {code: 'SGRAPH0005'});
 }));

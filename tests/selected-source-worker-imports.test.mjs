@@ -13,6 +13,7 @@ const xmlModules = [xmlParser, '@wow-addon/xml-analysis', luaModule];
 const xmlComposition = './xml-inline-lua-validation.mjs';
 const parentValidation = './selected-source-analysis.mjs';
 const marker = 'tracked-sdk-import:';
+const threadMarker = 'tracked-parser-exec-argv:';
 const xmlCallMarker = 'tracked-parseXml-call';
 const dataModule = source => `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
 const json = file => JSON.parse(readFileSync(new URL(file, import.meta.url), 'utf8'));
@@ -30,14 +31,14 @@ function receipts(...names) {
   return result;
 }
 
-async function observeWorker(input, use, faults = {}) {
+function importHook(scope, faults) {
   const replacements = {
     throwsAtInitialization: dataModule("throw Error('authored module initialization failure'); export function parseToc() {}"),
     missingNamedExport: dataModule('export const unrelated = 1;'),
     tracksXmlCall: dataModule(`import {writeSync} from 'node:fs';
       export function parseXml() { writeSync(2, ${JSON.stringify(xmlCallMarker)}); return {complete: false}; }`),
   };
-  const hook = dataModule(`
+  return dataModule(`
     import {writeSync} from 'node:fs';
     const faults = ${JSON.stringify(faults)};
     const replacements = ${JSON.stringify(replacements)};
@@ -46,14 +47,32 @@ async function observeWorker(input, use, faults = {}) {
           (!specifier.startsWith('@wow-addon/') && !${JSON.stringify([xmlComposition, parentValidation])}.includes(specifier))) {
         return next(specifier, context);
       }
-      writeSync(2, ${JSON.stringify(marker)} + specifier + '\\n');
+      writeSync(2, ${JSON.stringify(`${marker}${scope}:`)} + specifier + '\\n');
       const fault = faults[specifier];
       if (fault === 'missing') throw Object.assign(Error('authored missing module'), {code: 'ERR_MODULE_NOT_FOUND'});
       if (fault) return {url: replacements[fault], shortCircuit: true};
       return next(specifier, context);
     }
   `);
-  const preload = dataModule(`import {register} from 'node:module'; register(${JSON.stringify(hook)});`);
+}
+
+async function observeWorker(input, use, faults = {}) {
+  const parserHook = importHook('parser', faults);
+  const parserProbe = dataModule(`import {register} from 'node:module'; register(${JSON.stringify(parserHook)});`);
+  const launcherHook = importHook('launcher', faults);
+  const preload = dataModule(`
+    import {createRequire, register, syncBuiltinESMExports} from 'node:module';
+    import {writeSync} from 'node:fs';
+    register(${JSON.stringify(launcherHook)});
+    const threads = createRequire(process.argv[1])('node:worker_threads');
+    threads.Worker = class ObservedWorker extends threads.Worker {
+      constructor(entry, options) {
+        writeSync(2, ${JSON.stringify(threadMarker)} + JSON.stringify(options.execArgv ?? null) + '\\n');
+        super(entry, {...options, execArgv: ['--import', ${JSON.stringify(parserProbe)}]});
+      }
+    };
+    syncBuiltinESMExports();
+  `);
   let stderr = '', outputBytes = 0;
   const client = createGraphAnalyzer({spawnProcess(executable, args, options) {
     const child = spawn(executable, ['--import', preload, ...args], options);
@@ -63,11 +82,18 @@ async function observeWorker(input, use, faults = {}) {
   }});
   try {
     await use(client.analyze(input));
-    return {imports: stderr.split(/\r?\n/u).filter(line => line.startsWith(marker)).map(line => line.slice(marker.length)),
-      outputBytes, xmlCalled: stderr.includes(xmlCallMarker)};
   } finally {
     await client.close();
   }
+  const lines = stderr.split(/\r?\n/u);
+  const tagged = prefix => lines.filter(line => line.startsWith(prefix)).map(line => line.slice(prefix.length));
+  const launcherImports = tagged(`${marker}launcher:`);
+  const parserImports = tagged(`${marker}parser:`);
+  const execArgv = tagged(threadMarker).map(line => JSON.parse(line));
+  const oneShot = input.language === 'lua' && input.luaProfile === 'bounded';
+  assert.deepEqual(execArgv, oneShot ? [] : [[]]);
+  if (!oneShot) assert.deepEqual(launcherImports, []);
+  return {imports: oneShot ? launcherImports : parserImports, outputBytes, xmlCalled: stderr.includes(xmlCallMarker)};
 }
 
 test('TOC worker loads only its fixed SDK module even if an unused module is missing', async () => {
@@ -94,8 +120,7 @@ test('corpus Lua launcher leaves SDK initialization to the isolated parser threa
     assert.equal(reply.result.result.declarations[0].name, 'Answer');
     assert.deepEqual(reply.confirmedApiCalls, receipts('analyzeLua'));
   }, {[xmlComposition]: 'missing', [parentValidation]: 'missing'});
-  // The parser thread has its own execArgv, so the launcher-only probe cannot count its imports.
-  assert.deepEqual(observed.imports, []);
+  assert.deepEqual(observed.imports, [luaModule]);
 });
 
 test('XML worker loads the fixed syntax, provider and inline Lua SDK modules', async () => {

@@ -13,6 +13,7 @@ import {createSelectedSourceHost} from '../../scripts/selected-source-host.mjs';
 const repository = fileURLToPath(new URL('../../', import.meta.url));
 const revision = 'a3d3b0545d0f3984eda718cec01a93330f26c73a';
 const patchPath = 'tests/fixtures/launcher-reuse-prototype/prototype.patch';
+const prototypeBase = '0cbbc079372a78ae07c94094a52f5d7604fc04bb';
 
 function profile(filename) {
   return JSON.parse(fs.readFileSync(new URL(filename, import.meta.url), 'utf8'));
@@ -26,8 +27,9 @@ async function preparePrototype(scratch) {
   fs.symlinkSync(path.join(repository, 'node_modules'), path.join(sandbox, 'node_modules'),
     process.platform === 'win32' ? 'junction' : 'dir');
   for (const role of ['client', 'worker']) {
-    fs.copyFileSync(path.join(sandbox, 'scripts', 'selected-source-analysis-' + role + '.mjs'),
-      path.join(sandbox, 'scripts', 'prototype-analysis-' + role + '.mjs'));
+    const name = 'scripts/selected-source-analysis-' + role + '.mjs';
+    const source = execFileSync('git', ['show', prototypeBase + ':' + name], {cwd: repository, windowsHide: true});
+    fs.writeFileSync(path.join(sandbox, 'scripts', 'prototype-analysis-' + role + '.mjs'), source, {flag: 'wx'});
   }
   const patch = execFileSync('git', ['show', revision + ':' + patchPath], {cwd: repository, windowsHide: true});
   execFileSync('git', ['-c', 'core.autocrlf=false', 'apply', '-p0'], {cwd: sandbox, input: patch, windowsHide: true});
