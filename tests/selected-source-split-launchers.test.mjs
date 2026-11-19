@@ -119,7 +119,7 @@ async function primePair({client, launches}) {
   return {lua, tocXml};
 }
 
-test('split launchers share one ID sequence and rotate independently at 32 requests', testTimeout, async () => {
+test('TOC/XML rotates at 32 while corpus Lua keeps its launcher and the shared ID sequence', testTimeout, async () => {
   const harness = makeHarness();
   const {client, launches} = harness;
   try {
@@ -134,39 +134,53 @@ test('split launchers share one ID sequence and rotate independently at 32 reque
     assert.equal(lua.requests.length, 31);
     assert.equal(tocXml.requests.length, 31);
 
-    const lastLua = request('lua', 32);
-    const rotatingLua = client.analyze(lastLua);
-    await stillPending(rotatingLua);
-    assert.equal(lua.requests.length, 32);
-    await assert.rejects(client.analyze(mixed(32)), withoutReceipts('busy'));
-    assert.equal(tocXml.requests.length, 31);
+    for (const ordinal of [32, 33]) {
+      const input = request('lua', ordinal);
+      assert.deepEqual(await client.analyze(input), expected(input));
+    }
     assert.equal(launches.length, 2);
-    lua.acknowledge();
-    assert.deepEqual(await rotatingLua, expected(lastLua));
+    assert.equal(lua.requests.length, 33);
+    assert.deepEqual(lua.requests.slice(-2).map(input => input.id), [63, 64]);
+    assert.equal(lua.closed, false);
     assert.equal(tocXml.closed, false);
-
-    const nextLua = request('lua', 33);
-    assert.deepEqual(await client.analyze(nextLua), expected(nextLua));
-    assert.equal(launches.length, 3);
-    const nextLuaChild = launches[2];
-    assert.deepEqual(nextLuaChild.requests.map(input => input.id), [64]);
 
     const lastMixed = mixed(32);
     const rotatingMixed = client.analyze(lastMixed);
     await stillPending(rotatingMixed);
     assert.equal(tocXml.requests.length, 32);
     await assert.rejects(client.analyze(request('lua', 34)), withoutReceipts('busy'));
-    assert.equal(nextLuaChild.requests.length, 1);
+    assert.equal(lua.requests.length, 33);
     tocXml.acknowledge();
     assert.deepEqual(await rotatingMixed, expected(lastMixed));
-    assert.equal(nextLuaChild.closed, false);
+    assert.equal(lua.closed, false);
 
     const nextMixed = mixed(33);
     assert.deepEqual(await client.analyze(nextMixed), expected(nextMixed));
+    assert.equal(launches.length, 3);
+    assert.deepEqual(launches[2].requests.map(input => input.id), [66]);
+    const replacementTocXml = launches[2];
+    for (let ordinal = 34; ordinal < 128; ordinal++) {
+      const input = request('lua', ordinal);
+      assert.deepEqual(await client.analyze(input), expected(input));
+    }
+    const lastLua = request('lua', 128);
+    const rotatingLua = client.analyze(lastLua);
+    await setImmediate();
+    await stillPending(rotatingLua);
+    assert.equal(lua.requests.at(-1).id, 161);
+    await assert.rejects(client.analyze(mixed(34)), withoutReceipts('busy'));
+    assert.equal(launches.length, 3);
+    lua.acknowledge();
+    assert.deepEqual(await rotatingLua, expected(lastLua));
+    assert.equal(replacementTocXml.closed, false);
+    assert.deepEqual(replacementTocXml.requests.map(input => input.id), [66]);
+    const replacementLuaInput = request('lua', 129);
+    assert.deepEqual(await client.analyze(replacementLuaInput), expected(replacementLuaInput));
     assert.equal(launches.length, 4);
-    assert.deepEqual(launches[3].requests.map(input => input.id), [66]);
+    assert.deepEqual(launches[3].requests.map(input => input.id), [162]);
+
     const ids = launches.flatMap(launch => launch.requests.map(input => input.id)).sort((a, b) => a - b);
-    assert.deepEqual(ids, Array.from({length: 66}, (_, index) => index + 1));
+    assert.deepEqual(ids, Array.from({length: 162}, (_, index) => index + 1));
     assert.deepEqual(launches.flatMap(launch => launch.signals), []);
   } finally { await harness.cleanup(); }
 });

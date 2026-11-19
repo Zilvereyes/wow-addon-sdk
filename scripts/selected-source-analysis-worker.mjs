@@ -3,6 +3,7 @@ import {Worker, isMainThread, parentPort, workerData} from 'node:worker_threads'
 import {createInterface} from 'node:readline';
 import {emptyGraphCalls} from './selected-source-analysis-receipts.mjs';
 import {createCorpusLuaThread, createXmlThread} from './selected-source-lua-thread.mjs';
+import {launcherRequestLimits} from './selected-source-launcher-limits.mjs';
 
 function requireExports(sdk, ...names) {
   for (const name of names) {
@@ -82,7 +83,8 @@ if (!isMainThread) {
 } else {
   const corpusLauncher = process.argv[2] === '--corpus-launcher';
   const tocXmlLauncher = process.argv[2] === '--xml-toc-launcher';
-  const maxRequests = corpusLauncher || tocXmlLauncher ? 32 : 1;
+  const mode = corpusLauncher ? 'corpus-lua' : tocXmlLauncher ? 'toc-xml' : 'one-shot';
+  const maxRequests = launcherRequestLimits[mode];
   const input = createInterface({input: process.stdin, crlfDelay: Infinity});
   const corpusLimits = {maxOldGenerationSizeMb: 2048, stackSizeMb: 8};
   const tocXmlLimits = {maxOldGenerationSizeMb: 256, stackSizeMb: 4};

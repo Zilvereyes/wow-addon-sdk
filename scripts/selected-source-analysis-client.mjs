@@ -3,9 +3,9 @@ import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {performance} from 'node:perf_hooks';
 import {snapshotGraphAnalysisRequest, verifyGraphAnalysisReply, exact} from './selected-source-analysis.mjs';
+import {launcherRequestLimits} from './selected-source-launcher-limits.mjs';
 
 const worker = fileURLToPath(new URL('./selected-source-analysis-worker.mjs', import.meta.url));
-const launcherRequestLimit = 32;
 const reapLimit = 10000;
 
 function decodeReply(chunks, bytes, id, request) {
@@ -149,7 +149,7 @@ export function createGraphAnalyzer({spawnProcess = spawn, now = () => performan
       let bytes = 0, frameTurn, checked, closedCode, timer;
       let expires = deadline, timeout = 'graph-analysis-timeout';
       const chunks = [];
-      const last = ++state.requests === launcherRequestLimit;
+      const last = ++state.requests === launcherRequestLimits[state.mode];
       function armTimer() {
         clearTimeout(timer);
         timer = setTimeout(() => state.fail(timeout), Math.max(0, expires - now()));
