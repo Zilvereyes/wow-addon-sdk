@@ -27,7 +27,7 @@ const counts = (status, selected = 1, complete = true) => ({schemaVersion: 1, st
   fullParsing: false, selection: {requestedGroups: 1, selected, noMatch: 1 - selected},
   languages: {lua: {sourceRequestsSubmitted: 2, analysisDiagnosticsByCode: {LUA0001: 1}}}, issuesByCode: {}});
 const seams = (analyzeRow, calls = []) => ({
-  prepare: () => ({}), createHost: async () => ({}),
+  prepare: () => ({}), createHost: async () => ({}), fingerprint: () => 'a'.repeat(64),
   analyze: async request => {
     const name = request.profile.addons[0].directory; calls.push(name); return analyzeRow(name);
   },
@@ -69,7 +69,7 @@ test('a failing group does not stop later groups and only that group repeats on 
   assert.ok(fs.existsSync(path.join(base, groupFileName(0)))); assert.ok(fs.existsSync(path.join(base, groupFileName(2))));
   assert.equal(fs.existsSync(path.join(base, groupFileName(1))), false);
   const failure = JSON.parse(fs.readFileSync(path.join(base, 'group-0002.failed.json'), 'utf8'));
-  assert.deepEqual(Object.keys(failure).sort(), ['code', 'digest', 'durationMilliseconds', 'index', 'kind', 'outcome', 'peakRssKiB', 'schemaVersion']);
+  assert.deepEqual(Object.keys(failure).sort(), ['code', 'digest', 'durationMilliseconds', 'index', 'kind', 'outcome', 'parentPeakRssKiB', 'schemaVersion']);
   assert.equal(failure.code, 'SGRAPH0005');
   broken = false;
   const two = await run(second);
@@ -200,3 +200,69 @@ test('per-group CLI requires the receipt directory and the exact flag set', () =
     assert.deepEqual({status: result.status, stdout: result.stdout, stderr: result.stderr}, failure);
   }
 }));
+
+// Review fixes: source-bound resume, change detection, fixed failure codes, receipt shape.
+const withoutFingerprint = (analyzeRow, calls = []) => {const {fingerprint, ...rest} = seams(analyzeRow, calls); return rest;};
+function authoredRoot(base, names) {
+  const root = path.join(base, 'installation');
+  for (const name of names) {
+    fs.mkdirSync(path.join(root, name), {recursive: true});
+    fs.writeFileSync(path.join(root, name, `${name}_Vanilla.toc`), 'Core.lua\n');
+    fs.writeFileSync(path.join(root, name, 'Core.lua'), `${name}=1\n`);
+  }
+  return root;
+}
+
+test('resume re-verifies every group against its current source bytes', () => temporary(async base => {
+  const names = ['AlphaDir', 'BetaDir'], root = authoredRoot(base, names), request = requestFor(names);
+  const receipts = path.join(base, 'receipts'); fs.mkdirSync(receipts);
+  const run = calls => runGroupedSelectedSources({root, request, receiptDirectory: receipts, ...withoutFingerprint(() => counts('passed'), calls)});
+  await run([]);
+  const stored = JSON.parse(fs.readFileSync(path.join(receipts, groupFileName(0)), 'utf8'));
+  assert.match(stored.sourceFingerprint, /^[0-9a-f]{64}$/u); assert.equal(typeof stored.parentPeakRssKiB, 'number');
+  assert.equal('peakRssKiB' in stored, false);
+  const unchanged = []; assert.equal((await run(unchanged)).report.groups.resumed, 2); assert.deepEqual(unchanged, []);
+  fs.writeFileSync(path.join(root, 'AlphaDir', 'texture.blp'), 'not a source file');
+  const ignored = []; await run(ignored); assert.deepEqual(ignored, []);
+  fs.writeFileSync(path.join(root, 'BetaDir', 'Core.lua'), 'BetaDir=2\n'); // same length, different bytes
+  const changed = [], result = await run(changed);
+  assert.deepEqual(changed, ['BetaDir']); assert.equal(result.report.groups.resumed, 1);
+}));
+
+test('a group whose source changes during its own analysis is failed and never receipted', () => temporary(async base => {
+  const names = ['AlphaDir', 'BetaDir'], root = authoredRoot(base, names), request = requestFor(names);
+  const receipts = path.join(base, 'receipts'); fs.mkdirSync(receipts);
+  const result = await runGroupedSelectedSources({root, request, receiptDirectory: receipts,
+    ...withoutFingerprint(name => {
+      if (name === 'BetaDir') fs.writeFileSync(path.join(root, name, 'Core.lua'), 'BetaDir=2\n');
+      return counts('passed');
+    })});
+  assert.equal(result.exitCode, 1); assert.equal(result.report.status, 'failed');
+  assert.deepEqual(result.report.groups, {total: 2, completed: 1, threw: 1, resumed: 0, passed: 1, incomplete: 0, faulted: 0});
+  assert.equal(fs.existsSync(path.join(receipts, groupFileName(1))), false);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(receipts, 'group-0002.failed.json'), 'utf8')).code, 'grouped-source-changed');
+}));
+
+test('a group whose bytes cannot be fingerprinted is failed with a fixed code', () => temporary(async base => {
+  const root = authoredRoot(base, ['AlphaDir']), request = requestFor(['AlphaDir', 'MissingDir']);
+  const receipts = path.join(base, 'receipts'); fs.mkdirSync(receipts);
+  const result = await runGroupedSelectedSources({root, request, receiptDirectory: receipts, ...withoutFingerprint(() => counts('passed'))});
+  assert.equal(result.report.status, 'failed'); assert.equal(result.report.groups.completed, 1);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(receipts, 'group-0002.failed.json'), 'utf8')).code, 'grouped-fingerprint');
+}));
+
+test('fixed graph and grouped failure codes are kept and anything else becomes null', () => temporary(async base => {
+  const request = requestFor(['AlphaDir', 'BetaDir', 'GammaDir']);
+  const codes = {AlphaDir: 'graph-native-attributes', BetaDir: 'graph-C:\\Users\\private', GammaDir: 'SGRAPH0005'};
+  await runGroupedSelectedSources({root: base, request, receiptDirectory: base,
+    ...seams(name => {throw Object.assign(new Error('private text'), {code: codes[name]});})});
+  const read = index => JSON.parse(fs.readFileSync(path.join(base, `group-000${index}.failed.json`), 'utf8')).code;
+  assert.equal(read(1), 'graph-native-attributes'); assert.equal(read(2), null); assert.equal(read(3), 'SGRAPH0005');
+}));
+
+test('merge rejects a later aggregate that adds a fixed-shape key the first one lacks', () => {
+  assert.throws(() => mergeAggregates([counts('passed'), {...counts('passed'), extra: 1}]), {code: 'grouped-receipt'});
+  assert.throws(() => mergeAggregates([{...counts('passed'), extra: 1}, counts('passed')]), {code: 'grouped-receipt'});
+  assert.doesNotThrow(() => mergeAggregates([counts('passed'), {...counts('passed'),
+    languages: {lua: {sourceRequestsSubmitted: 1, analysisDiagnosticsByCode: {LUA0009: 4}}}}]));
+});
