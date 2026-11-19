@@ -1,7 +1,8 @@
-/** Fixed graph worker with a fresh parser thread for every retained-launcher request. */
+/** Fixed graph worker for the supervised parser launchers. */
 import {Worker, isMainThread, parentPort, workerData} from 'node:worker_threads';
 import {createInterface} from 'node:readline';
 import {emptyGraphCalls} from './selected-source-analysis-receipts.mjs';
+import {createCorpusLuaThread} from './selected-source-lua-thread.mjs';
 
 function requireExports(sdk, ...names) {
   for (const name of names) {
@@ -72,12 +73,22 @@ async function analyze(request) {
   } catch { return {result: null, confirmedApiCalls, failure: 'backend'}; }
 }
 
-if (!isMainThread) parentPort.postMessage(await analyze(workerData));
-else {
+if (!isMainThread) {
+  if (workerData === null) {
+    parentPort.on('message', async request => {
+      parentPort.postMessage({id: request.id, reply: await analyze(request)});
+    });
+  } else parentPort.postMessage(await analyze(workerData));
+} else {
   const corpusLauncher = process.argv[2] === '--corpus-launcher';
   const tocXmlLauncher = process.argv[2] === '--xml-toc-launcher';
   const maxRequests = corpusLauncher || tocXmlLauncher ? 32 : 1;
   const input = createInterface({input: process.stdin, crlfDelay: Infinity});
+  const corpusThread = corpusLauncher ? createCorpusLuaThread({
+    spawnThread: () => new Worker(new URL(import.meta.url), {workerData: null, execArgv: [],
+      resourceLimits: {maxOldGenerationSizeMb: 2048, stackSizeMb: 8}}),
+    onFault: () => { process.exitCode = 2; input.close(); },
+  }) : null;
   let requests = 0;
   for await (const line of input) {
     try {
@@ -88,7 +99,10 @@ else {
         throw Error('Expected TOC or XML request.');
       }
       let reply;
-      if (isCorpusLua || tocXmlLauncher) {
+      if (corpusThread) {
+        reply = await corpusThread.analyze(request);
+        if (requests + 1 === maxRequests) await corpusThread.close();
+      } else if (isCorpusLua || tocXmlLauncher) {
         const resourceLimits = isCorpusLua ? {maxOldGenerationSizeMb: 2048, stackSizeMb: 8} :
           {maxOldGenerationSizeMb: 256, stackSizeMb: 4};
         const thread = new Worker(new URL(import.meta.url), {workerData: request, execArgv: [],
@@ -109,5 +123,6 @@ else {
       break;
     }
   }
+  await corpusThread?.close();
   input.close();
 }

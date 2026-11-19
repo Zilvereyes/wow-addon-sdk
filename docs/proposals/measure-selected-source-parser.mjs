@@ -1,6 +1,6 @@
 /** Compare the real supervised parser against an instrumented copy using authored inputs. */
 import assert from 'node:assert/strict';
-import {spawn} from 'node:child_process';
+import {execFileSync, spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {mkdtempSync, readFileSync, rmSync, rmdirSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
@@ -12,11 +12,12 @@ import {createGraphAnalyzer} from '../../scripts/selected-source-analysis-client
 const clock = () => Number(process.hrtime.bigint()) / 1e6;
 const worker = new URL('../../scripts/selected-source-analysis-worker.mjs', import.meta.url);
 const metricPrefix = 'graph-parser-timing:';
+const freshWorkerRevision = '52b190d0593b1b5a0c317f27600d0ca5ba6cd239';
 const json = name => JSON.parse(readFileSync(new URL('../../examples/' + name, import.meta.url), 'utf8'));
 const xmlPolicy = json('xml-provider-profile.json').policy;
 const inlineProfile = json('xml-inline-lua-profile.json');
 
-function timingCopy(source) {
+function sourceCopy(source, observed) {
   const replace = (before, after, count = 1) => {
     assert.equal(source.split(before).length, count + 1, 'Incorrect measurement point count: ' + before);
     source = source.replaceAll(before, () => after);
@@ -27,6 +28,7 @@ function timingCopy(source) {
   for (const name of ['toc-parser', 'lua-analysis', 'xml-parser', 'xml-analysis']) {
     replace("'@wow-addon/" + name + "'", JSON.stringify(import.meta.resolve('@wow-addon/' + name)), name === 'lua-analysis' ? 2 : 1);
   }
+  if (!observed) return source;
   const prelude = `import {writeSync} from 'node:fs';
 const measureClock = () => Number(process.hrtime.bigint()) / 1e6;
 const measureEntry = measureClock();
@@ -82,7 +84,7 @@ function cases() {
   }));
 }
 
-async function run(inputs, observedPath) {
+async function run(inputs, workerPath, observed) {
   const metrics = new Map();
   const live = new Set();
   const startupMs = [];
@@ -94,7 +96,7 @@ async function run(inputs, observedPath) {
   const client = createGraphAnalyzer({spawnProcess(executable, args, options) {
     assert.equal(args[1], fileURLToPath(worker));
     const start = clock();
-    const child = spawn(executable, observedPath ? [args[0], observedPath, ...args.slice(2)] : args, options);
+    const child = spawn(executable, [args[0], workerPath, ...args.slice(2)], options);
     launches++;
     live.add(child);
     child.once('close', (code, signal) => {
@@ -105,7 +107,7 @@ async function run(inputs, observedPath) {
     child.stdout.prependListener('data', chunk => {
       if (active && chunk.at(-1) === 10) active.frameAt = clock();
     });
-    if (observedPath) createInterface({input: child.stderr}).on('line', line => {
+    if (observed) createInterface({input: child.stderr}).on('line', line => {
       try {
         assert.ok(line.startsWith(metricPrefix), 'Unexpected timing-copy stderr.');
         const row = JSON.parse(line.slice(metricPrefix.length));
@@ -149,14 +151,14 @@ async function run(inputs, observedPath) {
   assert.equal(live.size, 0);
   assert.equal(closes, launches);
   assert.equal(launches, 4);
-  if (observedPath) {
+  if (observed) {
     assert.equal(startupMs.length, launches);
     assert.equal(metrics.size, inputs.length);
   }
 
   const samples = results.map(({kind, pool, lifecycle, start, end, frameAt}, index) => {
     const row = {kind, pool, lifecycle, total: end - start, postFrame: end - frameAt};
-    if (observedPath) {
+    if (observed) {
       const {worker, frame} = metrics.get(index + 1);
       assert.ok(frame.threadStart <= worker.entry && worker.entry <= worker.loadStart &&
         worker.loadStart <= worker.loaded && worker.loaded <= worker.analyzed &&
@@ -191,22 +193,26 @@ function summarize(samples) {
 }
 
 assert.equal(process.argv.length, 2, 'This benchmark uses only built-in authored inputs.');
-const instrumentedSource = timingCopy(readFileSync(worker, 'utf8').replaceAll('\r\n', '\n'));
+const freshWorker = execFileSync('git', ['show', freshWorkerRevision + ':scripts/selected-source-analysis-worker.mjs'], {
+  cwd: fileURLToPath(new URL('../../', import.meta.url)), encoding: 'utf8', windowsHide: true,
+}).replaceAll('\r\n', '\n');
 const scratch = mkdtempSync(join(tmpdir(), 'wow-parser-phases-'));
-const path = join(scratch, 'observed-worker.mjs');
+const stockPath = join(scratch, 'fresh-worker.mjs');
+const observedPath = join(scratch, 'observed-worker.mjs');
 try {
-  writeFileSync(path, instrumentedSource, {flag: 'wx'});
+  writeFileSync(stockPath, sourceCopy(freshWorker, false), {flag: 'wx'});
+  writeFileSync(observedPath, sourceCopy(freshWorker, true), {flag: 'wx'});
   const inputs = cases();
   const trials = [];
   let baseline;
   for (const observed of [false, true, true, false]) {
-    const {replies, ...measurements} = await run(inputs, observed ? path : undefined);
+    const {replies, ...measurements} = await run(inputs, observed ? observedPath : stockPath, observed);
     if (baseline) assert.deepEqual(replies, baseline);
     else baseline = replies;
     trials.push({observed, ...measurements});
   }
   console.log(JSON.stringify({
-    node: process.version, platform: process.platform, repliesChecked: inputs.length * trials.length,
+    node: process.version, platform: process.platform, freshWorkerRevision, repliesChecked: inputs.length * trials.length,
     launches: trials.map(trial => trial.launches), closes: trials.map(trial => trial.closes),
     replyDigest: createHash('sha256').update(JSON.stringify(baseline)).digest('hex'),
     stockWarmMediansMs: summarize(trials.filter(t => !t.observed).flatMap(t => t.samples)
@@ -219,6 +225,7 @@ try {
     launcherEntryReceiptMs: trials.flatMap(t => t.startupMs).map(Math.round),
   }, null, 2));
 } finally {
-  rmSync(path, {force: true});
+  rmSync(stockPath, {force: true});
+  rmSync(observedPath, {force: true});
   rmdirSync(scratch);
 }

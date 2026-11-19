@@ -263,14 +263,19 @@ const threadObserver = 'data:text/javascript;base64,' + Buffer.from(String.raw`
 import { createRequire, syncBuiltinESMExports } from 'node:module';
 const threads = createRequire(process.argv[1])('node:worker_threads');
 const emit = row => process.stderr.write('graph-thread-event:' + JSON.stringify(row) + '\n');
+const assertCorpusWorkerData = value => { if (value !== null) throw Error('Expected a reusable corpus Lua Worker.'); };
 threads.Worker = class ObservedWorker extends threads.Worker {
   constructor(entry, options) {
     super(entry, options);
-    const { id } = options.workerData;
+    assertCorpusWorkerData(options.workerData);
     const threadId = this.threadId;
     const { maxOldGenerationSizeMb, stackSizeMb } = this.resourceLimits;
-    emit(['create', id, threadId, maxOldGenerationSizeMb, stackSizeMb]);
-    this.once('exit', () => emit(['exit', id, threadId]));
+    emit(['create', threadId, maxOldGenerationSizeMb, stackSizeMb]);
+    this.once('exit', () => emit(['exit', threadId]));
+  }
+  postMessage(request, ...args) {
+    emit(['dispatch', request.id, this.threadId]);
+    return super.postMessage(request, ...args);
   }
 };
 syncBuiltinESMExports();
@@ -281,7 +286,7 @@ process.stdout.write = function(frame, ...args) {
 };
 `).toString('base64');
 
-test('real corpus process uses fresh reaped parser threads and rotates after 32 files', async () => {
+test('real corpus process reuses bounded parser threads and rotates after 32 files', async () => {
   const children = [], closed = new Set(), eventText = new Map();
   const client = createGraphAnalyzer({spawnProcess(executable, args, options) {
     assert.ok(children.every(child => closed.has(child)));
@@ -313,17 +318,22 @@ test('real corpus process uses fresh reaped parser threads and rotates after 32 
   for (const [index, firstId, count] of [[0, 1, 32], [1, 33, 1]]) {
     const events = parseEvents(children[index]);
     const threadIds = new Set();
-    assert.equal(events.length, count * 3);
+    let threadId;
     for (let offset = 0; offset < count; offset++) {
       const id = firstId + offset;
-      const [created, exited, replied] = events.slice(offset * 3, offset * 3 + 3);
-      const threadId = created[2];
-      assert.ok(Number.isSafeInteger(threadId) && threadId > 0 && !threadIds.has(threadId));
-      threadIds.add(threadId);
-      assert.deepEqual(created, ['create', id, threadId, 2048, 8]);
-      assert.deepEqual(exited, ['exit', id, threadId]);
-      assert.deepEqual(replied, ['reply', id]);
+      if (offset % 8 === 0) {
+        const created = events.shift();
+        threadId = created[1];
+        assert.ok(Number.isSafeInteger(threadId) && threadId > 0 && !threadIds.has(threadId));
+        threadIds.add(threadId);
+        assert.deepEqual(created, ['create', threadId, 2048, 8]);
+      }
+      assert.deepEqual(events.shift(), ['dispatch', id, threadId]);
+      if (offset % 8 === 7) assert.deepEqual(events.shift(), ['exit', threadId]);
+      assert.deepEqual(events.shift(), ['reply', id]);
     }
+    if (count % 8 !== 0) assert.deepEqual(events.shift(), ['exit', threadId]);
+    assert.deepEqual(events, []);
   }
   assert.deepEqual(parseEvents(children[2]), [['reply', 34]]);
 });
