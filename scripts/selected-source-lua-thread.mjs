@@ -1,8 +1,25 @@
-/** Sequential Worker ownership for the corpus Lua launcher. */
+/** Bounded sequential Worker ownership for the graph launchers. */
 const requestLimit = 8;
 const unitLimit = 4_194_304;
 
-export function createCorpusLuaThread({spawnThread, onFault}) {
+function hasDiagnostic(diagnostics, ...codes) {
+  return diagnostics.some(row => codes.includes(row.code));
+}
+
+export function createCorpusLuaThread(options) {
+  return createParserThread({...options, label: 'Corpus Lua',
+    retireAfterReply: result => hasDiagnostic(result.result.diagnostics, 'LUA0003', 'LUA0005')});
+}
+
+export function createXmlThread(options) {
+  return createParserThread({...options, label: 'XML', retireAfterReply: result =>
+    hasDiagnostic(result.syntax.diagnostics, 'XML0003', 'XML0005') ||
+    (result.provider !== null && hasDiagnostic(result.provider.diagnostics, 'XUI0002', 'XUI0003')) ||
+    result.inline.some(body => body.analysis !== null &&
+      hasDiagnostic(body.analysis.diagnostics, 'LUA0003', 'LUA0005'))});
+}
+
+function createParserThread({spawnThread, onFault, label, retireAfterReply}) {
   let current;
   let fault;
   let closed = false;
@@ -21,16 +38,16 @@ export function createCorpusLuaThread({spawnThread, onFault}) {
     current = state;
     state.done = new Promise(resolve => worker.once('exit', () => {
       state.exited = true;
-      if (!state.retirement) fail('Corpus Lua Worker exited unexpectedly.');
+      if (!state.retirement) fail(`${label} Worker exited unexpectedly.`);
       resolve();
     }));
-    worker.on('error', () => fail('Corpus Lua Worker failed.'));
+    worker.on('error', () => fail(`${label} Worker failed.`));
     worker.on('message', message => {
       const pending = state.pending;
       if (!pending || pending.received || message === null || typeof message !== 'object' ||
           Object.keys(message).length !== 2 || !Object.hasOwn(message, 'id') ||
           !Object.hasOwn(message, 'reply') || message.id !== pending.id) {
-        fail('Unexpected corpus Lua Worker response.');
+        fail(`Unexpected ${label} Worker response.`);
         return;
       }
       pending.received = true;
@@ -55,12 +72,12 @@ export function createCorpusLuaThread({spawnThread, onFault}) {
 
   return {
     async analyze(request) {
-      if (fault || closed || busy) throw fault ?? Error('Corpus Lua Worker is unavailable.');
+      if (fault || closed || busy) throw fault ?? Error(`${label} Worker is unavailable.`);
       busy = true;
       try {
         const units = request.content.length;
         if (current && current.units + units > unitLimit) await retire();
-        if (fault || closed) throw fault ?? Error('Corpus Lua Worker is closed.');
+        if (fault || closed) throw fault ?? Error(`${label} Worker is closed.`);
         const state = current ?? start();
         state.requests++;
         state.units += units;
@@ -70,18 +87,18 @@ export function createCorpusLuaThread({spawnThread, onFault}) {
         });
         // The parent still validates the complete reply against its request.
         if (state.requests === requestLimit || state.units >= unitLimit || reply.failure !== null ||
-            reply.result.result.diagnostics.some(row => row.code === 'LUA0003' || row.code === 'LUA0005')) await retire(state);
-        if (fault || closed) throw fault ?? Error('Corpus Lua Worker is closed.');
+            retireAfterReply(reply.result)) await retire(state);
+        if (fault || closed) throw fault ?? Error(`${label} Worker is closed.`);
         return reply;
       } catch (error) {
-        fail('Corpus Lua Worker transport failed.');
+        fail(`${label} Worker transport failed.`);
         await retire();
         throw error;
       } finally { busy = false; }
     },
     async close() {
       closed = true;
-      current?.pending?.reject(Error('Corpus Lua Worker is closed.'));
+      current?.pending?.reject(Error(`${label} Worker is closed.`));
       await retire();
     },
   };

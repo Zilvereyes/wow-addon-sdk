@@ -1,4 +1,4 @@
-/** Authored-only experiment. The production launcher continues to use fresh XML threads. */
+/** Authored-only experiment. The pinned stock launcher uses fresh XML threads. */
 import assert from 'node:assert/strict';
 import {execFileSync,spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
