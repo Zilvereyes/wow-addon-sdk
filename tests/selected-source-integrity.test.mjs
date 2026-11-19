@@ -114,6 +114,7 @@ test('summary validation rejects extra keys, bad digests and non-count values; s
 
 test('the runner stores the summary in each group receipt, sums it into the batch and repeats receipts without one', () => temporary(async base => {
   const root = fixture(base), receipts = path.join(base, 'receipts'); fs.mkdirSync(receipts);
+  fs.mkdirSync(path.join(root, 'PrivateOther')); fs.writeFileSync(path.join(root, 'PrivateOther', 'PrivateOther.toc'), 'PrivateCore.lua\n');
   const request = {profile: {schemaVersion: 1, id: 'authored/grouped', addons: ['PrivateAddon', 'PrivateOther'].map(name =>
     ({logicalAddonId: `private/${name}`, directory: name, addonBaseName: name, tocPaths: [`${name}/${name}.toc`]}))}, luaInputProfile: 'bounded'};
   let analyses = 0;
