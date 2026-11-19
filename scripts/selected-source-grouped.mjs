@@ -13,8 +13,9 @@ import {readBoundedFile} from './read-bounded-file.mjs';
 import {prepareGraphContext} from './selected-source-context.mjs';
 import {createSelectedSourceHost} from './selected-source-host.mjs';
 import {analyzeSelectedSourceAggregate} from './selected-source-graph.mjs';
+import {observeGroupIntegrity, validIntegrity, sumIntegrity} from './selected-source-integrity.mjs';
 
-export const GROUPED_SCHEMA_VERSION = 1;
+export const GROUPED_SCHEMA_VERSION = 2;
 const RECEIPT_LIMIT = 1024 * 1024;
 const GROUP_STATUSES = new Set(['passed', 'incomplete', 'failed']);
 const FLAG_PATHS = new Set(['completeUnderPolicy', 'fullParsing', 'clientConformance', 'discovery.complete',
@@ -161,6 +162,7 @@ function readReceipt(directory, index, digest, sourceFingerprint) {
       receipt.sourceFingerprint !== sourceFingerprint ||
       !integer(receipt.durationMilliseconds) || !integer(receipt.parentPeakRssKiB)) return null;
     mergeAggregates([receipt.aggregate]);
+    if (!validIntegrity(receipt.integrity)) return null;
     // A run that returned status failed may have hit a transient read or timing fault, so it is repeated.
     return receipt.aggregate.status === 'failed' ? null : receipt;
   } catch {return null;}
@@ -180,7 +182,7 @@ export async function runGroupedSelectedSources({root, request, receiptDirectory
   fingerprint = fingerprintGroup, now = () => performance.now()}) {
   const directory = checkedDirectory(receiptDirectory);
   prepare(request); // The complete request must pass preflight before any host or receipt exists.
-  const groups = request.profile.addons, completed = [], timings = [], failedIndexes = [];
+  const groups = request.profile.addons, completed = [], integrities = [], timings = [], failedIndexes = [];
   let resumed = 0;
   for (let index = 0; index < groups.length; index++) {
     const single = {...request, profile: {...request.profile, addons: [groups[index]]}};
@@ -188,29 +190,32 @@ export async function runGroupedSelectedSources({root, request, receiptDirectory
     const before = safeFingerprint(fingerprint, root, groups[index]);
     const reused = resume && before !== null ? readReceipt(directory, index, digest, before) : null;
     if (reused) {
-      resumed++; completed.push(reused.aggregate); timings.push(reused.durationMilliseconds); continue;
+      resumed++; completed.push(reused.aggregate); integrities.push(reused.integrity); timings.push(reused.durationMilliseconds); continue;
     }
     const started = now();
-    let aggregate = null, code = null;
+    let aggregate = null, code = null, observer = null, integrity = null;
     try {
       const context = prepare(single);
       const host = await createHost(root, context);
-      aggregate = await analyze(single, host);
+      observer = observeGroupIntegrity(host, root);
+      aggregate = await analyze(single, observer.host);
       mergeAggregates([aggregate]);
     } catch (error) {
       aggregate = null;
       code = typeof error?.code === 'string' && error.code.length <= 64 && FAILURE_CODE.test(error.code) ? error.code : null;
     }
     const after = safeFingerprint(fingerprint, root, groups[index]);
+    try {integrity = observer?.finish() ?? null;} catch {integrity = null;}
     if (aggregate && (before === null || after === null)) {aggregate = null; code = 'grouped-fingerprint';}
     else if (aggregate && before !== after) {aggregate = null; code = 'grouped-source-changed';}
+    else if (aggregate && !validIntegrity(integrity)) {aggregate = null; code = 'grouped-integrity';} // No valid observation, no completed group.
     const durationMilliseconds = Math.max(0, Math.round(now() - started));
     const parentPeakRssKiB = Math.max(0, Math.round(process.resourceUsage().maxRSS));
     timings.push(durationMilliseconds);
     if (aggregate) {
       writeAtomic(directory, groupFileName(index), {schemaVersion: GROUPED_SCHEMA_VERSION, kind: 'selected-source-group',
-        index, digest, outcome: 'completed', sourceFingerprint: before, aggregate, durationMilliseconds, parentPeakRssKiB});
-      completed.push(aggregate);
+        index, digest, outcome: 'completed', sourceFingerprint: before, aggregate, integrity, durationMilliseconds, parentPeakRssKiB});
+      completed.push(aggregate); integrities.push(integrity);
     } else {
       failedIndexes.push(index);
       fs.rmSync(path.join(directory, groupFileName(index)), {force: true});
@@ -229,7 +234,8 @@ export async function runGroupedSelectedSources({root, request, receiptDirectory
   const batch = {schemaVersion: GROUPED_SCHEMA_VERSION, kind: 'selected-source-batch', aggregation: 'sum-of-per-group-runs',
     status, groups: counts, timing: {totalGroupMilliseconds: timings.reduce((sum, value) => sum + value, 0),
       maximumGroupMilliseconds: Math.max(0, ...timings), perGroupMilliseconds: timings},
-    aggregate: completed.length > 0 ? mergeAggregates(completed) : null};
+    aggregate: completed.length > 0 ? mergeAggregates(completed) : null,
+    integrity: integrities.length > 0 ? sumIntegrity(integrities) : null};
   writeAtomic(directory, BATCH_FILE, batch);
   return {report: batch, exitCode: status === 'passed' ? 0 : 1};
 }
