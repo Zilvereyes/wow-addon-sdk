@@ -9,6 +9,7 @@ import {fileURLToPath, pathToFileURL} from 'node:url';
 import {prepareGraphContext, getGraphRequest} from '../../scripts/selected-source-context.mjs';
 import {analyzeSelectedSourceAggregate} from '../../scripts/selected-source-graph.mjs';
 import {createSelectedSourceHost} from '../../scripts/selected-source-host.mjs';
+import {createWindowsPathInspector} from '../../scripts/selected-source-windows.mjs';
 
 const repository = fileURLToPath(new URL('../../', import.meta.url));
 const revision = 'a3d3b0545d0f3984eda718cec01a93330f26c73a';
@@ -123,6 +124,23 @@ function measureHost(host, replyDigest) {
   return counts;
 }
 
+function observeWindowsAttributes(metrics) {
+  const inspector = createWindowsPathInspector();
+  return {
+    async inspect(paths, remainingMilliseconds) {
+      const start = performance.now();
+      metrics.calls++;
+      metrics.rows += paths.length;
+      try {
+        return await inspector.inspect(paths, remainingMilliseconds);
+      } finally {
+        metrics.wallMs += performance.now() - start;
+      }
+    },
+    close: () => inspector.close(),
+  };
+}
+
 async function measure(mode, createHost, root, {request, files, hash}) {
   const context = prepareGraphContext(request);
   assert.equal(getGraphRequest(context).profile.limits.operationMilliseconds, 900_000);
@@ -142,11 +160,14 @@ async function measure(mode, createHost, root, {request, files, hash}) {
     const key = JSON.stringify([row.operation, row.code, row.check]);
     failures[key] = (failures[key] ?? 0) + 1;
   };
-  const host = await createHost(root, context, {io, onFailure});
+  const windowsAttributes = process.platform === 'win32' ? {calls: 0, rows: 0, wallMs: 0} : null;
+  const inspectorFactory = windowsAttributes ? () => observeWindowsAttributes(windowsAttributes) : null;
+  const host = await createHost(root, context, {io, onFailure, inspectorFactory});
+  const setupMs = performance.now() - start;
   const digest = createHash('sha256');
   const phases = measureHost(host, digest);
   const aggregate = await analyzeSelectedSourceAggregate(request, host);
-  const elapsedMs = Math.round(performance.now() - start);
+  const elapsedMs = performance.now() - start;
   // XML declarations carry an unknown activation in this policy fixture.
   assert.equal(aggregate.status, 'incomplete', JSON.stringify({mode, elapsedMs, phases, failures, aggregate}));
   assert.equal(aggregate.completeUnderPolicy, false);
@@ -174,8 +195,19 @@ async function measure(mode, createHost, root, {request, files, hash}) {
     assert.equal(result.invariantFailures, 0);
     assert.deepEqual(result.sourceIntegrity, {checked: count, matching: count, changed: 0, verificationFailures: 0});
   }
+  const totalFor = names => names.reduce((sum, name) => sum + phases[name].wallMs, 0);
+  const nativeMs = totalFor(['listDirectory', 'readSource', 'verifySource', 'verifyDirectory']);
+  const parserMs = totalFor(['analyze.toc', 'analyze.lua', 'analyze.xml']);
+  const closeMs = phases.close.wallMs;
+  // Residual includes graph/accounting work, reply hashing, and timing overhead.
+  const residualMs = Math.max(0, elapsedMs - setupMs - nativeMs - parserMs - closeMs);
+  const breakdown = Object.fromEntries(Object.entries({setupMs, nativeMs, parserMs, closeMs, residualMs})
+    .map(([name, ms]) => [name, Math.round(ms)]));
   for (const row of Object.values(phases)) row.wallMs = Math.round(row.wallMs);
-  return {mode, elapsedMs, phases, replyDigest: digest.digest('hex'), aggregate};
+  // Attribute round trips are part of setup/native wall time.
+  if (windowsAttributes) windowsAttributes.wallMs = Math.round(windowsAttributes.wallMs);
+  return {mode, elapsedMs: Math.round(elapsedMs), phases, breakdown, windowsAttributes,
+    replyDigest: digest.digest('hex'), aggregate};
 }
 
 const [option, ...extra] = process.argv.slice(2);
@@ -195,7 +227,8 @@ for (const [mode, createHost] of series) {
     assert.deepEqual(row.aggregate, baseline.aggregate);
     assert.equal(row.replyDigest, baseline.replyDigest);
   } else baseline = row;
-  measurements.push({mode, elapsedMs: row.elapsedMs, phases: row.phases});
+  measurements.push({mode, elapsedMs: row.elapsedMs, phases: row.phases,
+    breakdown: row.breakdown, windowsAttributes: row.windowsAttributes});
   process.stderr.write(mode + ' completed with final integrity\n');
 }
 console.log(JSON.stringify({node: process.version, platform: process.platform,

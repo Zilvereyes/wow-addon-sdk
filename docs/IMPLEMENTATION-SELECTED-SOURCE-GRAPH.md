@@ -1,6 +1,6 @@
 # Approved selected-source graph implementation checkpoints
 
-Stages 1–6 are implemented in PR #30. Stage 7 remains open. The isolated Windows diagnostic replay on `9faaacd` with prototype `a3d3b05` returned 1,349 of 1,350 parser replies. It recorded zero native failure events before the 900-second ceiling stopped the graph ahead of final integrity and accounting. Lua analyzer wall time was the largest measured phase. Authored comparisons verified that Lua can use backend offsets and compute scope and positions once in the SDK. The installed-corpus impact remains unmeasured. Production launcher adoption awaits a separate decision. [Lua comparison](REVIEW-SELECTED-SOURCE-ANALYSIS.md#lua-backend-offsets) · [Diagnostic replay](REVIEW-SELECTED-SOURCE-CORPUS.md#full-diagnostic-replay-with-the-isolated-launcher-prototype) · [Native observation](REVIEW-SELECTED-SOURCE-NATIVE.md#fixed-native-failure-observation)
+Stages 1–6 are integrated through [PR #30](https://github.com/Zilvereyes/wow-addon-sdk/pull/30). The approved split launchers are on main through [PR #34](https://github.com/Zilvereyes/wow-addon-sdk/pull/34). Stage 7 remains open. The Windows replay on de000e1 reached the 900-second limit after 2,381 validated replies across 2,382 submissions. One Lua request timed out. Final source and directory verification and aggregate accounting were not reached. [Current replay evidence](https://github.com/Zilvereyes/wow-addon-sdk/issues/11#issuecomment-7000041213) · [Main CI](https://github.com/Zilvereyes/wow-addon-sdk/actions/runs/44452754237)
 
 A–F was explicitly approved at afdf86ec0c171dab1ccd3f73e515bcf8d1a5c74a; [decision](https://github.com/Zilvereyes/wow-addon-sdk/pull/30#issuecomment-6957138420). The [binding contract](PROPOSAL-SELECTED-SOURCE-GRAPH.md) and [independent review reconciliation](REVIEW-SELECTED-SOURCE-GRAPH-INDEPENDENT.md) remain the specification. Main7b01bd0 supplies the unchanged SDK0.7.0/eight packages/78beta. No graph acceptance or merge/release right is inferred from this checkpoint.
 
@@ -64,3 +64,19 @@ The first focused Windows Node 24.22.3 sequence passed 66 of 68 tests (host 6716
 The real memory control on Windows Node 24.22.3 (`node --test --test-concurrency=1 tests/selected-source-launcher-memory.test.mjs`, host 92198, exit 0) observed 66 requests, 33 fresh workers per class, two starts and two acknowledged closes per class, and at most two live processes. The per-process observed peaks were 71,212 KiB for Lua and 73,600 KiB for TOC/XML. Six paired samples measured up to 128,140 KiB aggregate RSS with at most 7 ms between samples. Three pairs sampled while one parser thread was active. Observed V8 heap limits were 2,240 and 448 MiB, with 8 and 4 MiB worker stacks respectively. These are sampled measurements, and the declared heap limits are per-class settings.
 
 Stage 7 still requires the original installed selection and post-read integrity under the unchanged operation limit. Keep authored and installed evidence attributed to their exact revisions.
+
+
+## Stage 7 production phase measurement
+
+On source commit `de000e120287617e70d6c7635e14e653f24668f1`, the language-switch benchmark exited 1 because its overlap assertion assumed the former launcher lifecycle. The updated benchmark checks the approved two-pool lifecycle and compares complete analyzer replies by source across grouped and mixed requests.
+
+The Windows Node 24.22.3 run (host session 75455, exit 0) built with `node node_modules/typescript/bin/tsc -b --pretty false`, ran `node docs/proposals/selected-source-language-switch-benchmark.mjs` with and without `--rotation`, and ran `node docs/proposals/measure-selected-source-integration.mjs --stock` twice. The analyzer benchmark checked 19 replies per ordering without rotation and 53 with rotation, across four runs each. Every source reply matched within its series. Each run closed every process, with two total starts without rotation and three with rotation. No pool overlapped its own retiring process.
+
+| Authored fixture | Total wall time | Setup | Native file operations | Parser calls | Close | Remaining work | Windows attribute calls and time |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Run 1 | 19.437 s | 1.182 s | 5.212 s | 12.760 s | 0.024 s | 0.259 s | 1,288 calls, 3,482 rows, 4.470 s |
+| Run 2 | 17.985 s | 0.937 s | 5.707 s | 10.601 s | 0.170 s | 0.570 s | 1,288 calls, 3,482 rows, 4.610 s |
+
+Windows attribute time is already included in setup and native wall time. Each run validated eight TOC, 49 Lua and 12 XML file replies, 24 inline Lua bodies, and final integrity for all 69 files and nine directories. The fixture preserved unknown declaration availability and produced its expected `incomplete` aggregate. The `--smoke` comparison (Windows Node 26.13.1, host session 90627, exit 0) also matched full replies and aggregates between current stock and the retained prototype on six files.
+
+Parser calls, especially Lua, took the largest share of measured time on this fixture. The installed replay had no phase timing and never reached its final integrity pass. Keep Stage 7 open in [#11](https://github.com/Zilvereyes/wow-addon-sdk/issues/11). The next diagnostic should measure launcher, worker and parser time separately before proposing a production change.
