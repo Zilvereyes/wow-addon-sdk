@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { createGraphAnalyzer } from '../../scripts/selected-source-analysis-client.mjs';
+import { launcherRequestLimits } from '../../scripts/selected-source-launcher-limits.mjs';
 
 const json = file => JSON.parse(readFileSync(new URL('../../' + file, import.meta.url), 'utf8'));
 const rootApi = {lua: 'analyzeLua', toc: 'parseToc', xml: 'parseXml'};
@@ -18,7 +19,8 @@ const [option, ...extraOptions] = process.argv.slice(2);
 assert.ok((option === undefined || option === '--rotation') && extraOptions.length === 0,
   'Usage: node docs/proposals/selected-source-language-switch-benchmark.mjs [--rotation]');
 const rotation = option === '--rotation';
-const lua = Array.from({length: rotation ? 47 : 13},
+const luaRequestLimit = launcherRequestLimits['corpus-lua'];
+const lua = Array.from({length: rotation ? luaRequestLimit + 1 : 13},
   (_, i) => make('lua', i, '-- framed \u{1F642}\r\nGlobal' + i + ' = 1'));
 const toc = Array.from({length: 3}, (_, i) => make('toc', i, '## Interface: 11509\r\nCore.lua\r\n'));
 const xml = Array.from({length: 3}, (_, i) => make('xml', i, '<Ui><Include file="Core&amp;Helper.xml"/><Script>AuthoredValue=1</Script></Ui>'));
@@ -79,8 +81,8 @@ for (const [mode, requests] of [['grouped', grouped], ['mixed', mixed], ['mixed'
       if (request.language === 'lua') {
         luaRequests++;
         if (luaRequests === 1) rotationTimings.first.push(Math.round(elapsed));
-        if (luaRequests === 32) rotationTimings.last.push(Math.round(elapsed));
-        if (luaRequests === 33) rotationTimings.afterRotation.push(Math.round(elapsed));
+        if (luaRequests === luaRequestLimit) rotationTimings.last.push(Math.round(elapsed));
+        if (luaRequests === luaRequestLimit + 1) rotationTimings.afterRotation.push(Math.round(elapsed));
       }
       outputs.set(request.sourcePath, JSON.stringify(reply));
     }

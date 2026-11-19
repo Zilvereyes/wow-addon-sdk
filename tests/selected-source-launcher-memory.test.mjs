@@ -172,7 +172,8 @@ test('real launchers reuse bounded Lua and XML Workers, isolate TOC and observe 
       }
       if (compareFresh[input.language].has(ordinal)) fresh.push({input, reply});
       if (representative.has(id)) assert.ok(await samplePair(id, 'reply'));
-      if (id === 63 || id === 64) assert.deepEqual(records[id - 63].close, {code: 0, signal: null});
+      if (id >= 63) assert.equal(records[0].close, null);
+      if (id === 64) assert.deepEqual(records[1].close, {code: 0, signal: null});
     }
   } finally { await client.close(); }
 
@@ -181,16 +182,15 @@ test('real launchers reuse bounded Lua and XML Workers, isolate TOC and observe 
   for (const {input, reply} of fresh) assert.deepEqual(reply, await freshReply(input), input.sourcePath);
 
   assert.equal(peakLive, 2);
-  assert.deepEqual(records.map(record => record.mode), ['lua', 'tocXml', 'lua', 'tocXml']);
+  assert.deepEqual(records.map(record => record.mode), ['lua', 'tocXml', 'tocXml']);
   const group = (language, first, last = first, parked = false) => ({language, parked,
     ids: Array.from({length: last - first + 1}, (_, index) => 2 * (first + index) - Number(language === 'lua'))});
   // XML retires for file count, exact cumulative units, TOC, resource verdicts and launcher rotation.
   const groups = [
     [group('lua', 1, 8), group('lua', 9, 10), group('lua', 11), group('lua', 12, 12, true),
-      group('lua', 13, 20), group('lua', 21, 28), group('lua', 29, 32)],
+      group('lua', 13, 20), group('lua', 21, 28), group('lua', 29, 33, true)],
     [group('xml', 1, 8), group('xml', 9, 12), group('xml', 13, 14, true), group('toc', 15), group('xml', 16),
       group('xml', 17, 19, true), group('toc', 20), group('xml', 21, 22), group('xml', 23, 30), group('xml', 31, 32)],
-    [group('lua', 33, 33, true)],
     [group('xml', 33, 33, true)],
   ];
   const byMode = Object.fromEntries(Object.keys(measurements).map(mode => [mode, {

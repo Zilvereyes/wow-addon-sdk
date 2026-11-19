@@ -77,7 +77,7 @@ function withoutReceipts(code) {
   };
 }
 
-test('corpus launcher handles 32 serial requests and requires close before rotation', async () => {
+test('corpus launcher handles 128 serial requests and requires close before rotation', async () => {
   const harness = fakeLauncher(({child}, input) => {
     const reply = frame(input);
     // Split a UTF-8 character across chunks. Decoding happens once the frame is complete.
@@ -88,7 +88,7 @@ test('corpus launcher handles 32 serial requests and requires close before rotat
   });
   const {client, launches, events} = harness;
   try {
-    for (let number = 1; number < 32; number++) {
+    for (let number = 1; number < 128; number++) {
       const input = request(number);
       assert.deepEqual(await client.analyze(input), expected(input));
     }
@@ -103,41 +103,46 @@ test('corpus launcher handles 32 serial requests and requires close before rotat
     assert.equal(Object.hasOwn(first.options.env, 'NODE_OPTIONS'), false);
 
     const written = once(events, 'request');
-    const last = client.analyze(request(32));
+    const last = client.analyze(request(128));
     let settled = false;
     last.then(() => { settled = true; }, () => { settled = true; });
     await written;
     await setImmediate();
     assert.equal(settled, false);
-    assert.deepEqual(first.requests.map(input => input.id), Array.from({length: 32}, (_, index) => index + 1));
-    await assert.rejects(client.analyze(request(33)), /graph-analysis-busy/u);
+    assert.deepEqual(first.requests.map(input => input.id), Array.from({length: 128}, (_, index) => index + 1));
+    await assert.rejects(client.analyze(request(129)), /graph-analysis-busy/u);
     assert.equal(launches.length, 1);
     assert.deepEqual(first.signals, []);
     first.acknowledge();
-    assert.deepEqual(await last, expected(request(32)));
+    assert.deepEqual(await last, expected(request(128)));
 
-    assert.deepEqual(await client.analyze(request(33)), expected(request(33)));
+    assert.deepEqual(await client.analyze(request(129)), expected(request(129)));
     assert.equal(launches.length, 2);
-    assert.deepEqual(launches[1].requests.map(input => input.id), [33]);
+    assert.deepEqual(launches[1].requests.map(input => input.id), [129]);
   } finally { await harness.close(); }
 });
 
 test('late corpus response is not credited and an unreaped launcher prevents replacement', async () => {
   let clock = 0;
   const harness = fakeLauncher(({child}, input) => {
-    if (input.id === 1) clock = 3;
+    if (input.id === 33) clock = 3;
     child.stdout.write(frame(input));
   }, {now: () => clock});
   const {client, launches} = harness;
   try {
-    await assert.rejects(client.analyze(request(), 2), withoutReceipts('graph-analysis-timeout'));
+    for (let ordinal = 1; ordinal <= 32; ordinal++) {
+      const input = request(ordinal);
+      assert.deepEqual(await client.analyze(input), expected(input));
+    }
+    assert.equal(launches.length, 1);
+    await assert.rejects(client.analyze(request(33), 2), withoutReceipts('graph-analysis-timeout'));
     const [first] = launches;
     assert.deepEqual(first.signals, ['SIGKILL']);
-    assert.equal(first.requests.length, 1);
+    assert.equal(first.requests.length, 33);
     assert.equal(first.closed, false);
     await assert.rejects(client.analyze(request(), 1), withoutReceipts('graph-analysis-timeout'));
     assert.equal(launches.length, 1);
-    assert.equal(first.requests.length, 1);
+    assert.equal(first.requests.length, 33);
     first.acknowledge(null);
     assert.deepEqual(await client.analyze(request()), expected(request()));
     assert.equal(launches.length, 2);
@@ -286,7 +291,7 @@ process.stdout.write = function(frame, ...args) {
 };
 `).toString('base64');
 
-test('real corpus process reuses bounded parser threads and rotates after 32 files', async () => {
+test('real corpus process reuses bounded parser threads and rotates after 128 files', async () => {
   const children = [], closed = new Set(), eventText = new Map();
   const client = createGraphAnalyzer({spawnProcess(executable, args, options) {
     assert.ok(children.every(child => closed.has(child)));
@@ -298,16 +303,20 @@ test('real corpus process reuses bounded parser threads and rotates after 32 fil
     return child;
   }});
   try {
-    for (let number = 1; number <= 33; number++) {
+    for (let number = 1; number <= 129; number++) {
       const input = number === 2 ? {...request(2), content: 'if then'} : request(number);
       assert.deepEqual(await client.analyze(input), expected(input));
-      if (number === 32) {
+      if ([32, 33, 127].includes(number)) {
+        assert.equal(children.length, 1);
+        assert.equal(closed.size, 0);
+      }
+      if (number === 128) {
         assert.equal(children.length, 1);
         assert.equal(closed.size, 1);
       }
     }
     assert.equal(children.length, 2);
-    const bounded = {...request(34), luaProfile: 'bounded'};
+    const bounded = {...request(130), luaProfile: 'bounded'};
     assert.deepEqual(await client.analyze(bounded), expected(bounded));
     assert.equal(children.length, 3);
   } finally { await client.close(); }
@@ -315,7 +324,7 @@ test('real corpus process reuses bounded parser threads and rotates after 32 fil
   const parseEvents = child => eventText.get(child).split(/\r?\n/u)
     .filter(line => line.startsWith(threadEventMarker))
     .map(line => JSON.parse(line.slice(threadEventMarker.length)));
-  for (const [index, firstId, count] of [[0, 1, 32], [1, 33, 1]]) {
+  for (const [index, firstId, count] of [[0, 1, 128], [1, 129, 1]]) {
     const events = parseEvents(children[index]);
     const threadIds = new Set();
     let threadId;
@@ -335,5 +344,5 @@ test('real corpus process reuses bounded parser threads and rotates after 32 fil
     if (count % 8 !== 0) assert.deepEqual(events.shift(), ['exit', threadId]);
     assert.deepEqual(events, []);
   }
-  assert.deepEqual(parseEvents(children[2]), [['reply', 34]]);
+  assert.deepEqual(parseEvents(children[2]), [['reply', 130]]);
 });

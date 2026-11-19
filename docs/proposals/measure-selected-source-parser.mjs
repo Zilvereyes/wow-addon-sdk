@@ -6,8 +6,7 @@ import {mkdtempSync, readFileSync, rmSync, rmdirSync, writeFileSync} from 'node:
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createInterface} from 'node:readline';
-import {fileURLToPath} from 'node:url';
-import {createGraphAnalyzer} from '../../scripts/selected-source-analysis-client.mjs';
+import {fileURLToPath, pathToFileURL} from 'node:url';
 
 const clock = () => Number(process.hrtime.bigint()) / 1e6;
 const worker = new URL('../../scripts/selected-source-analysis-worker.mjs', import.meta.url);
@@ -91,7 +90,7 @@ function cases() {
   }));
 }
 
-async function run(inputs, workerPath, observed) {
+async function run(createGraphAnalyzer, inputs, workerPath, observed) {
   const metrics = new Map();
   const live = new Set();
   const startupMs = [];
@@ -201,20 +200,32 @@ function summarize(samples) {
 }
 
 
-const freshWorker = execFileSync('git', ['show', freshWorkerRevision + ':scripts/selected-source-analysis-worker.mjs'], {
+const readPinned = name => execFileSync('git', ['show', freshWorkerRevision + ':scripts/' + name], {
   cwd: fileURLToPath(new URL('../../', import.meta.url)), encoding: 'utf8', windowsHide: true,
 }).replaceAll('\r\n', '\n');
+const freshWorker = readPinned('selected-source-analysis-worker.mjs');
 const scratch = mkdtempSync(join(tmpdir(), 'wow-parser-phases-'));
+const clientPath = join(scratch, 'supervisor.mjs');
 const stockPath = join(scratch, 'fresh-worker.mjs');
 const observedPath = join(scratch, 'observed-worker.mjs');
 try {
+  // Match the historical child's process ceiling at both endpoints.
+  const supervisor = readPinned('selected-source-analysis-client.mjs');
+  let relocated = supervisor;
+  for (const file of ['selected-source-analysis-worker.mjs', 'selected-source-analysis.mjs']) {
+    const relative = "'./" + file + "'";
+    assert.equal(relocated.split(relative).length, 2);
+    relocated = relocated.replace(relative, () => JSON.stringify(new URL(file, worker).href));
+  }
+  writeFileSync(clientPath, relocated, {flag: 'wx'});
+  const {createGraphAnalyzer} = await import(pathToFileURL(clientPath).href);
   writeFileSync(stockPath, sourceCopy(freshWorker, false), {flag: 'wx'});
   writeFileSync(observedPath, sourceCopy(freshWorker, true), {flag: 'wx'});
   const inputs = cases();
   const trials = [];
   let baseline;
   for (const observed of [false, true, true, false]) {
-    const {replies, ...measurements} = await run(inputs, observed ? observedPath : stockPath, observed);
+    const {replies, ...measurements} = await run(createGraphAnalyzer, inputs, observed ? observedPath : stockPath, observed);
     if (baseline) assert.deepEqual(replies, baseline);
     else baseline = replies;
     trials.push({observed, ...measurements});
@@ -233,6 +244,7 @@ try {
     launcherEntryReceiptMs: trials.flatMap(t => t.startupMs).map(Math.round),
   }, null, 2));
 } finally {
+  rmSync(clientPath, {force: true});
   rmSync(stockPath, {force: true});
   rmSync(observedPath, {force: true});
   rmdirSync(scratch);
