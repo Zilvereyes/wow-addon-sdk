@@ -208,6 +208,17 @@ test('request snapshot reads own consumed cells once and rejects executable/over
   } finally { await client.close(); }
 });
 
+test('XML keeps its one-Mi UTF-16 unit ceiling and rejects larger files before spawning', async () => {
+  const input = request('xml', ' '.repeat(1024 * 1024 - 7) + '🙂<Ui/>');
+  assert.equal(input.content.length, 1024 * 1024);
+  assert.equal(snapshotGraphAnalysisRequest(input).content, input.content);
+  const transport = fake(() => {}), client = createGraphAnalyzer(transport);
+  try {
+    await assert.rejects(client.analyze({...input, content: input.content + ' '}), /graph-analysis-input/u);
+    assert.equal(transport.launches.length, 0);
+  } finally { await client.close(); }
+});
+
 test('late TOC projection corruption and false receipt totals fail whole-result validation', () => {
   const input = request('toc', 'One.lua\r\nTwo.lua');
   const reply = {result: {language: 'toc', parsed: parseToc(input.content, input.sourcePath)}, confirmedApiCalls: receipts('parseToc'), failure: null};

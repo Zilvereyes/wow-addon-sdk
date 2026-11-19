@@ -2,7 +2,7 @@
 import {Worker, isMainThread, parentPort, workerData} from 'node:worker_threads';
 import {createInterface} from 'node:readline';
 import {emptyGraphCalls} from './selected-source-analysis-receipts.mjs';
-import {createCorpusLuaThread} from './selected-source-lua-thread.mjs';
+import {createCorpusLuaThread, createXmlThread} from './selected-source-lua-thread.mjs';
 
 function requireExports(sdk, ...names) {
   for (const name of names) {
@@ -84,11 +84,16 @@ if (!isMainThread) {
   const tocXmlLauncher = process.argv[2] === '--xml-toc-launcher';
   const maxRequests = corpusLauncher || tocXmlLauncher ? 32 : 1;
   const input = createInterface({input: process.stdin, crlfDelay: Infinity});
-  const corpusThread = corpusLauncher ? createCorpusLuaThread({
-    spawnThread: () => new Worker(new URL(import.meta.url), {workerData: null, execArgv: [],
-      resourceLimits: {maxOldGenerationSizeMb: 2048, stackSizeMb: 8}}),
+  const corpusLimits = {maxOldGenerationSizeMb: 2048, stackSizeMb: 8};
+  const tocXmlLimits = {maxOldGenerationSizeMb: 256, stackSizeMb: 4};
+  const spawnThread = (workerData, resourceLimits) =>
+    new Worker(new URL(import.meta.url), {workerData, execArgv: [], resourceLimits});
+  const threadOptions = {
+    spawnThread: () => spawnThread(null, corpusLauncher ? corpusLimits : tocXmlLimits),
     onFault: () => { process.exitCode = 2; input.close(); },
-  }) : null;
+  };
+  const corpusThread = corpusLauncher ? createCorpusLuaThread(threadOptions) : null;
+  let xmlThread = null;
   let requests = 0;
   for await (const line of input) {
     try {
@@ -102,11 +107,16 @@ if (!isMainThread) {
       if (corpusThread) {
         reply = await corpusThread.analyze(request);
         if (requests + 1 === maxRequests) await corpusThread.close();
+      } else if (tocXmlLauncher && request.language === 'xml') {
+        xmlThread ??= createXmlThread(threadOptions);
+        reply = await xmlThread.analyze(request);
+        if (requests + 1 === maxRequests) await xmlThread.close();
       } else if (isCorpusLua || tocXmlLauncher) {
-        const resourceLimits = isCorpusLua ? {maxOldGenerationSizeMb: 2048, stackSizeMb: 8} :
-          {maxOldGenerationSizeMb: 256, stackSizeMb: 4};
-        const thread = new Worker(new URL(import.meta.url), {workerData: request, execArgv: [],
-          resourceLimits});
+        if (xmlThread !== null) {
+          await xmlThread.close();
+          xmlThread = null;
+        }
+        const thread = spawnThread(request, isCorpusLua ? corpusLimits : tocXmlLimits);
         try {
           reply = await new Promise((resolve, reject) => {
             thread.once('message', resolve); thread.once('error', reject);
@@ -124,5 +134,6 @@ if (!isMainThread) {
     }
   }
   await corpusThread?.close();
+  await xmlThread?.close();
   input.close();
 }
