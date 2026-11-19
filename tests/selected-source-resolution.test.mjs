@@ -95,6 +95,31 @@ test('missing inline context preserves supported facts and untouched core comple
   assert.equal(result.resolved.complete, true); assert.equal(result.complete, false);
 });
 
+test('inline Lua warning mappings do not displace declaration provenance', async () => {
+  const xml = '<Ui><!--🙂--><Script>Out = 1; _G[key] = 2</Script></Ui>';
+  const prepared = context(), fixture = memoryHost({
+    'Demo/Demo_Vanilla.toc': 'View.xml', 'Demo/Demo_Mainline.toc': '', 'Demo/View.xml': xml,
+  });
+  const graph = await analyzeSelectedSources(getGraphRequest(prepared), fixture.host);
+  const inline = graph.analyses.find(row => row.result.language === 'xml').result.inline[0];
+  assert.deepEqual(inline.analysis.diagnostics.map(row => row.code), ['LUA0004']);
+  assert.equal(inline.mapping.mappings.length, 2);
+  assert.deepEqual(graph.issues, []);
+  assert.equal(graph.groups[0].graphComplete, true);
+  assert.equal(graph.groups[0].resolutionEligible, true);
+  assert.equal(graph.groups[0].analysisComplete, false);
+  assert.deepEqual(graph.resolved.activeGlobals, []);
+  assert.equal(graph.resolved.entries[0].declarations[0].evaluation.availability, 'unknown');
+  assert.deepEqual(graph.aggregate.inlineLua.diagnosticsByCode, {LUA0004: 1});
+  const [origin] = graph.declarationOrigins;
+  assert.equal(origin.declaration.name, 'Out');
+  assert.deepEqual(origin.mapping.mappings, [inline.mapping.mappings[0]]);
+  const column = xml.indexOf('Out');
+  const [part] = origin.mapping.mappings[0].parts;
+  assert.equal(slash(part.source.file), 'Demo/View.xml');
+  assert.deepEqual(part.source.range, {start: {line: 0, column}, end: {line: 0, column: column + 3}});
+});
+
 test('whole and shortened Lua or inline batches cannot omit validated declarations from a complete group', async () => {
   for (const inline of [false, true]) for (const omit of [false, true]) {
     const prepared = context(), files = {'Demo/Demo_Vanilla.toc': inline ? 'View.xml' : 'Core.lua', 'Demo/Demo_Mainline.toc': ''};

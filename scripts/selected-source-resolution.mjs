@@ -116,7 +116,8 @@ export function composeGraphResolution(context, trace) {
             same(owner.kind, 'inline-' + inline.kind);
             declarations = inline.analysis.declarations;
             mapping = inline.mapping;
-            same(mapping.mappings.length, declarations.length);
+            // Inline validation maps declaration ranges before diagnostic ranges.
+            same(mapping.mappings.length, declarations.length + inline.analysis.diagnostics.length);
           } else if (analysis.result.language === 'lua') {
             same(owner.kind, 'file'); same(batch.frameIndex, null);
             declarations = analysis.result.result.declarations;

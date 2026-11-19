@@ -425,3 +425,12 @@ The last Lua call timed out at the operation boundary. All 1,350 calls to the re
 The prototype started 30 Lua and 13 TOC/XML processes. All 43 closes were confirmed, including 41 clean closes and two signalled closes, with at most two live processes. Analyzer wall time was 442.5 s for Lua, 161.0 s for XML and 30.9 s for TOC. Native list and source-read calls took 229.7 s, including Windows attribute work. The separate attribute duration overlaps these phases. Terminal retention was 221,811 records and 6,704,284 UTF-16 units.
 
 The next authored timing control should divide the Lua port time between fresh Worker creation, SDK import, the public parser call, Worker join, wire serialization and independent source-bound validation. Compare equal inputs with exact replies and receipts under the current caps before proposing a performance change. Keep native failure observation available for the original full replay. Stage 7 remains open.
+
+
+## Inline Lua declaration provenance with lexical warnings
+
+The inline validator maps declaration ranges first and diagnostic ranges second. Composition previously compared the total to the declaration count, so a verified inline Lua body containing a declaration and a lexical warning could exclude the whole group with SGRAPH0007. The resolver now checks the combined count and attaches only the declaration's mapping to its origin. The diagnostic, unknown declaration availability and incomplete analysis remain visible.
+
+The authored regression uses an XML Script with one global declaration and one dynamic environment write. The unchanged resolver at `8eacbc0bf7e3f0899548d6f7d86e3712006faa70` emitted SGRAPH0007 in the new test (Windows Node 24.22.3, session 64602, exit 1). The fix passed. The test checks original zero-based UTF-16 positions after an astral character, an exclusive end, resolver eligibility, a single diagnostic and no active global. The focused resolution, engine and accounting suites passed 38/38 (session 41098, exit 0). Inline Lua validation, worker and corpus suites passed 18/18 (session 5286, exit 0).
+
+The [previous full Classic Era run](https://github.com/Zilvereyes/wow-addon-sdk/issues/11#issuecomment-7006865254) retained one graph invariant and 23 inline Lua warnings. The authored case demonstrates one cause compatible with those counts. Installed attribution requires comparing the unchanged profile scope and final fingerprints against the corrected runtime.
