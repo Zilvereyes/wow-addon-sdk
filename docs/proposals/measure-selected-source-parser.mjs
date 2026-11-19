@@ -12,7 +12,12 @@ import {createGraphAnalyzer} from '../../scripts/selected-source-analysis-client
 const clock = () => Number(process.hrtime.bigint()) / 1e6;
 const worker = new URL('../../scripts/selected-source-analysis-worker.mjs', import.meta.url);
 const metricPrefix = 'graph-parser-timing:';
-const freshWorkerRevision = '52b190d0593b1b5a0c317f27600d0ca5ba6cd239';
+const [option, ...extra] = process.argv.slice(2);
+assert.ok((option === undefined || option === '--xml-only') && extra.length === 0,
+  'Usage: node docs/proposals/measure-selected-source-parser.mjs [--xml-only]');
+const xmlOnly = option === '--xml-only';
+const freshWorkerRevision = xmlOnly ? 'd431facca863b120ea7785ce8a63f400bdb4f1ef' :
+  '52b190d0593b1b5a0c317f27600d0ca5ba6cd239';
 const json = name => JSON.parse(readFileSync(new URL('../../examples/' + name, import.meta.url), 'utf8'));
 const xmlPolicy = json('xml-provider-profile.json').policy;
 const inlineProfile = json('xml-inline-lua-profile.json');
@@ -25,6 +30,8 @@ function sourceCopy(source, observed) {
   for (const file of ['selected-source-analysis-receipts.mjs', 'xml-inline-lua-validation.mjs']) {
     replace("'./" + file + "'", JSON.stringify(new URL(file, worker).href));
   }
+  if (xmlOnly) replace("'./selected-source-lua-thread.mjs'",
+    JSON.stringify(new URL('selected-source-lua-thread.mjs', worker).href));
   for (const name of ['toc-parser', 'lua-analysis', 'xml-parser', 'xml-analysis']) {
     replace("'@wow-addon/" + name + "'", JSON.stringify(import.meta.resolve('@wow-addon/' + name)), name === 'lua-analysis' ? 2 : 1);
   }
@@ -67,7 +74,7 @@ function cases() {
   for (let index = 0; index < 34; index++) {
     const size = ['small', 'medium', 'large'][index % 3];
     const records = [8, 120, 1200][index % 3];
-    inputs.push({language: 'lua', size, content: '-- authored 🙂\r\n' + repeats(records, i => 'AuthoredLua' + i + ' = ' + i)});
+    if (!xmlOnly) inputs.push({language: 'lua', size, content: '-- authored 🙂\r\n' + repeats(records, i => 'AuthoredLua' + i + ' = ' + i)});
     if (index % 4 === 0) inputs.push({language: 'toc', size: 'manifest',
       content: '## Interface: 11509\r\n' + repeats(records, i => 'File' + i + '.lua')});
     else {
@@ -150,7 +157,7 @@ async function run(inputs, workerPath, observed) {
   if (telemetryError) throw telemetryError;
   assert.equal(live.size, 0);
   assert.equal(closes, launches);
-  assert.equal(launches, 4);
+  assert.equal(launches, xmlOnly ? 2 : 4);
   if (observed) {
     assert.equal(startupMs.length, launches);
     assert.equal(metrics.size, inputs.length);
@@ -169,6 +176,7 @@ async function run(inputs, workerPath, observed) {
         sdkImports: worker.loaded - worker.loadStart,
         analysis: worker.analyzed - worker.loaded,
         parserApis: Object.values(worker.apiMs).reduce((sum, ms) => sum + ms, 0),
+        ...worker.apiMs,
         threadReplyAndJoin: frame.joined - worker.analyzed,
         serialize: frame.serialized - frame.joined,
       });
@@ -192,7 +200,7 @@ function summarize(samples) {
   }]));
 }
 
-assert.equal(process.argv.length, 2, 'This benchmark uses only built-in authored inputs.');
+
 const freshWorker = execFileSync('git', ['show', freshWorkerRevision + ':scripts/selected-source-analysis-worker.mjs'], {
   cwd: fileURLToPath(new URL('../../', import.meta.url)), encoding: 'utf8', windowsHide: true,
 }).replaceAll('\r\n', '\n');
