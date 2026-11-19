@@ -1,6 +1,6 @@
 # Local AddOn corpus testing
 
-The runner reads an explicitly supplied local directory. It discovers every TOC variant, including library/test manifests; it does not infer which are loaded by the client. Default mode inventories Lua/XML. The explicit `--lua-analysis` flag invokes the actual Lua SDK parser/provider in a bounded worker; the separate `--xml-analysis` flag invokes the XML syntax/provenance parser. No input code is executed, written back, copied or uploaded from that directory.
+The inventory runner reads an explicitly supplied local directory. It discovers every TOC variant, including library and test manifests. Client selection is reported when a corresponding policy is supplied. Default mode parses TOC and inventories Lua/XML. The explicit `--lua-analysis` flag runs bounded Lua parsing and provider projection. The separate `--xml-analysis` flag runs XML syntax and provenance parsing. With `--xml-analysis`, request XML provider or inline Lua analysis by supplying the corresponding `--xml-provider-profile` and `--xml-inline-lua-profile` options as described below. Input code remains local and read-only throughout.
 
 ```powershell
 npm ci --ignore-scripts --no-audit --no-fund
@@ -13,10 +13,10 @@ npm run test:corpus -- '<local-Classic-Era-AddOns-directory>' --require-all-pars
 
 `scripts/Test-WoWAddonCore.ps1 -AddOnsPath '<directory>'` first runs the SDK gates and then this optional local check. `-SkipInstall` reuses the current installation. Node 22+ and PowerShell 7 are required for that wrapper; CI uses Node 22/24 and npm 10.9.2.
 
-## What is checked
+## What the default inventory run checks
 
 1. Enumerate deterministically; skip file/directory links and junctions, reporting incomplete coverage.
-2. Read regular `.toc` files only, case-insensitive extension matching. Do not follow paths referenced inside TOCs.
+2. Read regular `.toc` files with case-insensitive extension matching. TOC references are retained as data.
 3. Parse via the public `parseToc()` API, retain every variant and count diagnostics by code/severity.
 4. Assert metadata schema 2, exact TOC identity, JSON roundtrip and bounds/order of all source references, including conditions and related diagnostics.
    The v0.3.2 adapter check also verifies derived declaration JSON, absence of empty provenance, exact descriptor fields and independent copies of condition values/ranges; it leaves the parser-reference visit counter unchanged.
@@ -32,6 +32,10 @@ Limits default to 100,000 visited entries, 8 MiB per TOC and depth 64. Override 
 | 2 | Invalid command-line arguments |
 
 Synthetic tests cover BOM/mixed endings/Unicode, multiple variants, source privacy, no execution, unchanged file content, malformed TOCs, links, empty/missing roots and limits. CI uses only authored temporary fixtures. A smoke test is not an independent correctness oracle for every parsed declaration; targeted regressions remain necessary.
+
+## Selected-source graph
+
+`scripts/inspect-selected-addon-sources.mjs` is the separate runner for explicitly selected manifests and their Lua/XML references. It requires `--graph-profile`, `--resolution-profile`, `--xml-provider-profile` and `--xml-inline-lua-profile`. Its own [contract](PROPOSAL-SELECTED-SOURCE-GRAPH.md) defines traversal, source and directory verification, and aggregate reporting. [Issue #11](https://github.com/Zilvereyes/wow-addon-sdk/issues/11) records installed results and remaining acceptance work.
 
 ## Per-file failure accounting
 

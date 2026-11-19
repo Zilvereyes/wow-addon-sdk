@@ -38,7 +38,9 @@ Compose this validated port with context/selection and native file ports in an i
 
 PowerShell Workbench is used only to gate unchanged registered bytes before native regression execution. No new PS artifact exists. The sealed native Codex Security scan remains evidence for its old5489ef5..fc2cb8e range, not this parser delta. The two scoped independent reviews cover the current parser boundary; no additional formal scan or configured MegaLinter run is claimed.
 
-## Approved corpus Lua launcher lifetime
+## Original corpus Lua launcher lifetime
+
+This checkpoint records the original launcher with a fresh Worker for each file. Subsequent production uses the [approved split launcher and bounded Lua/XML Worker lifetimes](PROPOSAL-SELECTED-SOURCE-LAUNCHER-REUSE.md).
 
 The launcher handles up to 32 consecutive corpus Lua requests. It creates and reaps a fresh parser thread for each file with the existing heap and stack settings. The same request and reply fields, API receipts, verification, output and deadline limits apply. A switch to another parser closes the idle launcher before starting the next child.
 
@@ -213,3 +215,18 @@ The graph parent builds one UTF-16 line index per XML reply. Syntax, provider an
 Windows Node 24.22.3 session 22154 compared the independent baseline at `b2a1336a7de7a1263ff8245752585ebfc2d0237b` and the candidate using complete real analyzer replies on authored XML. Exact reply equality and rejection of an out-of-range source coordinate passed for all three inputs. Two alternating 40-call series on the 64,398-unit fixture with 100 multiline Lua bodies took 9,654.6/14,869.1 ms stock and 7,173.1/7,603.7 ms with the shared index. The 40-unit input also improved in that comparison. The 1,282-unit input had overlapping timings. These are verifier-only authored timings and carry no installed-corpus accounting credit.
 
 The six focused syntax, provider, inline Lua and analysis suites passed 70 tests with exit 0 in session 22154. The authored graph stock control (session 62238, exit 0) matched the canonical aggregate, checked all 69 files and nine directories, and verified 24 inline mappings. The authored fixture retained its expected incomplete policy status.
+
+## Lua phase checkpoint at e3492f1
+
+The exact [installed replay](https://github.com/Zilvereyes/wow-addon-sdk/issues/11#issuecomment-7004546288) spent 518.1 s in 2,790 supervised corpus Lua calls. It timed out before final integrity. The external observer measured the full call duration, which includes launcher and Worker setup, parser work, transport, and parent reply validation.
+
+A Windows Node 24.22.3 authored comparison on `e3492f1174558b99a03fa93c2c71b51871794517` compared the exact production entry with a scratch copy that recorded timestamps at dispatch, Worker module/import boundaries, analysis completion, serialization and final-frame arrival. Host session 92647 exited 0. Four counterbalanced series of 41 corpus Lua inputs matched all 164 complete replies and receipts. Each series launched and reaped two launcher processes. The observed series each used six Worker lifetimes. Series totals overlapped at 2.66–2.77 s stock and 2.57–2.81 s instrumented.
+
+| Authored case | Median supervised time | Selected phase medians |
+| --- | ---: | --- |
+| Small, warm | 8.7 ms | Analysis 1.5 ms, parent validation 0.3 ms |
+| Medium, warm | 12.0 ms | Analysis 4.1 ms, parent validation 1.0 ms |
+| Large, warm | 72.0 ms | Analysis 32.4 ms, Worker reply 16.4 ms, parent validation 8.9 ms |
+| Medium, new Worker | 139.0 ms | Dispatch to Worker module 92.3 ms, imports 17.7 ms, analysis 25.8 ms |
+
+The first launcher/rotation enters its launcher module in 200–256 ms across the instrumented spans. These elapsed phase medians come from separately grouped authored samples and should not be added together. The installed report has no request-size or lifetime distribution. Before proposing a production change, collect those categories on a bounded installation sample and connect the costs to its observed mix. Preserve the existing graph, process and integrity contracts.
