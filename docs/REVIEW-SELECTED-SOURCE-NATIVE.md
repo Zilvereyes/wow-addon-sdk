@@ -95,3 +95,14 @@ For another authorized installed trial, retain the first fixed record with elaps
 Two authored pipe error controls reproduced the review finding on `9faaacd` with exit 1. The helper forwarded process and input errors through its controlled failure path. Its output streams had no error listeners, so either pipe error escaped with the original text. The helper now sends both output errors through its existing `graph-attributes-exit` path. The controls require a fixed rejection and an acknowledged close before a replacement starts.
 
 On Windows Node 24.22.3, `node --test --test-concurrency=1 tests/selected-source-native.test.mjs tests/selected-source-windows.test.mjs tests/selected-source-cli.test.mjs` exited 0 with 43 passes and one Linux-specific skip (host session 6779). The two output channels both passed.
+
+
+## Buffered Windows helper transport
+
+The fixed PowerShell 5.1 helper reads stdin in 8 KiB chunks and accumulates one LF-delimited frame in a 1 MiB byte buffer. It checks the byte budget before copying and decodes a complete frame as strict UTF-8. The correlated rows still come from the same per-path attribute calls. Native identity, containment, snapshot and integrity checks continue on the existing code paths.
+
+The Workbench archive gate passed on exact CRLF helper bytes for versions 1.0.2 and 1.0.3. The automatic-variable check and PSScriptAnalyzer also passed. PowerShell 5.1.19041.7844 and 7.6.10 both parsed the 1.0.3 source. The authored native controls ran with Windows Node 24.22.3, session 30429, exit 0. They passed 52 tests with one Linux-only skip and verified an exact 1 MiB frame, one byte over, truncated frames, consecutive frames, and UTF-8 spanning a buffer boundary.
+
+An alternating Windows Node 24.22.3 comparison (session 21138, exit 0) checked 3,517 requests and 8,552 attribute rows per series. It issued one initial four-row frame followed by 3,000 singleton, 500 seven-row and 16 full 128-row frames, with authored Unicode paths, missing paths and a junction. Responses, final source bytes and clean EOF agreed. Excluding startup, stock took 31,539 and 13,244 ms. The buffered revision took 8,348 and 7,675 ms. Host timing varied between the two stock series.
+
+The production host's authored graph comparison (`node docs/proposals/measure-selected-source-integration.mjs --stock`, session 30429, exit 0) matched the prior canonical aggregate with eight TOC, 49 Lua and 12 XML files, 24 inline mappings, and all 69 source and nine directory checks. It issued 1,288 attribute calls over 3,482 rows. Observed helper time was 3,204 ms within a 9,360 ms graph run. Installed acceptance remains [tracked in #11](https://github.com/Zilvereyes/wow-addon-sdk/issues/11).
