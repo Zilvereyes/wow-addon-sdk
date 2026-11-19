@@ -204,3 +204,12 @@ Short CPU timings are quantized on this host. The wider fixture shows about 19% 
 The original-span mapper now jumps between CRLF, CR and LF matches while building its line index. It stops at the same enclosing line. UTF-16 offsets, mixed line breaks, CRLF interior canonicalization, ownership and exact resource limits have focused coverage in the existing tests.
 
 Windows Node 24.22.3 host session 80529 ran the TypeScript build and the five focused XML mapping, provider, inline Lua and supervised analysis suites with exit 0 and 61 passes. It also compared the compiled mapper with the compiled baseline from `d431facca863b120ea7785ce8a63f400bdb4f1ef`. The authored 85,232-byte XML document contained 420 mapped bodies with mixed line endings and astral characters. Each alternating series executed 1,680 mappings with identical complete public results. Stock took 441 and 595 ms. The candidate took 227 and 321 ms. This isolates the line-index change from the Worker lifecycle experiment.
+
+
+## Shared XML validation coordinates
+
+The graph parent builds one UTF-16 line index per XML reply. Syntax, provider and inline Lua validators use the same line boundaries while performing their own source-shape and semantic checks. The worker's provider and inline Lua composition share a separate index for that request. The established whole-result round trips and source provenance checks remain in the relevant validators.
+
+Windows Node 24.22.3 session 22154 compared the independent baseline at `b2a1336a7de7a1263ff8245752585ebfc2d0237b` and the candidate using complete real analyzer replies on authored XML. Exact reply equality and rejection of an out-of-range source coordinate passed for all three inputs. Two alternating 40-call series on the 64,398-unit fixture with 100 multiline Lua bodies took 9,654.6/14,869.1 ms stock and 7,173.1/7,603.7 ms with the shared index. The 40-unit input also improved in that comparison. The 1,282-unit input had overlapping timings. These are verifier-only authored timings and carry no installed-corpus accounting credit.
+
+The six focused syntax, provider, inline Lua and analysis suites passed 70 tests with exit 0 in session 22154. The authored graph stock control (session 62238, exit 0) matched the canonical aggregate, checked all 69 files and nine directories, and verified 24 inline mappings. The authored fixture retained its expected incomplete policy status.

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {validateXmlProviderProfile} from './xml-provider-validation.mjs';
 import {validateXmlInlineProfile, verifyGraphXmlInlineLua, verifyLuaProjection} from './xml-inline-lua-validation.mjs';
 import {verifyXmlSyntax} from './selected-source-syntax-validation.mjs';
+import {buildSourceLineIndex} from './source-line-index.mjs';
 import {emptyGraphCalls, graphApis} from './selected-source-analysis-receipts.mjs';
 
 export {emptyGraphCalls, graphApis};
@@ -232,13 +233,14 @@ export function verifyGraphAnalysisReply(reply, request) {
     verifyLuaProjection(result.result, {value: request.content}, {kind: 'chunk'}, request.sourcePath, association, 1000000); one('analyzeLua');
   } else {
     exact(result, ['language', 'syntax', 'provider', 'inline']);
-    verifyXmlSyntax(result.syntax, request.content, request.sourcePath); one('parseXml');
+    const sourceLines = buildSourceLineIndex(request.content);
+    verifyXmlSyntax(result.syntax, request.content, request.sourcePath, sourceLines); one('parseXml');
     assert.ok(Array.isArray(result.inline));
     if (!result.syntax.complete) { assert.equal(result.provider, null); assert.deepEqual(result.inline, []); }
     else {
       one('analyzeXml');
       const attemptedBodies = verifyGraphXmlInlineLua(result.inline, request.content, request.sourcePath, result.syntax,
-        result.provider, request.xmlPolicy, request.inlineProfile, association);
+        result.provider, request.xmlPolicy, request.inlineProfile, association, sourceLines);
       expected.analyzeLua = {invoked: attemptedBodies, returned: attemptedBodies};
       expected.mapXmlValueRanges = {...expected.analyzeLua};
     }
