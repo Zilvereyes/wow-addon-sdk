@@ -1,10 +1,12 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {EventEmitter} from 'node:events';
+import {spawn} from 'node:child_process';
+import {EventEmitter,once} from 'node:events';
 import {PassThrough} from 'node:stream';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import {fileURLToPath} from 'node:url';
 import {createWindowsPathInspector} from '../scripts/selected-source-windows.mjs';
 
 function fake(answer,{automaticClose=true}={}){
@@ -219,4 +221,62 @@ test('native stock Windows helper detects authored junctions and never changes s
       assert.equal(fs.readFileSync(file,'utf8'),'-- authored fixture');
     }finally{await i.close();assert.equal(path.dirname(root),temporary);assert.ok(path.basename(root).startsWith('wow-sdk-attributes-'));
       fs.rmSync(root,{recursive:true,force:true});}
+  });
+
+
+async function exchangeNativeFrames(chunks){
+  const executable=path.win32.join(process.env.SystemRoot??'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
+  const script=fileURLToPath(new URL('../scripts/Inspect-SelectedSourcePath.ps1',import.meta.url));
+  const child=spawn(executable,['-NoLogo','-NoProfile','-NonInteractive','-File',script],{
+    stdio:['pipe','pipe','pipe'],shell:false,windowsHide:true,
+  });
+  const output=[],errors=[];
+  child.stdout.on('data',chunk=>output.push(chunk));
+  child.stderr.on('data',chunk=>errors.push(chunk));
+  child.stdin.on('error',()=>{ /* Early rejection can close the pipe before the final write. */ });
+  const closed=once(child,'close');
+  const timer=setTimeout(()=>child.kill(),30000);
+  try{
+    for(const chunk of chunks)child.stdin.write(chunk);
+    child.stdin.end();
+    const [code,signal]=await closed;
+    assert.equal(signal,null);
+    assert.equal(Buffer.concat(errors).length,0);
+    return{code,rows:Buffer.concat(output).toString('utf8').split(/\r?\n/u).filter(Boolean).map(line=>JSON.parse(line))};
+  }finally{clearTimeout(timer);if(child.exitCode===null&&child.signalCode===null)child.kill();}
+}
+
+test('native helper preserves UTF-8 across read chunks and drains consecutive frames',
+  {skip:process.platform!=='win32'},async()=>{
+    const folder=fs.mkdtempSync(path.join(os.tmpdir(),'wow-sdk-attribute-frames-'));
+    const source=path.join(folder,'Authored-🙂.lua');
+    try{
+      fs.writeFileSync(source,'-- unchanged');
+      const first=Buffer.from(JSON.stringify({id:1,paths:[source]}));
+      const emoji=first.indexOf(Buffer.from('🙂'));
+      assert.ok(emoji>0&&emoji<8191);
+      const padded=Buffer.concat([Buffer.alloc(8191-emoji,32),first]);
+      const rest=Buffer.from('\r\n'+JSON.stringify({id:2,paths:[path.join(folder,'missing')]})+'\n');
+      assert.deepEqual(await exchangeNativeFrames([padded.subarray(0,8192),padded.subarray(8192),rest]),{
+        code:0,rows:[
+          {id:1,rows:[{ok:true,reparsePoint:false}]},
+          {id:2,rows:[{ok:false,reparsePoint:true}]},
+        ],
+      });
+      assert.equal(fs.readFileSync(source,'utf8'),'-- unchanged');
+    }finally{fs.unlinkSync(source);fs.rmdirSync(folder);}
+  });
+
+test('native helper enforces the exact byte ceiling and rejects truncated or invalid UTF-8 frames',
+  {skip:process.platform!=='win32'},async()=>{
+    const file=fileURLToPath(new URL('./selected-source-windows.test.mjs',import.meta.url));
+    const json=Buffer.from(JSON.stringify({id:1,paths:[file]}));
+    const cap=1024*1024;
+    assert.deepEqual(await exchangeNativeFrames([json,Buffer.alloc(cap-json.length,32),Buffer.from('\n')]),{
+      code:0,rows:[{id:1,rows:[{ok:true,reparsePoint:false}]}],
+    });
+    for(const frame of [[json,Buffer.alloc(cap-json.length+1,32),Buffer.from('\n')],
+      [json],[Buffer.from([0xff,0x0a])]]){
+      assert.deepEqual(await exchangeNativeFrames(frame),{code:2,rows:[]});
+    }
   });

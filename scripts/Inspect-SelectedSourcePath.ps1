@@ -2,23 +2,37 @@
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 $utf8 = New-Object System.Text.UTF8Encoding($false, $true)
-[Console]::InputEncoding = $utf8
 [Console]::OutputEncoding = $utf8
+$inputStream = [Console]::OpenStandardInput()
+$chunk = [byte[]]::new(8192)
+$frame = [byte[]]::new(1048576)
+$cursor = 0
+$available = 0
 try {
     while ($true) {
-        $line = [System.Text.StringBuilder]::new()
+        $frameLength = 0
         while ($true) {
-            $unit = [Console]::In.Read()
-            if ($unit -eq -1) {
-                if ($line.Length -eq 0) { exit 0 }
-                exit 2
+            if ($cursor -eq $available) {
+                $available = $inputStream.Read($chunk, 0, $chunk.Length)
+                $cursor = 0
+                if ($available -eq 0) {
+                    if ($frameLength -eq 0) { exit 0 }
+                    exit 2
+                }
             }
-            if ($unit -eq 10) { break }
-            if ($line.Length -ge 1048576) { exit 2 }
-            [void]$line.Append([char]$unit)
+            $newline = [Array]::IndexOf($chunk, [byte]10, $cursor, ($available - $cursor))
+            $end = if ($newline -ge 0) { $newline } else { $available }
+            $count = $end - $cursor
+            if ($count -gt ($frame.Length - $frameLength)) { exit 2 }
+            [Array]::Copy($chunk, $cursor, $frame, $frameLength, $count)
+            $frameLength += $count
+            $cursor = $end
+            if ($newline -ge 0) {
+                $cursor++
+                break
+            }
         }
-        $text = $line.ToString()
-        if ($utf8.GetByteCount($text) -gt 1048576) { exit 2 }
+        $text = $utf8.GetString($frame, 0, $frameLength)
         $request = ConvertFrom-Json -InputObject $text
         $keys = @($request.PSObject.Properties.Name)
         if ($keys.Count -ne 2 -or $keys -notcontains 'id' -or $keys -notcontains 'paths') { exit 2 }
