@@ -127,10 +127,10 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
       fail('changed',key===''?'root-directory-stamp':'directory-stamp');
     }
   }
-  async function scan(key){
+  async function scan(key,recent){
     const initialRecords=records,initialUnits=stringUnits;
     try{
-    const absolute=path.join(root,key),before=await statChecked(absolute);if(!before.isDirectory())fail('directory');inside(absolute);
+    const absolute=path.join(root,key),before=await statChecked(absolute,recent);if(!before.isDirectory())fail('directory');inside(absolute);
     retain(2,0); // Snapshot and entry-array containers, including empty directories.
     const entries=[],dir=io.opendirSync(absolute,{encoding:'buffer',bufferSize:1});
     try{
@@ -159,24 +159,24 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     return snapshot;
     }catch(error){releaseSince(initialRecords,initialUnits);throw error;}
   }
-  async function listing(key,recentRoot){
-    await verifyCached(key,recentRoot);
+  async function listing(key,recent){
+    await verifyCached(key,recent);
     if(!directories.has(key)){
       const initialRecords=records,initialUnits=stringUnits;
-      try{const snapshot=await scan(key);retain(1,key.length);directories.set(key,snapshot);}
+      try{const snapshot=await scan(key,recent);retain(1,key.length);directories.set(key,snapshot);}
       catch(error){releaseSince(initialRecords,initialUnits);throw error;}
     }
     return directories.get(key);
   }
   async function resolve(relative,directory=false){
-    const recentRoot=await rootCheck();
+    let recent=await rootCheck();
     const normalized=directory&&relative===''?{status:'ready',components:[]}:
       normalizeGraphPath(relative,[],{maximumUnits:limits.pathUnits,allowDirectory:directory});
     if(normalized.status!=='ready')return{status:normalized.status==='budget'?'budget':'blocked'};
     if(normalized.components.length-(directory?0:1)>limits.directoryDepth)fail('budget');
     const actual=[],visited=[];
     for(let index=0;index<normalized.components.length;index++){
-      const key=actual.join(path.sep),snapshot=await listing(key,index===0?recentRoot:undefined);visited.push(key);
+      const key=actual.join(path.sep),snapshot=await listing(key,recent);visited.push(key);
       const wanted=normalized.components[index],equivalent=snapshot.entries.filter(row=>fold(row.name)===fold(wanted));
       if(equivalent.length>1)return{status:'ambiguous'};
       const match=equivalent[0];if(!match||(request.profile.pathPolicy.caseComparison==='exact'&&match.name!==wanted))return{status:'missing'};
@@ -184,10 +184,12 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
       if(match.kind==='unsupported')return{status:'unsupported'};
       const last=index===normalized.components.length-1;
       if(match.kind!==((last&&!directory)?'file':'directory'))return{status:'blocked'};
-      actual.push(match.name);const absolute=path.join(root,...actual),stat=await statChecked(absolute);inside(absolute);
-      if((last&&!directory)?!stat.isFile():!stat.isDirectory())fail('changed','component-type');
+      actual.push(match.name);const absolute=path.join(root,...actual);
+      // The adjacent listing can reuse this path's inspection after a fresh stamp check.
+      recent=await statChecked(absolute);inside(absolute);
+      if((last&&!directory)?!recent.isFile():!recent.isDirectory())fail('changed','component-type');
     }
-    return{status:'ready',sourcePath:actual.join(path.sep),visited};
+    return{status:'ready',sourcePath:actual.join(path.sep),visited,recent};
   }
   async function verifyReadAfter(absolute,before,visited){
     const nested=inspector?visited.filter(key=>key!=='').map(key=>path.join(root,key)):[];
@@ -269,7 +271,7 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     },
     listDirectory:sourceDirectory=>exclusive(async()=>{
       const r=await resolve(sourceDirectory,true);if(r.status!=='ready')fail(r.status);
-      const s=await listing(r.sourcePath);
+      const s=await listing(r.sourcePath,r.recent);
       return issue(()=>({fingerprint:s.fingerprint,entries:s.entries.map(row=>({...row}))}),
         s.entries.length+2,s.fingerprint.length+s.entries.reduce((sum,row)=>sum+row.name.length,0),true);
     },'listDirectory'),
@@ -282,7 +284,7 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
       try{
         const r=await resolve(sourceDirectory,true);if(r.status==='budget')fail('budget');
         if(r.status!=='ready'){report('verifyDirectory','mismatch',null,'path-'+r.status);return false;}
-        const actual=await scan(r.sourcePath),valid=actual.fingerprint===fingerprint;
+        const actual=await scan(r.sourcePath,r.recent),valid=actual.fingerprint===fingerprint;
         if(!valid){
           invalidDirectories.add(r.sourcePath);
           report('verifyDirectory','mismatch',null,'directory-fingerprint');
