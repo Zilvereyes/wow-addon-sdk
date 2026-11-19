@@ -197,3 +197,10 @@ An isolated in-process comparison used the same built API entry and locked luapa
 | Repeat condition, recursive function, method and loops | 0.41 ms | 0.31 ms | 0 / 0 ms |
 
 Short CPU timings are quantized on this host. The wider fixture shows about 19% lower wall time in this comparison. These are authored API-level timings. They do not establish transport throughput or installed Classic Era acceptance.
+
+
+## XML mapping line-break scan
+
+The original-span mapper now jumps between CRLF, CR and LF matches while building its line index. It stops at the same enclosing line. UTF-16 offsets, mixed line breaks, CRLF interior canonicalization, ownership and exact resource limits have focused coverage in the existing tests.
+
+Windows Node 24.22.3 host session 80529 ran the TypeScript build and the five focused XML mapping, provider, inline Lua and supervised analysis suites with exit 0 and 61 passes. It also compared the compiled mapper with the compiled baseline from `d431facca863b120ea7785ce8a63f400bdb4f1ef`. The authored 85,232-byte XML document contained 420 mapped bodies with mixed line endings and astral characters. Each alternating series executed 1,680 mappings with identical complete public results. Stock took 441 and 595 ms. The candidate took 227 and 321 ms. This isolates the line-index change from the Worker lifecycle experiment.

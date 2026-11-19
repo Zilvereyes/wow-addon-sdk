@@ -489,13 +489,11 @@ export function mapXmlValueRanges(
 
     function index(text: string, finalLine = text.length) {
       const ends: number[] = [];
-      const firstBreak = finalLine === 0 ? text.search(/[\r\n]/u) : 0;
-      for (let i = firstBreak === -1 ? text.length : firstBreak; i < text.length; i++) {
-        if (text[i] !== '\r' && text[i] !== '\n') continue;
-        ends.push(i);
+      const lineBreak = /\r\n?|\n/gu;
+      for (let match; (match = lineBreak.exec(text)) !== null;) {
+        ends.push(match.index);
         // Mapping bounds must lie within the enclosing source range.
         if (ends.length > finalLine) break;
-        if (text[i] === '\r' && text[i + 1] === '\n') i++;
       }
       if (ends.length <= finalLine) ends.push(text.length);
       function startOf(line: number): number {
