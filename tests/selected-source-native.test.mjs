@@ -194,8 +194,8 @@ test('warm source reads coalesce only unchanged adjacent root attribute checks',
     assert.equal(rootStats,6);
     assert.deepEqual(opensAtRootInspection,[1,2]);
     assert.equal(rootBatches.at(-1)[0],path.parse(root).root);
-    assert.equal(rootBatches.at(-1).at(-1),root);
-    assert.deepEqual(rootBatches.at(-1),rootBatches.at(-2));
+    assert.equal(rootBatches.at(-2).at(-1),root);
+    assert.deepEqual(rootBatches.at(-1),[...rootBatches.at(-2),path.join(root,sourcePath),path.join(root,'Demo')]);
 
     rootStats=0;opensAtRootInspection.length=0;
     changeOnInspection=true;
@@ -339,3 +339,77 @@ test('Linux exact-case collisions and invalid UTF-8 names never select an arbitr
     host=await createGraphFileHost(root,context());
     try{assert.equal((await host.resolvePath('Demo/Core.lua')).status,'blocked');}finally{await host.close();}
   }));
+
+test('final source verification checks a joint post-read frame and reattests its files and folders',()=>fixture(async root=>{
+  const relative=path.join('Demo','Core.lua'),source=path.join(root,relative),folder=path.dirname(source);
+  for(const fault of [null,'reparse','source-stat','directory-stamp','budget']){
+    let opens=0,changed;
+
+    const io={...fs,openSync(...args){opens++;return fs.openSync(...args);},lstatSync(name,...args){
+      const stat=fs.lstatSync(name,...args);
+      if(name===changed)stat.mtimeNs+=1n;
+      return stat;
+    }};
+    const frames=[],failures=[];
+    let now=0;
+    const inspectorFactory=()=>({async inspect(paths){
+      const rows=paths.map(()=>({ok:true,reparsePoint:false}));
+      if(opens===2&&paths.includes(root)&&paths.includes(source)&&paths.includes(folder)){
+        frames.push([...paths]);
+        if(fault==='reparse')rows[paths.indexOf(source)].reparsePoint=true;
+        if(fault==='source-stat')changed=source;
+        if(fault==='directory-stamp')changed=folder;
+        if(fault==='budget')now=900000;
+      }
+      return rows;
+    },async close(){}});
+    const host=await createGraphFileHost(root,context(),{io,inspectorFactory,now:()=>now,onFailure:e=>failures.push(e)});
+    try{
+      const first=await host.readSource(relative,1024);
+      const verification=host.verifySource(relative,first.fingerprint,1024);
+      if(fault==='budget')await assert.rejects(verification,{code:'graph-native-budget'});
+      else assert.equal(await verification,fault===null);
+      assert.equal(opens,2);
+      assert.equal(frames.length,1);
+      assert.deepEqual(frames[0].slice(-3),[root,source,folder]);
+      if(fault?.endsWith('stat')||fault==='directory-stamp')assert.equal(failures.at(-1).check,fault);
+      if(fault==='reparse')assert.equal(failures.at(-1).code,'graph-native-link');
+    }finally{await host.close();}
+  }
+}));
+
+test('an oversized joint post-read frame preserves separate checks',async()=>{
+  const anchor=path.parse(path.resolve(os.tmpdir())).root;
+  const root=path.join(anchor,...Array(126).fill('a')),folder=path.join(root,'Demo');
+  const sourcePath=path.join('Demo','Core.lua'),source=path.join(root,sourcePath);
+  const content=Buffer.from('Fixture = 1');
+  const stat=(file)=>({dev:1n,ino:file?2n:1n,size:file?BigInt(content.length):0n,mtimeNs:1n,ctimeNs:1n,
+    isDirectory:()=>!file,isFile:()=>file,isSymbolicLink:()=>false});
+  const record=(name,file)=>({...stat(file),name:Buffer.from(name)});
+  const frames=[];
+  let opened=false;
+  const io={lstatSync:name=>stat(name===source),realpathSync:name=>name,
+    opendirSync(name){
+      const entry=name===root?record('Demo',false):record('Core.lua',true);
+      let pending=true;
+      return {readSync(){if(!pending)return null;pending=false;return entry;},closeSync(){}};
+    },
+    openSync(name,flags){assert.equal(name,source);assert.equal(flags&3,0);opened=true;return 1;},
+    fstatSync:()=>stat(true),
+    readSync(_fd,buffer,offset,length,position){return content.copy(buffer,offset,position,Math.min(content.length,position+length));},
+    closeSync(){},
+  };
+  const inspectorFactory=()=>({async inspect(paths){
+    assert.ok(paths.length<=128);
+    if(opened)frames.push([...paths]);
+    return paths.map(()=>({ok:true,reparsePoint:false}));
+  },async close(){}});
+  const host=await createGraphFileHost(root,context(),{io,inspectorFactory});
+  try{
+    assert.deepEqual((await host.readSource(sourcePath,1024)).bytes,content);
+    assert.deepEqual(frames.map(paths=>paths.length),[1,127,1]);
+    assert.deepEqual(frames[0],[source]);
+    assert.equal(frames[1].at(-1),root);
+    assert.deepEqual(frames[2],[folder]);
+  }finally{await host.close();}
+});

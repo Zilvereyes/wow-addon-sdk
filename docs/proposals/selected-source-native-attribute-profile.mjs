@@ -21,8 +21,8 @@ const directories = [''];
 const sources = new Map();
 const phases = {};
 let phase = 'bootstrap';
-function inspectionSite(stack) {
-  if (/\bat rootCheck\b/u.test(stack)) return 'rootAncestors';
+function inspectionSite(stack, paths) {
+  if (/\bat rootCheck\b/u.test(stack)) return paths.at(-1) === root ? 'rootAncestors' : 'postReadBatch';
   if (/\bat verifyCached\b/u.test(stack)) return 'cachedDirectory';
   if (/\bat scan\b/u.test(stack)) return /\bat statChecked\b/u.test(stack) ? 'scanBoundary' : 'scanEntries';
   if (/\bat resolve\b/u.test(stack)) return 'component';
@@ -33,7 +33,7 @@ const inspectorFactory = () => {
   const inspector = createWindowsPathInspector();
   return {
     async inspect(paths, remaining) {
-      const site = inspectionSite(new Error().stack);
+      const site = inspectionSite(new Error().stack, paths);
       const sites = phases[phase] ??= {};
       const row = sites[site] ??= { calls: 0, paths: 0, milliseconds: 0 };
       row.calls++;
