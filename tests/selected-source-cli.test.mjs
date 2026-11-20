@@ -167,7 +167,8 @@ test('actual native CLI emits counts only, exercises all parsers and leaves auth
   assert.equal(report.confirmedApiCalls.analyzeLua.returned, 2); assert.equal(report.inlineLua.attemptedBodies, 1);
   assert.equal(report.resolution.declarations, 3);
   assert.deepEqual(Object.keys(report).sort(), ['schemaVersion', 'status', 'completeUnderPolicy', 'fullParsing', 'clientConformance', 'discovery',
-    'selection', 'languages', 'confirmedApiCalls', 'graph', 'inlineLua', 'resolution', 'issuesByCode'].sort());
+    'selection', 'languages', 'confirmedApiCalls', 'graph', 'inlineLua', 'resolution', 'issuesByCode', 'failureDetailsByCode'].sort());
+  assert.deepEqual(report.failureDetailsByCode, {});
   for (const privateValue of [root, 'PrivateDB', 'PrivateInline', 'PrivateGlobal', 'PrivateCore', 'Demo/', 'Demo\\', 'authored/demo']) assert.equal(result.stdout.includes(privateValue), false);
   assert.deepEqual(snapshot(), before);
 }));
@@ -184,5 +185,6 @@ test('valid incomplete native analysis emits an honest aggregate and exits one',
 
 test('an exhausted operation produces fixed safe failure text without a fabricated aggregate', () => fixture(async ({args, data, writeProfiles, write}) => {
   data.graph.limits = {retainedRecords: 1}; writeProfiles(); write('Demo_Vanilla.toc', '');
-  assert.deepEqual(await execute(args()), {code: 1, stdout: '', stderr: 'Selected-source graph analysis failed.\n'});
+  assert.deepEqual(await execute(args()), {code: 1, stdout: '',
+    stderr: 'Selected-source graph analysis failed.\n{"phase":"initializeHost","subcode":"graph-native-budget"}\n'});
 }));

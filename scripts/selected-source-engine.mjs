@@ -6,6 +6,7 @@ import {createGraphBudget, graphHostBudget, GraphBudgetError} from './selected-s
 import {normalizeGraphPath} from './selected-source-profile.mjs';
 import {selectGraphToc, openGraphReference} from './selected-source-selection.mjs';
 import {verifyGraphAnalysisReply, snapshotGraphAnalysisRequest} from './selected-source-analysis.mjs';
+import {analysisSubcode, attributeSubcode, countFailure} from './selected-source-failures.mjs';
 
 const fold = value => value.replace(/[A-Z]/gu, unit => unit.toLowerCase());
 const language = value => ({'.toc': 'toc', '.lua': 'lua', '.xml': 'xml'})[path.extname(value).toLowerCase()] ?? null;
@@ -22,7 +23,7 @@ const classify = error => {
   const message = error?.message;
   if (['SGRAPH0005', 'graph-native-budget', 'graph-native-input'].includes(error?.code) ||
       ['graph-analysis-resource', 'graph-analysis-output-limit'].includes(message)) return 'resource';
-  if (error?.code === 'SGRAPH0007' || error?.code === 'ERR_ASSERTION' || ['graph-analysis-invariant', 'graph-analysis-input'].includes(message)) return 'invariant';
+  if (error?.code === 'SGRAPH0007' || error?.code === 'ERR_ASSERTION' || ['graph-analysis-invariant', 'graph-analysis-input', 'graph-analysis-protocol'].includes(message)) return 'invariant';
   if (message === 'graph-analysis-backend') return 'backend';
   if (/^graph-analysis-/u.test(message ?? '')) return 'worker';
   return ['resource', 'invariant', 'worker', 'backend', 'encoding', 'read'].includes(error?.kind) ? error.kind : 'read';
@@ -36,7 +37,7 @@ export async function traceSelectedSources(context, host, {keepXmlSyntax = true}
   } catch (error) {await host.close(); throw error;}
   const trace = {schemaVersion: 1, groups: [], nodes: [], analyses: [], references: [], occurrences: [], guardEvaluations: [], issues: [],
     discovery: {complete: true, entriesVisited: 0, found: {toc: 0, lua: 0, xml: 0}, rejectedLinks: 0, unrepresentableEntries: 0},
-    files: new Map(), directories: new Map(), providerBatches: new Map(), budget, fatal: null};
+    files: new Map(), directories: new Map(), providerBatches: new Map(), budget, fatal: null, failureDetailsByCode: {}};
   const emergency = {code: 'SGRAPH0005', sources: []};
   const analysisCache = new Map(), textCache = new Map(), failedDirectories = new Set();
   let directoryListRecords = 0, directoryListUnits = 0;
@@ -302,6 +303,8 @@ export async function traceSelectedSources(context, host, {keepXmlSyntax = true}
           value.failedCalls.push(checked.confirmedApiCalls); confirmed = true;
         } catch { /* Invalid or over-budget receipts never gain direct-call credit. */ }
         if (!confirmed) value.unknownStages++;
+        const subcode = error?.code === 'SGRAPH0005' ? 'graph-analysis-resource' : analysisSubcode(error);
+        countFailure(trace.failureDetailsByCode, 'analyzeSource', subcode);
         throw failure(classify(error));
       }
       let record, facts;
@@ -314,7 +317,12 @@ export async function traceSelectedSources(context, host, {keepXmlSyntax = true}
             if (facts.verdict !== null && value.verdict !== null && facts.verdict !== value.verdict) {invalidate(value, false, 'invariant'); throw failure('invariant');}
             reserve(1, key.length);
           });
-      } catch (error) {value.failed++; value.unknownStages++; throw error?.code === 'SGRAPH0005' ? error : failure('invariant');}
+      } catch (error) {
+        value.failed++; value.unknownStages++;
+        const subcode = error?.code === 'SGRAPH0005' ? 'graph-analysis-resource' : 'graph-analysis-invariant';
+        countFailure(trace.failureDetailsByCode, 'analyzeSource', subcode);
+        throw error?.code === 'SGRAPH0005' ? error : failure('invariant');
+      }
       trace.analyses.push(record); analysisCache.set(key, record.analysisId); value.completed++;
       if (facts.verdict !== null) value.verdict = facts.verdict;
       if (facts.failure) recordFailure(value, facts.failure);
@@ -514,9 +522,15 @@ export async function traceSelectedSources(context, host, {keepXmlSyntax = true}
   } finally {
     detachReclaimer?.();
     discardTraversalData();
-    try {await host.close();} catch {
+    try {await host.close();} catch (error) {
+      for (const cause of error instanceof AggregateError ? error.errors : [error]) {
+        const nativeCode = attributeSubcode(cause);
+        countFailure(trace.failureDetailsByCode, 'closeHost',
+          nativeCode === 'graph-attributes-unavailable' ? analysisSubcode(cause) : nativeCode);
+      }
       trace.fatal = 'worker'; emergency.code = 'SGRAPH0007'; if (!trace.issues.includes(emergency)) trace.issues.push(emergency);
       for (const group of trace.groups) {group.graphComplete = false; group.analysisComplete = false; group.resolutionEligible = false;}
     }
+    Object.assign(trace.failureDetailsByCode, host.nativeFailures);
   }
 }

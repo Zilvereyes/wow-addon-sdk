@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import {getGraphRequest} from './selected-source-context.mjs';
 import {requireGraphBudget} from './selected-source-budget.mjs';
+import {isCorpusFailureCode} from './selected-source-failures.mjs';
 
 const LANGUAGES = ['toc', 'lua', 'xml'];
 const APIS = ['parseToc', 'parseXml', 'analyzeLua', 'analyzeXml', 'mapXmlValueRanges'];
@@ -206,6 +207,13 @@ export function buildSelectedSourceAggregate(context, trace, composition) {
   invariant(inlineLua.attemptedBodies === inlineLua.syntaxAccepted + inlineLua.syntaxRejected + inlineLua.resourceBlocked + inlineLua.backendBlocked);
   invariant(inlineLua.syntaxAccepted === inlineLua.lexicalComplete + inlineLua.lexicalIncomplete);
   invariant(resolution.declarations === resolution.availability.active + resolution.availability.inactive + resolution.availability.unknown);
+  for (const [phase, counts] of Object.entries(trace.failureDetailsByCode ?? {})) {
+    for (const [subcode, count] of Object.entries(counts)) {
+      budget.check();
+      invariant(isCorpusFailureCode(phase, subcode) && integer(count));
+    }
+  }
+  aggregate.failureDetailsByCode = budget.copy(trace.failureDetailsByCode ?? {});
   resolution.complete = trace.fatal === null && aggregate.discovery.complete && composition.complete === true && resolution.coreComplete && selection.selected > 0 &&
     resolution.blockedGroups === 0 && graph.unknownGuards === 0 && inlineLua.skippedMissingContext === 0 && inlineLua.lexicalIncomplete === 0;
   aggregate.completeUnderPolicy = resolution.complete;

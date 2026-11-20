@@ -146,17 +146,21 @@ const luaReply = input => ({id: input.id, result: {language: 'lua', result: anal
   {addonId: input.addonId, conditions: input.conditions})}, confirmedApiCalls: receipts('analyzeLua'), failure: null});
 
 test('crash/protocol/invariant failures publish neither result nor invented call receipts', async () => {
-  for (const act of [
-    (child) => {child.exitCode = 1; child.emit('close', 1);},
-    (child, input) => finish(child, {...luaReply(input), id: input.id + 1}),
-    (child, input) => {const reply = luaReply(input); reply.result.result.declarations[0].addonId = 'wrong'; finish(child, reply);},
-    (child, input) => {const reply = luaReply(input); reply.confirmedApiCalls.parseToc.invoked = 1; finish(child, reply);},
-    (child) => {child.stdout.write(Buffer.from([0xff, 10])); child.emit('close', 0);},
-    (child, input) => {child.stdout.write(JSON.stringify(luaReply(input)) + '\n{}\n'); child.emit('close', 0);},
+  for (const [subcode, act] of [
+    ['exit', child => {child.exitCode = 1; child.emit('close', 1);}],
+    ['protocol', (child, input) => finish(child, {...luaReply(input), id: input.id + 1})],
+    ['invariant', (child, input) => {
+      const reply = luaReply(input); reply.result.result.declarations[0].addonId = 'wrong'; finish(child, reply);
+    }],
+    ['invariant', (child, input) => {
+      const reply = luaReply(input); reply.confirmedApiCalls.parseToc.invoked = 1; finish(child, reply);
+    }],
+    ['protocol', child => {child.stdout.write(Buffer.from([0xff, 10])); child.emit('close', 0);}],
+    ['protocol', (child, input) => {child.stdout.write(JSON.stringify(luaReply(input)) + '\n{}\n'); child.emit('close', 0);}],
   ]) {
     const transport = fake(act), client = createGraphAnalyzer(transport);
     try { await assert.rejects(client.analyze(request('lua', 'Out=1')), error =>
-      /^graph-analysis-(exit|invariant)$/u.test(error.message) && !Object.hasOwn(error, 'confirmedApiCalls')); }
+      error.message === 'graph-analysis-' + subcode && !Object.hasOwn(error, 'confirmedApiCalls')); }
     finally { await client.close(); }
   }
 });

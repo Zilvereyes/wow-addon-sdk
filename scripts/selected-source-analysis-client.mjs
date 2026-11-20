@@ -7,13 +7,17 @@ import {launcherRequestLimits} from './selected-source-launcher-limits.mjs';
 
 const worker = fileURLToPath(new URL('./selected-source-analysis-worker.mjs', import.meta.url));
 const reapLimit = 10000;
+const replySubcode = error => error?.message === 'graph-analysis-protocol' ? error.message : 'graph-analysis-invariant';
 
 function decodeReply(chunks, bytes, id, request) {
-  const buffer = Buffer.concat(chunks, bytes);
-  if (buffer.at(-1) !== 10 || buffer.subarray(0, -1).includes(10)) throw Error();
-  const reply = JSON.parse(new TextDecoder('utf-8', {fatal: true}).decode(buffer.subarray(0, -1)));
-  exact(reply, ['id', 'result', 'confirmedApiCalls', 'failure']);
-  if (reply.id !== id) throw Error();
+  let reply;
+  try {
+    const buffer = Buffer.concat(chunks, bytes);
+    if (buffer.at(-1) !== 10 || buffer.subarray(0, -1).includes(10)) throw Error();
+    reply = JSON.parse(new TextDecoder('utf-8', {fatal: true}).decode(buffer.subarray(0, -1)));
+    exact(reply, ['id', 'result', 'confirmedApiCalls', 'failure']);
+    if (reply.id !== id) throw Error();
+  } catch {throw Error('graph-analysis-protocol');}
   const {id: _id, ...body} = reply;
   return verifyGraphAnalysisReply(body, request);
 }
@@ -128,7 +132,7 @@ export function createGraphAnalyzer({spawnProcess = spawn, now = () => performan
     });
     child.stdout.on('data', chunk => {
       if (state.pending) state.pending.receive(chunk);
-      else state.fail('graph-analysis-invariant');
+      else state.fail('graph-analysis-protocol');
     });
     child.once('exit', () => {
       state.exited = true;
@@ -178,7 +182,7 @@ export function createGraphAnalyzer({spawnProcess = spawn, now = () => performan
       function verify() {
         if (expired()) return;
         try {checked = decodeReply(chunks, bytes, id, request);}
-        catch {state.fail('graph-analysis-invariant'); return;}
+        catch (error) {state.fail(replySubcode(error)); return;}
         chunks.length = 0;
         if (expired()) return;
         const retiring = last || checked.failure !== null;
@@ -200,7 +204,7 @@ export function createGraphAnalyzer({spawnProcess = spawn, now = () => performan
           if (bytes > outputCap || chunks.length >= 8192) {state.fail('graph-analysis-output-limit'); return;}
           const newline = chunk.indexOf(10);
           if (pending.hasFrame || (newline !== -1 && newline !== chunk.length - 1)) {
-            state.fail('graph-analysis-invariant'); return;
+            state.fail('graph-analysis-protocol'); return;
           }
           chunks.push(chunk);
           if (newline !== -1) {
@@ -293,7 +297,7 @@ export function createGraphAnalyzer({spawnProcess = spawn, now = () => performan
               settled = true; clearTimeout(timer);
               if (checked.failure !== null) reject(replyError(checked));
               else resolve({result: checked.result, confirmedApiCalls: checked.confirmedApiCalls});
-            } catch { fail('graph-analysis-invariant'); }
+            } catch (error) { fail(replySubcode(error)); }
           };
           if (now() >= deadline) { fail('graph-analysis-timeout'); return; }
           try { child.stdin.end(payload, issue => { if (issue) fail('graph-analysis-write'); }); }
