@@ -14,6 +14,7 @@ import {prepareGraphContext} from './selected-source-context.mjs';
 import {createSelectedSourceHost} from './selected-source-host.mjs';
 import {analyzeSelectedSourceAggregate} from './selected-source-graph.mjs';
 import {observeGroupIntegrity, validIntegrity, sumIntegrity} from './selected-source-integrity.mjs';
+import {countFailure, graphFailurePhase, groupFailureSubcode, isCorpusFailureCode} from './selected-source-failures.mjs';
 
 export const GROUPED_SCHEMA_VERSION = 2;
 const RECEIPT_LIMIT = 1024 * 1024;
@@ -111,7 +112,7 @@ function visit(value, where, handle) {
 /** Sums fixed counts and histograms; complete/conformance flags are the conjunction of every group. */
 export function mergeAggregates(aggregates) {
   if (!Array.isArray(aggregates) || aggregates.length === 0) throw invalidReceipt();
-  const merged = Object.create(null);
+  const merged = Object.create(null), failureDetailsByCode = {};
   const ensure = (path_, target) => {
     let cursor = target;
     for (const key of path_.slice(0, -1)) {
@@ -122,7 +123,18 @@ export function mergeAggregates(aggregates) {
   };
   for (const [position, aggregate] of aggregates.entries()) {
     if (!record(aggregate) || aggregate.schemaVersion !== 1 || !GROUP_STATUSES.has(aggregate.status)) throw invalidReceipt();
-    visit(aggregate, '', (where, key, item) => {
+    const {failureDetailsByCode: details = {}, ...counts} = aggregate;
+    if (!record(details)) throw invalidReceipt();
+    for (const [phase, codes] of Object.entries(details)) {
+      if (!record(codes)) throw invalidReceipt();
+      for (const [subcode, count] of Object.entries(codes)) {
+        if (!isCorpusFailureCode(phase, subcode) || !integer(count)) throw invalidReceipt();
+        const next = (failureDetailsByCode[phase]?.[subcode] ?? 0) + count;
+        if (!integer(next)) throw invalidReceipt();
+        (failureDetailsByCode[phase] ??= {})[subcode] = next;
+      }
+    }
+    visit(counts, '', (where, key, item) => {
       if (where === 'schemaVersion' || where === 'status') return;
       const parts = where.split('.'), parent = ensure(parts, merged), isFlag = FLAG_PATHS.has(where);
       if (typeof item === 'boolean') {
@@ -140,7 +152,8 @@ export function mergeAggregates(aggregates) {
   // Histogram contents (paths containing ByCode) are keyed by diagnostic code and may differ between groups.
   const shape = aggregate => {
     const keys = new Set();
-    visit(aggregate, '', where => {if (!where.includes('ByCode')) keys.add(where);});
+    const {failureDetailsByCode: _details, ...counts} = aggregate;
+    visit(counts, '', where => {if (!where.includes('ByCode')) keys.add(where);});
     return keys;
   };
   const expected = shape(aggregates[0]);
@@ -149,6 +162,7 @@ export function mergeAggregates(aggregates) {
     if (seen.size !== expected.size || [...expected].some(where => !seen.has(where))) throw invalidReceipt();
   }
   const plain = value => record(value) ? Object.fromEntries(Object.entries(value).map(([k, v]) => [k, plain(v)])) : value;
+  merged.failureDetailsByCode = failureDetailsByCode;
   return plain(merged);
 }
 
@@ -184,6 +198,7 @@ export async function runGroupedSelectedSources({root, request, receiptDirectory
   prepare(request); // The complete request must pass preflight before any host or receipt exists.
   const groups = request.profile.addons, completed = [], integrities = [], timings = [], failedIndexes = [];
   let resumed = 0;
+  const groupFailuresByCode = {};
   for (let index = 0; index < groups.length; index++) {
     const single = {...request, profile: {...request.profile, addons: [groups[index]]}};
     const digest = groupDigest(request, groups[index], runtimeId);
@@ -194,21 +209,31 @@ export async function runGroupedSelectedSources({root, request, receiptDirectory
     }
     const started = now();
     let aggregate = null, code = null, observer = null, integrity = null;
+    let phase = 'prepareGroup', subcode = 'unknown';
     try {
       const context = prepare(single);
+      phase = 'initializeHost';
       const host = await createHost(root, context);
       observer = observeGroupIntegrity(host, root);
+      phase = 'analyzeGroup';
       aggregate = await analyze(single, observer.host);
+      phase = 'aggregateGroup';
       mergeAggregates([aggregate]);
     } catch (error) {
       aggregate = null;
       code = typeof error?.code === 'string' && error.code.length <= 64 && FAILURE_CODE.test(error.code) ? error.code : null;
+      phase = graphFailurePhase(error, phase);
+      subcode = groupFailureSubcode(error);
     }
     const after = safeFingerprint(fingerprint, root, groups[index]);
     try {integrity = observer?.finish() ?? null;} catch {integrity = null;}
-    if (aggregate && (before === null || after === null)) {aggregate = null; code = 'grouped-fingerprint';}
-    else if (aggregate && before !== after) {aggregate = null; code = 'grouped-source-changed';}
-    else if (aggregate && !validIntegrity(integrity)) {aggregate = null; code = 'grouped-integrity';} // No valid observation, no completed group.
+    if (aggregate && (before === null || after === null)) {
+      aggregate = null; phase = 'fingerprint'; code = subcode = 'grouped-fingerprint';
+    } else if (aggregate && before !== after) {
+      aggregate = null; phase = 'fingerprint'; code = subcode = 'grouped-source-changed';
+    } else if (aggregate && !validIntegrity(integrity)) {
+      aggregate = null; phase = 'integrity'; code = subcode = 'grouped-integrity';
+    }
     const durationMilliseconds = Math.max(0, Math.round(now() - started));
     const parentPeakRssKiB = Math.max(0, Math.round(process.resourceUsage().maxRSS));
     timings.push(durationMilliseconds);
@@ -218,9 +243,10 @@ export async function runGroupedSelectedSources({root, request, receiptDirectory
       completed.push(aggregate); integrities.push(integrity);
     } else {
       failedIndexes.push(index);
+      countFailure(groupFailuresByCode, phase, subcode);
       fs.rmSync(path.join(directory, groupFileName(index)), {force: true});
       writeAtomic(directory, failedFileName(index), {schemaVersion: GROUPED_SCHEMA_VERSION,
-        kind: 'selected-source-group', index, digest, outcome: 'failed', code, durationMilliseconds, parentPeakRssKiB});
+        kind: 'selected-source-group', index, digest, outcome: 'failed', code, phase, subcode, durationMilliseconds, parentPeakRssKiB});
     }
   }
   // A group that later completes must not leave a stale failure record behind.
@@ -234,6 +260,7 @@ export async function runGroupedSelectedSources({root, request, receiptDirectory
   const batch = {schemaVersion: GROUPED_SCHEMA_VERSION, kind: 'selected-source-batch', aggregation: 'sum-of-per-group-runs',
     status, groups: counts, timing: {totalGroupMilliseconds: timings.reduce((sum, value) => sum + value, 0),
       maximumGroupMilliseconds: Math.max(0, ...timings), perGroupMilliseconds: timings},
+    groupFailuresByCode,
     aggregate: completed.length > 0 ? mergeAggregates(completed) : null,
     integrity: integrities.length > 0 ? sumIntegrity(integrities) : null};
   writeAtomic(directory, BATCH_FILE, batch);

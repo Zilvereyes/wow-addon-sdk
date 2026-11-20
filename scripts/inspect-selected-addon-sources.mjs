@@ -7,6 +7,7 @@ import {validateXmlProviderProfile} from './xml-provider-validation.mjs';
 import {validateXmlInlineProfile} from './xml-inline-lua-validation.mjs';
 import {createSelectedSourceHost} from './selected-source-host.mjs';
 import {analyzeSelectedSourceAggregate} from './selected-source-graph.mjs';
+import {graphFailurePhase, groupFailureSubcode} from './selected-source-failures.mjs';
 
 const required = ['--graph-profile', '--resolution-profile', '--xml-provider-profile', '--xml-inline-lua-profile'];
 const invalid = () => {throw Error('Invalid selected-source CLI input.');};
@@ -39,13 +40,17 @@ try {
   process.stderr.write('Invalid selected-source graph input.\n'); process.exitCode = 2;
 }
 if (context) {
+  let phase = 'initializeHost';
   try {
     // No source host exists until all four bounded profiles have passed preflight.
     const host = await createSelectedSourceHost(root, context);
+    phase = 'analyzeGroup';
     const aggregate = await analyzeSelectedSourceAggregate(request, host);
     process.stdout.write(JSON.stringify(aggregate) + '\n');
     process.exitCode = aggregate.completeUnderPolicy === true && aggregate.status === 'passed' ? 0 : 1;
-  } catch {
-    process.stderr.write('Selected-source graph analysis failed.\n'); process.exitCode = 1;
+  } catch (error) {
+    const detail = {phase: graphFailurePhase(error, phase), subcode: groupFailureSubcode(error)};
+    process.stderr.write('Selected-source graph analysis failed.\n' + JSON.stringify(detail) + '\n');
+    process.exitCode = 1;
   }
 }

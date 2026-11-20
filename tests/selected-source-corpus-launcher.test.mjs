@@ -179,13 +179,13 @@ test('an idle launcher exit blocks new writes and replacement until direct close
 });
 
 for (const [label, act, code] of [
-  ['malformed UTF-8', ({child}) => child.stdout.write(Buffer.from([0xff, 10])), 'graph-analysis-invariant'],
-  ['a stale ID', ({child}, input) => child.stdout.write(frame(input, {id: input.id - 1})), 'graph-analysis-invariant'],
-  ['an extra frame', ({child}, input) => child.stdout.write(Buffer.concat([frame(input), Buffer.from('{}\n')])), 'graph-analysis-invariant'],
+  ['malformed UTF-8', ({child}) => child.stdout.write(Buffer.from([0xff, 10])), 'graph-analysis-protocol'],
+  ['a stale ID', ({child}, input) => child.stdout.write(frame(input, {id: input.id - 1})), 'graph-analysis-protocol'],
+  ['an extra frame', ({child}, input) => child.stdout.write(Buffer.concat([frame(input), Buffer.from('{}\n')])), 'graph-analysis-protocol'],
   ['adjacent frames in separate chunks', ({child}, input) => {
     child.stdout.write(frame(input));
     child.stdout.write(Buffer.from('{}\n'));
-  }, 'graph-analysis-invariant'],
+  }, 'graph-analysis-protocol'],
   ['unexpected EOF after an interim frame', ({child}, input) => child.stdout.end(frame(input)), 'graph-analysis-exit'],
   ['EOF before a response', launch => launch.acknowledge(), 'graph-analysis-exit'],
 ]) {
@@ -256,7 +256,7 @@ test('corpus response cap resets per request and idle output retires the launche
     await assert.rejects(client.analyze(input, 1), withoutReceipts('graph-analysis-timeout'));
     assert.equal(launches.length, 2);
     second.acknowledge(null);
-    await assert.rejects(client.analyze(input), withoutReceipts('graph-analysis-invariant'));
+    await assert.rejects(client.analyze(input), withoutReceipts('graph-analysis-protocol'));
     assert.equal(launches.length, 2);
     assert.deepEqual(await client.analyze(input), expected(input));
     assert.equal(launches.length, 3);

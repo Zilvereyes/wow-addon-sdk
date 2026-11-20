@@ -9,6 +9,30 @@ import {emptyGraphCalls} from '../scripts/selected-source-analysis.mjs';
 import {analyzeSelectedSourceAggregate, analyzeSelectedSources} from '../scripts/selected-source-graph.mjs';
 import {context, memoryHost, simple, slash} from './selected-source-engine-fixtures.mjs';
 
+test('aggregate keeps XML timeout, protocol and worker exit distinct under SGRAPH0007', async () => {
+  const files = simple();
+  const subcodes = ['graph-analysis-timeout', 'graph-analysis-protocol', 'graph-analysis-exit'];
+  const names = ['Time.xml', 'Protocol.xml', 'Exit.xml'];
+  files['Demo/Demo_Vanilla.toc'] = names.join('\n');
+  const faultByPath = new Map(names.map((name, index) => [`Demo/${name}`, subcodes[index]]));
+  for (const name of faultByPath.keys()) files[name] = '<Ui/>';
+  const fixture = memoryHost(files, host => {
+    const analyze = host.analyze;
+    host.analyze = async input => {
+      const subcode = faultByPath.get(slash(input.sourcePath));
+      if (subcode) throw Error(subcode);
+      return analyze(input);
+    };
+  });
+  const report = await analyzeSelectedSourceAggregate(getGraphRequest(context()), fixture.host);
+  assert.deepEqual(report.issuesByCode, {SGRAPH0007: 3});
+  assert.deepEqual(report.failureDetailsByCode, {analyzeSource: Object.fromEntries(subcodes.map(code => [code, 1]))});
+  assert.equal(report.languages.xml.sourceRequestsFailed, 3);
+  assert.equal(report.languages.xml.syntaxVerdictFiles, 0);
+  assert.equal(report.languages.xml.sourceIntegrity.matching, 3);
+  assert.equal(JSON.stringify(report).includes('Protocol.xml'), false);
+});
+
 function authoredWithoutInline(files, changeReply) {
   return memoryHost(files, host => {
     host.nowMilliseconds = () => 0;

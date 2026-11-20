@@ -6,6 +6,8 @@ import path from 'node:path';
 import {createSelectedSourceHost} from '../scripts/selected-source-host.mjs';
 import {traceSelectedSources} from '../scripts/selected-source-engine.mjs';
 import {context} from './selected-source-engine-fixtures.mjs';
+import {getGraphRequest} from '../scripts/selected-source-context.mjs';
+import {analyzeSelectedSourceAggregate} from '../scripts/selected-source-graph.mjs';
 
 async function fixture(run) {
   const temporary = path.resolve(os.tmpdir()), root = fs.mkdtempSync(path.join(temporary, 'wow-sdk-graph-composed-'));
@@ -42,6 +44,25 @@ test('composed native host shares exact payload/probe allowance with graph and i
     assert.equal(lua.failureCounts.resource, complete ? 0 : 1); assert.equal(lua.failureCounts.read, 0);
     assert.equal(fs.readFileSync(path.join(root, 'Demo', 'Core.lua'), 'utf8'), 'X=1');
   }
+}));
+
+test('the aggregate reports a Windows helper protocol failure during discovery', () => fixture(async root => {
+  const config = requested({});
+  let ready = false;
+  const inspectorFactory = () => ({
+    async inspect(paths) {
+      if (ready) throw Error('graph-attributes-protocol');
+      return paths.map(() => ({ok: true, reparsePoint: false}));
+    },
+    async close() {},
+  });
+  const host = await createSelectedSourceHost(root, config, {inspectorFactory});
+  ready = true;
+  const report = await analyzeSelectedSourceAggregate(getGraphRequest(config), host);
+  assert.deepEqual(report.failureDetailsByCode, {listDirectory: {'graph-attributes-protocol': 1}});
+  assert.equal(report.discovery.complete, false);
+  assert.equal(report.status, 'failed');
+  assert.equal(report.issuesByCode.SGRAPH0006, 1);
 }));
 
 test('composed host operation clock starts before traversal and cannot reset after bootstrap', () => fixture(async root => {

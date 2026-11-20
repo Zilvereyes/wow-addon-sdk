@@ -8,11 +8,13 @@ import {normalizeGraphPath} from './selected-source-profile.mjs';
 import {readBoundedFile} from './read-bounded-file.mjs';
 import {createWindowsPathInspector} from './selected-source-windows.mjs';
 import {requireGraphBudget} from './selected-source-budget.mjs';
+import {attributeSubcode} from './selected-source-failures.mjs';
 
 const failureCheck=Symbol('native failure check');
-function fail(kind,check=null){
+function fail(kind,check=null,subcode=null){
   const error=Object.assign(Error('graph-native-'+kind),{code:'graph-native-'+kind});
   Object.defineProperty(error,failureCheck,{value:check});
+  if(subcode!==null)error.subcode=subcode;
   throw error;
 }
 const fold=value=>value.replace(/[A-Z]/gu,c=>c.toLowerCase());
@@ -36,7 +38,7 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     try{
       const native=error!=null&&Object.hasOwn(error,failureCheck);
       onFailure({operation,outcome,code:native?error.code:check===null?'graph-native-io':null,
-        check:native?error[failureCheck]:check});
+        check:native?error[failureCheck]:check,...(native&&error.code==='graph-native-attributes'?{subcode:attributeSubcode(error)}:{})});
     }catch{ /* Diagnostics cannot replace the native operation's outcome. */ }
   }
   function check(){if(closed)fail('closed');if(budget)shared(()=>budget.check());if(now()-started>=limits.operationMilliseconds)fail('budget');}
@@ -73,12 +75,17 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
     check();const stat=io.lstatSync(absolute,{bigint:true});if(stat.isSymbolicLink())fail('link');
     return stat;
   }
-  async function inspectLinkFree(paths){
+  async function inspectAttributes(paths){
     let rows;
-    try{rows=await inspector.inspect(paths,remaining());}catch{check();fail('attributes');}
-    if(!Array.isArray(rows)||rows.length!==paths.length)fail('attributes');
+    try{rows=await inspector.inspect(paths,remaining());}
+    catch(error){check();fail('attributes',null,attributeSubcode(error));}
+    if(!Array.isArray(rows)||rows.length!==paths.length)fail('attributes',null,'graph-attributes-protocol');
+    return rows;
+  }
+  async function inspectLinkFree(paths){
+    const rows=await inspectAttributes(paths);
     for(const row of rows){
-      if(!row?.ok)fail('attributes');
+      if(!row?.ok)fail('attributes',null,'graph-attributes-unavailable');
       if(row.reparsePoint)fail('link');
     }
   }
@@ -144,9 +151,8 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
       }
     }finally{dir.closeSync();}
     if(inspector)for(let i=0;i<entries.length;i+=128){
-      const batch=entries.slice(i,i+128);let rows;
-      try{rows=await inspector.inspect(batch.map(row=>path.join(absolute,row.name)),remaining());}
-      catch{check();fail('attributes');}
+      const batch=entries.slice(i,i+128);
+      const rows=await inspectAttributes(batch.map(row=>path.join(absolute,row.name)));
       for(let j=0;j<rows.length;j++){
         if(!rows[j].ok)fail('changed','directory-entry-attributes');
         if(rows[j].reparsePoint){batch[j].reparsePoint=true;batch[j].kind='link';}
@@ -262,7 +268,12 @@ export async function createGraphFileHost(rootInput,context,{io=fs,now=()=>perfo
       ancestors.push({absolute,identity:identity(stat)});
     }
     canonicalRoot=io.realpathSync(root);
-  }catch(error){await inspector?.close();if(error?.code?.startsWith('graph-native-'))throw error;fail('root');}
+  }catch(error){
+    // Bootstrap is already failed. A second error during cleanup cannot replace its cause.
+    try{await inspector?.close();}catch{/* The inspector has already attempted to reap the helper. */}
+    if(error?.code?.startsWith('graph-native-'))throw error;
+    fail('root');
+  }
   return{
     resolvePath:async(relative,options={})=>{
       try{return await exclusive(async()=>{

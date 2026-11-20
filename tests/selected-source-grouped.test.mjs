@@ -6,6 +6,8 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
+import {createSelectedSourceHost} from '../scripts/selected-source-host.mjs';
+import {context} from './selected-source-engine-fixtures.mjs';
 import {groupDigest, groupFileName, mergeAggregates, runGroupedSelectedSources} from '../scripts/selected-source-grouped.mjs';
 
 const full = fileURLToPath(new URL('../scripts/inspect-selected-addon-sources.mjs', import.meta.url));
@@ -69,8 +71,10 @@ test('a failing group does not stop later groups and only that group repeats on 
   assert.ok(fs.existsSync(path.join(base, groupFileName(0)))); assert.ok(fs.existsSync(path.join(base, groupFileName(2))));
   assert.equal(fs.existsSync(path.join(base, groupFileName(1))), false);
   const failure = JSON.parse(fs.readFileSync(path.join(base, 'group-0002.failed.json'), 'utf8'));
-  assert.deepEqual(Object.keys(failure).sort(), ['code', 'digest', 'durationMilliseconds', 'index', 'kind', 'outcome', 'parentPeakRssKiB', 'schemaVersion']);
+  assert.deepEqual(Object.keys(failure).sort(), ['code', 'digest', 'durationMilliseconds', 'index', 'kind', 'outcome', 'parentPeakRssKiB', 'phase', 'schemaVersion', 'subcode']);
   assert.equal(failure.code, 'SGRAPH0005');
+  assert.equal(failure.phase, 'analyzeGroup');
+  assert.equal(failure.subcode, 'SGRAPH0005');
   broken = false;
   const two = await run(second);
   assert.deepEqual(second, ['PrivateBeta']);
@@ -93,8 +97,13 @@ test('receipts and the batch receipt never contain addon identities, directories
 test('a changed profile, group or runtime label invalidates old receipts; --no-resume repeats everything', () => temporary(async base => {
   const request = requestFor(['AlphaDir', 'BetaDir']);
   const run = (override = {}, calls = []) => runGroupedSelectedSources({root: base, request, receiptDirectory: base,
-    ...override, ...seams(() => counts('passed'), calls)});
+    ...override, ...seams(() => ({...counts('passed'), failureDetailsByCode: {}}), calls)});
   await run();
+  const oldReceiptPath = path.join(base, groupFileName(0));
+  const oldReceipt = JSON.parse(fs.readFileSync(oldReceiptPath, 'utf8'));
+  assert.deepEqual(oldReceipt.aggregate.failureDetailsByCode, {});
+  delete oldReceipt.aggregate.failureDetailsByCode;
+  fs.writeFileSync(oldReceiptPath, JSON.stringify(oldReceipt));
   const same = []; assert.equal((await run({}, same)).report.groups.resumed, 2); assert.deepEqual(same, []);
   const labelled = []; await run({runtimeId: 'other-build'}, labelled); assert.deepEqual(labelled, ['AlphaDir', 'BetaDir']);
   const forced = []; await run({resume: false, runtimeId: 'other-build'}, forced); assert.deepEqual(forced, ['AlphaDir', 'BetaDir']);
@@ -258,7 +267,46 @@ test('fixed graph and grouped failure codes are kept and anything else becomes n
     ...seams(name => {throw Object.assign(new Error('private text'), {code: codes[name]});})});
   const read = index => JSON.parse(fs.readFileSync(path.join(base, `group-000${index}.failed.json`), 'utf8')).code;
   assert.equal(read(1), 'graph-native-attributes'); assert.equal(read(2), null); assert.equal(read(3), 'SGRAPH0005');
+  const fallback = JSON.parse(fs.readFileSync(path.join(base, 'group-0002.failed.json'), 'utf8'));
+  assert.equal(fallback.phase, 'analyzeGroup');
+  assert.equal(fallback.subcode, 'unknown');
 }));
+
+test('native helper failures keep their subcodes in failed group and batch receipts', () => temporary(async base => {
+  const request = requestFor(['Timeout', 'Protocol']);
+  let invocation = 0;
+  const subcodes = ['graph-attributes-timeout', 'graph-attributes-protocol'];
+  const result = await runGroupedSelectedSources({root: base, request, receiptDirectory: base,
+    ...seams(() => {throw Error('Unexpected analysis');}),
+    createHost: async root => {
+      const subcode = subcodes[invocation++];
+      return createSelectedSourceHost(root, context(), {
+        inspectorFactory: () => ({
+          async inspect() {throw Error(subcode);},
+          async close() {if (subcode === 'graph-attributes-timeout') throw Error('graph-attributes-reap');},
+        }),
+      });
+    },
+  });
+  for (const [index, subcode] of subcodes.entries()) {
+    const failure = JSON.parse(fs.readFileSync(path.join(base, `group-000${index + 1}.failed.json`), 'utf8'));
+    assert.equal(failure.code, 'graph-native-attributes');
+    assert.equal(failure.phase, 'initializeHost');
+    assert.equal(failure.subcode, subcode);
+  }
+  assert.deepEqual(result.report.groupFailuresByCode, {initializeHost: Object.fromEntries(subcodes.map(code => [code, 1]))});
+}));
+
+test('merge accepts older receipts and validates transport labels before returning batch totals', () => {
+  const legacy = counts('passed');
+  const current = {...counts('failed'), failureDetailsByCode: {analyzeSource: {'graph-analysis-exit': 1}}};
+  assert.deepEqual(mergeAggregates([legacy, current, current]).failureDetailsByCode,
+    {analyzeSource: {'graph-analysis-exit': 2}});
+  for (const bad of [{analyzeSource: {'private-label': 1}}, {initializeHost: {'graph-analysis-exit': 1}},
+    {analyzeSource: {'graph-analysis-exit': -1}}, {analyzeSource: ['graph-analysis-exit']}]) {
+    assert.throws(() => mergeAggregates([{...current, failureDetailsByCode: bad}]), {code: 'grouped-receipt'});
+  }
+});
 
 test('merge rejects a later aggregate that adds a fixed-shape key the first one lacks', () => {
   assert.throws(() => mergeAggregates([counts('passed'), {...counts('passed'), extra: 1}]), {code: 'grouped-receipt'});

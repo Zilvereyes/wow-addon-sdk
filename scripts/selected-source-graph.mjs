@@ -10,10 +10,17 @@ async function analyzeGraph(request, host, keepXmlSyntax) {
   catch (error) {await host.close(); throw error;}
   // trace always closes/reaps the host before resolver publication. If no quota
   // remains for a complete owned result, reject rather than publish a prefix.
-  const trace = await traceSelectedSources(context, host, {keepXmlSyntax}), budget = trace.budget;
-  const composition = composeGraphResolution(context, trace);
-  const aggregate = buildSelectedSourceAggregate(context, trace, composition);
-  return {trace, composition, aggregate};
+  let phase = 'traceGraph';
+  try {
+    const trace = await traceSelectedSources(context, host, {keepXmlSyntax});
+    phase = 'composeResolution';
+    const composition = composeGraphResolution(context, trace);
+    phase = 'buildAggregate';
+    const aggregate = buildSelectedSourceAggregate(context, trace, composition);
+    return {trace, composition, aggregate};
+  } catch (error) {
+    throw Object.assign(Error('Selected-source graph analysis failed.', {cause: error}), {phase, code: error?.code});
+  }
 }
 
 export async function analyzeSelectedSourceAggregate(request, host) {

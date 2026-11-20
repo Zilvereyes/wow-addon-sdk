@@ -229,14 +229,14 @@ for (const reportOn of ['analyze', 'close']) {
       lua.acknowledge();
       tocXml.acknowledge();
       if (reportOn === 'analyze') {
-        await assert.rejects(client.analyze(request('lua', 2)), withoutReceipts('invariant'));
+        await assert.rejects(client.analyze(request('lua', 2)), withoutReceipts('protocol'));
         assert.equal(launches.length, 2);
         const retry = request('lua', 3);
         assert.deepEqual(await client.analyze(retry), expected(retry));
         assert.equal(launches.length, 3);
         assert.equal(launches[2].requests.length, 1);
       } else {
-        await assert.rejects(client.close(), withoutReceipts('invariant'));
+        await assert.rejects(client.close(), withoutReceipts('protocol'));
         assert.equal(launches.length, 2);
       }
       assert.deepEqual(finalReply, valid);
@@ -256,7 +256,7 @@ test('faulted launcher ownership survives an exit event until the sibling closes
     lua.acknowledge();
     tocXml.child.emit('exit', null, 'SIGKILL');
 
-    const reported = assert.rejects(client.analyze(request('lua', 2)), withoutReceipts('invariant'));
+    const reported = assert.rejects(client.analyze(request('lua', 2)), withoutReceipts('protocol'));
     // The fault can be reported immediately or after close. Neither permits a replacement.
     await assert.rejects(client.analyze(request('lua', 3), 3), /graph-analysis-(busy|timeout|reap)/u);
     assert.equal(launches.length, 2);
