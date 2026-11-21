@@ -16,8 +16,9 @@ async function analyzeGraph(request, host, keepXmlSyntax) {
   return {trace, composition, aggregate};
 }
 
-export async function analyzeSelectedSourceAggregate(request, host) {
+export async function analyzeSelectedSourceAggregate(request, host, {onVerifiedInputs} = {}) {
   const {trace, aggregate} = await analyzeGraph(request, host, false);
+  if (aggregate.status !== 'failed' && aggregate.discovery.complete) onVerifiedInputs?.(trace);
   trace.budget.check();
   return aggregate;
 }
