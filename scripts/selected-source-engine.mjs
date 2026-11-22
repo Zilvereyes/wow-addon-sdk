@@ -8,6 +8,9 @@ import {selectGraphToc, openGraphReference} from './selected-source-selection.mj
 import {verifyGraphAnalysisReply, snapshotGraphAnalysisRequest} from './selected-source-analysis.mjs';
 
 const fold = value => value.replace(/[A-Z]/gu, unit => unit.toLowerCase());
+/** Version-control directory names that broad discovery never lists (ASCII case-insensitive; issue #11 decision A–D). */
+export const VCS_DIRECTORY_NAMES = Object.freeze(['.git', '.svn', '.hg']);
+export const isVcsDirectoryName = name => VCS_DIRECTORY_NAMES.includes(fold(name));
 const language = value => ({'.toc': 'toc', '.lua': 'lua', '.xml': 'xml'})[path.extname(value).toLowerCase()] ?? null;
 const directoryEntryFields = ['name', 'kind', 'reparsePoint'];
 const directoryEntryKeyUnits = directoryEntryFields.reduce((sum, field) => sum + field.length, 0);
@@ -35,7 +38,7 @@ export async function traceSelectedSources(context, host, {keepXmlSyntax = true}
     shared = graphHostBudget(host, context); budget = shared ?? createGraphBudget(context, {now: () => host.nowMilliseconds()});
   } catch (error) {await host.close(); throw error;}
   const trace = {schemaVersion: 1, groups: [], nodes: [], analyses: [], references: [], occurrences: [], guardEvaluations: [], issues: [],
-    discovery: {complete: true, entriesVisited: 0, found: {toc: 0, lua: 0, xml: 0}, rejectedLinks: 0, unrepresentableEntries: 0},
+    discovery: {complete: true, entriesVisited: 0, found: {toc: 0, lua: 0, xml: 0}, rejectedLinks: 0, unrepresentableEntries: 0, excludedVcsDirectories: 0},
     files: new Map(), directories: new Map(), providerBatches: new Map(), budget, fatal: null};
   const emergency = {code: 'SGRAPH0005', sources: []};
   const analysisCache = new Map(), textCache = new Map(), failedDirectories = new Set();
@@ -153,6 +156,8 @@ export async function traceSelectedSources(context, host, {keepXmlSyntax = true}
           if (row.kind === 'link' || row.reparsePoint) {trace.discovery.rejectedLinks++; trace.discovery.complete = false; continue;}
           if (row.kind === 'unsupported') {trace.discovery.unrepresentableEntries++; trace.discovery.complete = false; continue;}
           if (row.kind === 'directory') {
+            // Explicit references still resolve through lookup(); only the broad walk skips these.
+            if (isVcsDirectoryName(row.name)) {trace.discovery.excludedVcsDirectories++; continue;}
             if (depth + 1 > limits.directoryDepth) {trace.discovery.complete = false; problem('SGRAPH0005'); continue;}
             children.push({key: path.join(key, row.name), depth: depth + 1});
           } else {const selected = language(row.name); if (selected) trace.discovery.found[selected]++;}

@@ -59,6 +59,8 @@ This is a stable-installation read-only adapter, **not an adversarial-filesystem
 
 TOC file entries may target Lua/XML; XML Include targets must be XML and external Script targets Lua. Other extensions remain visible as unsupported references, not silently successful skips. Discovery can count metadata for the bounded root, but only explicit TOC candidates and eligible referenced sources are opened as text. Unselected source read-count tests distinguish metadata enumeration from content reads.
 
+**Version-control directories** ([approved A–D](https://github.com/Zilvereyes/wow-addon-sdk/issues/11#issuecomment-7083568554)): broad discovery does not list directory entries named `.git`, `.svn` or `.hg` (ASCII case-insensitive; links and reparse points keep their existing rejection, and a `.git` file is unaffected). The fixed list is code, not a CLI flag or profile field. `discovery.excludedVcsDirectories` counts them; their contents are excluded from `entriesVisited`, `found` and final directory verification, and the exclusion does not make discovery incomplete. An explicit TOC/XML reference into such a directory still resolves through ordinary lookup and is analyzed. This prevents unrelated version-control churn, such as a background fetch, from producing `SGRAPH0006`.
+
 ## C — Conditions, occurrences and deterministic traversal
 
 Select TOCs **before** traversing their `metadata.fileEntries`. Preserve that list's duplicates/order and every original path/condition/source field. Translate file-entry conditions by the existing adapter's documented descriptor mapping: providerId `@wow-addon/toc-metadata-adapter`, exact name/values/raw/source copies. No new provider grammar or literal-union member is added.
