@@ -139,6 +139,8 @@ export interface SelectedSourceGraphAggregate {
     readonly complete: boolean; readonly entriesVisited: number;
     readonly found: Readonly<Record<SourceLanguage, number>>;
     readonly rejectedLinks: number; readonly unrepresentableEntries: number;
+    /** Directories named `.git`, `.svn` or `.hg` (ASCII case-insensitive) that broad discovery did not list. */
+    readonly excludedVcsDirectories: number;
   };
   readonly selection: {
     readonly requestedGroups: number; readonly selected: number; readonly noMatch: number;

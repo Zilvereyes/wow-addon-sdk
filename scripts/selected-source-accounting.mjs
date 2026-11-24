@@ -30,7 +30,7 @@ const languageCounts = () => ({
 });
 const empty = () => ({
   schemaVersion: 1, status: 'incomplete', completeUnderPolicy: false, fullParsing: false, clientConformance: false,
-  discovery: {complete: false, entriesVisited: 0, found: counts(), rejectedLinks: 0, unrepresentableEntries: 0},
+  discovery: {complete: false, entriesVisited: 0, found: counts(), rejectedLinks: 0, unrepresentableEntries: 0, excludedVcsDirectories: 0},
   selection: {requestedGroups: 0, selected: 0, noMatch: 0, unresolved: 0, ambiguous: 0, invalid: 0, notInvoked: 0,
     explicitCandidateRows: 0, selectedCandidateRows: 0, nonSelectedCandidateRows: 0, undecidedCandidateRows: 0},
   languages: {toc: languageCounts(), lua: languageCounts(), xml: languageCounts()},
@@ -95,7 +95,7 @@ export function buildSelectedSourceAggregate(context, trace, composition) {
   };
 
   aggregate.discovery.complete = trace.discovery.complete === true;
-  for (const key of ['entriesVisited', 'rejectedLinks', 'unrepresentableEntries']) add(aggregate.discovery, key, trace.discovery[key]);
+  for (const key of ['entriesVisited', 'rejectedLinks', 'unrepresentableEntries', 'excludedVcsDirectories']) add(aggregate.discovery, key, trace.discovery[key]);
   for (const language of LANGUAGES) add(aggregate.discovery.found, language, trace.discovery.found[language]);
   selection.requestedGroups = request.profile.addons.length;
   invariant(composition.groups.length <= selection.requestedGroups);

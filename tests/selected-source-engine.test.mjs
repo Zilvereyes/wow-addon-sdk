@@ -247,3 +247,52 @@ test('verified resource/backend receipts stay distinct from crashes and never gr
     assert.equal(trace.groups[0].resolutionEligible, false);
   }
 });
+
+test('discovery skips version-control directories without listing them or marking discovery incomplete', async () => {
+  async function run(folder) {
+    const files = simple();
+    files[`Demo/${folder}/objects/ab/Packed.lua`] = 'Packed=1';
+    files[`Demo/${folder}/Mirror.toc`] = 'Packed.lua';
+    files[`Demo/${folder}/Mirror.xml`] = '<Ui/>';
+    const listed = [];
+    const fixture = memoryHost(files, host => {
+      const listDirectory = host.listDirectory;
+      host.listDirectory = async name => {
+        listed.push(slash(name));
+        // Authored churn: a directory under this folder vanishes while it is being listed.
+        if (slash(name).startsWith(`Demo/${folder}`)) throw Object.assign(Error('authored vanished directory'), {code: 'ENOENT'});
+        return listDirectory(name);
+      };
+    });
+    const trace = await traceSelectedSources(context(), fixture.host);
+    assert.equal(fixture.closes, 1);
+    return {trace, listed};
+  }
+  for (const folder of ['.git', '.GIT', '.svn', '.hg']) {
+    const {trace, listed} = await run(folder);
+    assert.equal(trace.discovery.complete, true, folder);
+    assert.equal(trace.discovery.excludedVcsDirectories, 1, folder);
+    assert.ok(!listed.some(name => name.startsWith(`Demo/${folder}`)), folder);
+    assert.ok(!trace.issues.some(issue => issue.code === 'SGRAPH0006'), folder);
+    assert.deepEqual(trace.discovery.found, {toc: 2, lua: 3, xml: 2}, folder);
+    assert.ok(trace.groups.every(group => group.resolutionEligible), folder);
+  }
+  const control = await run('gitstuff');
+  assert.equal(control.trace.discovery.excludedVcsDirectories, 0);
+  assert.equal(control.trace.discovery.complete, false);
+  assert.ok(control.trace.issues.some(issue => issue.code === 'SGRAPH0006'));
+});
+
+test('explicit references into a version-control directory are still resolved and analyzed', async () => {
+  const files = simple();
+  files['Demo/Demo_Vanilla.toc'] = '.git/Inside.lua';
+  files['Demo/.git/Inside.lua'] = 'Inside=1';
+  const fixture = memoryHost(files);
+  const trace = await traceSelectedSources(context(), fixture.host);
+  assert.equal(fixture.closes, 1);
+  assert.equal(trace.discovery.excludedVcsDirectories, 1);
+  assert.equal(trace.discovery.complete, true);
+  assert.ok(fixture.reads.includes('Demo/.git/Inside.lua'));
+  assert.ok(trace.occurrences.some(row => slash(row.sourcePath) === 'Demo/.git/Inside.lua'));
+  assert.equal(trace.discovery.found.lua, 3);
+});
