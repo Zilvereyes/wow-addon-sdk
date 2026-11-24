@@ -87,7 +87,7 @@ export function mergeAggregates(aggregates) {
   return merged;
 }
 
-function readReceipt(directory, index, digest, maximumSources) {
+function readReceipt(directory, index, digest, maximumSources, maximumDirectories) {
   const name = groupFileName(index);
   if (!fs.existsSync(path.join(directory, name))) return null;
   try {
@@ -95,7 +95,7 @@ function readReceipt(directory, index, digest, maximumSources) {
     if (!record(receipt) || Object.keys(receipt).length !== 10 || receipt.schemaVersion !== GROUPED_SCHEMA_VERSION || receipt.kind !== 'selected-source-group' ||
       receipt.index !== index || receipt.digest !== digest || receipt.outcome !== 'completed' ||
       !integer(receipt.durationMilliseconds) || !integer(receipt.parentPeakRssKiB) ||
-      !validSelectedSourceCounts(receipt.aggregate) || !validInputReceipt(receipt.inputs, maximumSources) ||
+      !validSelectedSourceCounts(receipt.aggregate) || !validInputReceipt(receipt.inputs, maximumSources, maximumDirectories) ||
       receipt.payloadDigest !== receiptDigest([receipt.inputs, receipt.aggregate, receipt.durationMilliseconds, receipt.parentPeakRssKiB])) return null;
     // A run that returned status failed may have hit a transient read or timing fault, so it is repeated.
     return receipt.aggregate.status === 'failed' ? null : receipt;
@@ -147,8 +147,9 @@ export async function runGroupedSelectedSources({root, request, receiptDirectory
       try {
         const context = prepare(single);
         const maximumSources = single.profile.limits?.sourceNodes ?? GRAPH_LIMITS.sourceNodes;
+        const maximumDirectories = single.profile.limits?.directoryEntries ?? GRAPH_LIMITS.directoryEntries;
         assertDestination();
-        const saved = resume && runtimeId ? readReceipt(directory, index, digest, maximumSources) : null;
+        const saved = resume && runtimeId ? readReceipt(directory, index, digest, maximumSources, maximumDirectories) : null;
         if (saved) {
           let matching = false;
           const replay = await createHost(root, context, {now, began: started});
@@ -165,7 +166,7 @@ export async function runGroupedSelectedSources({root, request, receiptDirectory
         const host = await createHost(root, context, {now, began: started});
         aggregate = await analyze(single, host, {onVerifiedInputs: trace => {inputs = captureVerifiedInputs(trace);}});
         if (!validSelectedSourceCounts(aggregate)) throw invalidReceipt();
-        if (!validInputReceipt(inputs, maximumSources)) inputs = null;
+        if (!validInputReceipt(inputs, maximumSources, maximumDirectories)) inputs = null;
       } catch (error) {
         aggregate = null;
         code = FAILURE_CODES.has(error?.code) ? error.code : null;

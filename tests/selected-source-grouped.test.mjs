@@ -290,7 +290,10 @@ test('resume checks sibling dependencies, installation identity and discovery', 
   const {root, receipts} = emptyInstallation(base);
   const group = path.join(root, 'Authored'), sibling = path.join(root, 'Shared');
   fs.mkdirSync(group); fs.mkdirSync(sibling);
-  fs.writeFileSync(path.join(group, 'Authored_Vanilla.toc'), '..\\Shared\\Core.lua\n');
+  fs.writeFileSync(path.join(group, 'Authored_Vanilla.toc'), '..\\Shared\\Core.lua\n..\\.git\\Referenced.lua\n');
+  fs.mkdirSync(path.join(root, '.git', 'objects'), {recursive: true});
+  fs.writeFileSync(path.join(root, '.git', 'objects', 'Unrelated.lua'), 'Ignored=1\n');
+  fs.writeFileSync(path.join(root, '.git', 'Referenced.lua'), 'Explicit=1\n');
   const lua = path.join(sibling, 'Core.lua');
   fs.writeFileSync(lua, 'Other=1\n');
   const args = [root, ...profileArgs(profiles(base, ['Authored'])), '--receipt-directory', receipts, '--runtime-id', 'authored-release'];
@@ -300,9 +303,10 @@ test('resume checks sibling dependencies, installation identity and discovery', 
     return JSON.parse(result.stdout);
   };
   const first = call();
-  assert.equal(first.aggregate.languages.lua.syntaxAcceptedFiles, 1);
+  assert.equal(first.aggregate.languages.lua.syntaxAcceptedFiles, 2);
   const stored = JSON.parse(fs.readFileSync(path.join(receipts, groupFileName(0)), 'utf8'));
-  assert.equal(stored.inputs.sourceIds.length, 2);
+  assert.equal(stored.inputs.sourceIds.length, 3);
+  assert.ok(stored.inputs.vcsDirectoryIds.length >= 1);
   assert.match(stored.inputs.directoryDigest, /^[0-9a-f]{64}$/u);
   assert.equal(typeof stored.parentPeakRssKiB, 'number');
   assert.equal(call().groups.resumed, 1);
