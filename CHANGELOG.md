@@ -4,6 +4,10 @@ Changes are recorded by release. This project is in pre-1.0 development.
 
 ## [Unreleased]
 
+### Selected-source discovery skips version-control directories (issue #11 A–D; SDK packages unchanged)
+
+- Broad discovery no longer lists `.git`, `.svn` or `.hg` directories and reports their count as `discovery.excludedVcsDirectories`. Explicit references into them still resolve. Version-control churn during a run no longer makes discovery incomplete.
+
 ### v0.7.0 explicit inline Lua (source version; not published)
 
 - Implement approved A–E: explicit chunk/function-body context with bounded owned parameters and current-function vararg checks, plus disjoint original-XML range sidecars. Add five beta exports (78 overall: 16 runtime / 62 type-only) without changing core contracts, schemas, package edges or backend pins.

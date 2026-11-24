@@ -148,7 +148,7 @@ function unit(prepared = context()) {
     selection: null, graphComplete: false, analysisComplete: false, resolutionEligible: false}));
   const trace = {budget: createGraphBudget(prepared, {accountContext: false}), fatal: null, files: new Map(), analyses: [], nodes: [],
     occurrences: [], references: [], guardEvaluations: [], issues: [], discovery: {complete: true, entriesVisited: 0,
-      found: {toc: 0, lua: 0, xml: 0}, rejectedLinks: 0, unrepresentableEntries: 0}};
+      found: {toc: 0, lua: 0, xml: 0}, rejectedLinks: 0, unrepresentableEntries: 0, excludedVcsDirectories: 0}};
   const composition = {groups, resolved: {complete: true, entries: [], activeGlobals: [], diagnostics: [], issues: []}, complete: false, issues: [], declarationOrigins: []};
   return {prepared, trace, composition, aggregate: () => buildSelectedSourceAggregate(prepared, trace, composition)};
 }
