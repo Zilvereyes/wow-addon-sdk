@@ -8,10 +8,10 @@ export class GraphBudgetError extends Error {
 }
 const integer = value => Number.isSafeInteger(value) && value >= 0;
 const projectionError = () => Object.assign(Error('Invalid graph owned projection.'), {code: 'SGRAPH0007'});
-export function createGraphBudget(context, {now = () => performance.now(), accountContext = true} = {}) {
+export function createGraphBudget(context, {now = () => performance.now(), accountContext = true, began = now()} = {}) {
   const request = getGraphRequest(context), limits = request.profile.limits;
   const counters = Object.fromEntries(Object.keys(limits).filter(key => !['operationMilliseconds', 'pathUnits'].includes(key)).map(key => [key, 0]));
-  const began = now(); let last = began, retentionReclaimer = null;
+  let last = began, retentionReclaimer = null;
   if (!Number.isFinite(began)) throw new GraphBudgetError('operationMilliseconds');
   const check = () => {
     const current = now();

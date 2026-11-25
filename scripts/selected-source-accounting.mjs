@@ -28,7 +28,7 @@ const languageCounts = () => ({
   analysisDiagnosticsByCode: {}, occurrenceDiagnosticsByCode: {},
   sourceIntegrity: {checked: 0, matching: 0, changed: 0, verificationFailures: 0},
 });
-const empty = () => ({
+export const createSelectedSourceCounts = () => ({
   schemaVersion: 1, status: 'incomplete', completeUnderPolicy: false, fullParsing: false, clientConformance: false,
   discovery: {complete: false, entriesVisited: 0, found: counts(), rejectedLinks: 0, unrepresentableEntries: 0, excludedVcsDirectories: 0},
   selection: {requestedGroups: 0, selected: 0, noMatch: 0, unresolved: 0, ambiguous: 0, invalid: 0, notInvoked: 0,
@@ -47,6 +47,34 @@ const empty = () => ({
     activeGlobals: 0, availability: {active: 0, inactive: 0, unknown: 0}, issuesByCode: {}},
   issuesByCode: {},
 });
+
+const histogramCodes = new Map([
+  ...LANGUAGES.flatMap(language => ['analysisDiagnosticsByCode', 'occurrenceDiagnosticsByCode']
+    .map(field => [`languages.${language}.${field}`, DIAGNOSTICS])),
+  ['graph.guardIssuesByCode', GUARD_CODES],
+  ['inlineLua.diagnosticsByCode', DIAGNOSTICS],
+  ['resolution.issuesByCode', RESOLUTION_CODES],
+  ['issuesByCode', GRAPH_CODES],
+]);
+const countShape = createSelectedSourceCounts();
+
+/** Revalidate stored tooling counts against the producer's shape and its fixed code sets. */
+export function validSelectedSourceCounts(input) {
+  function valid(value, expected, key) {
+    const codes = histogramCodes.get(key);
+    if (codes) return value !== null && typeof value === 'object' && !Array.isArray(value) &&
+      Object.entries(value).every(([code, count]) => codes.has(code) && integer(count));
+    if (expected === null || typeof expected !== 'object') {
+      if (key === 'status') return ['passed', 'incomplete', 'failed'].includes(value);
+      if (key === 'schemaVersion') return value === expected;
+      return typeof expected === 'boolean' ? typeof value === 'boolean' : integer(value);
+    }
+    return value !== null && typeof value === 'object' && !Array.isArray(value) &&
+      Object.keys(value).length === Object.keys(expected).length &&
+      Object.keys(expected).every(cell => Object.hasOwn(value, cell) && valid(value[cell], expected[cell], key ? `${key}.${cell}` : cell));
+  }
+  return valid(input, countShape, '');
+}
 
 // File-owned XML diagnostics include its provider/inline/map calls once. Inline occurrences
 // do not count those calls a second time; a repeated file occurrence does repeat its diagnostics.
@@ -70,7 +98,7 @@ export function buildSelectedSourceAggregate(context, trace, composition) {
   const request = getGraphRequest(context), budget = requireGraphBudget(trace.budget, context);
   budget.check();
   // Reserve the complete fixed wire shape before retaining any aggregate output.
-  const aggregate = budget.copy(empty()), {selection, graph, inlineLua, resolution} = aggregate;
+  const aggregate = budget.copy(createSelectedSourceCounts()), {selection, graph, inlineLua, resolution} = aggregate;
   let diagnosticCount = 0;
   const add = (target, key, value = 1) => {
     budget.check(); invariant(integer(value) && Object.hasOwn(target, key) && integer(target[key]) && Number.isSafeInteger(target[key] + value));

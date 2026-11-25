@@ -4,8 +4,8 @@ import {createGraphFileHost} from './selected-source-native.mjs';
 import {createGraphAnalyzer} from './selected-source-analysis-client.mjs';
 import {createGraphBudget, bindGraphHostBudget} from './selected-source-budget.mjs';
 
-export async function createSelectedSourceHost(root, context, {now = () => performance.now(), ...nativeOptions} = {}) {
-  const budget = createGraphBudget(context, {now});
+export async function createSelectedSourceHost(root, context, {now = () => performance.now(), began, ...nativeOptions} = {}) {
+  const budget = createGraphBudget(context, {now, began});
   const files = await createGraphFileHost(root, context, {...nativeOptions, now, budget, transientHandoffs: true});
   const analyzer = createGraphAnalyzer({now, cleanupDeadline: budget.cleanupDeadline});
   const host = {
