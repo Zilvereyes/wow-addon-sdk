@@ -75,6 +75,38 @@ test('scope conflict preserves both sources and only applies within same addon I
   assert.equal(registry.diagnostics[0].related[0].file,'A.toc');
 });
 
+// Would fail if repeated same-scope declarations rescan all prior declarations.
+test('scope conflict lookup performs bounded work for repeated declarations', () => {
+  let propertyReads = 0;
+  const declarations = Array.from({length:64}, () => new Proxy(
+    {name:'DB',kind:'saved-variable',scope:'account',addonId:'A',activationState:'unconditional',source:source('A.toc')},
+    {get(target, property, receiver) {
+      if (property === 'kind' || property === 'scope' || property === 'addonId') propertyReads++;
+      return Reflect.get(target, property, receiver);
+    }},
+  ));
+  const registry = buildGlobalRegistry(declarations);
+  assert.equal(registry.entries[0].declarations.length, declarations.length);
+  assert.deepEqual(registry.diagnostics, []);
+  assert.ok(propertyReads <= declarations.length * 6);
+});
+
+// Would fail if constant-time scope tracking changes the first-related-source rule.
+test('repeated scope conflicts retain first opposite source ordering', () => {
+  const declaration = (scope, file) =>
+    ({name:'DB',kind:'saved-variable',scope,addonId:'A',activationState:'unconditional',source:source(file)});
+  const registry = buildGlobalRegistry([
+    declaration('account','Account-1.toc'), declaration('account','Account-2.toc'),
+    declaration(undefined,'Unscoped.toc'),
+    declaration('character','Character-1.toc'), declaration('character','Character-2.toc'),
+    declaration('account','Account-3.toc'),
+  ]);
+  assert.deepEqual(registry.diagnostics.map(value => [value.source.file, value.related[0].file]), [
+    ['Character-1.toc','Account-1.toc'], ['Character-2.toc','Account-1.toc'],
+    ['Account-3.toc','Character-1.toc'],
+  ]);
+});
+
 // Would fail if Unicode surrogate pairs were counted as one editor column.
 test('UTF-16 source columns preserve surrogate pairs before variable names', () => {
   const parsed = parseToc('## SavedVariables: 😀, DB', 'Emoji/Emoji.toc');

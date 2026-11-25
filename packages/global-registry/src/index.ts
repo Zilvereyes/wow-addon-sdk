@@ -81,6 +81,9 @@ export interface ListGlobalsOptions {
  */
 export function buildGlobalRegistry(declarations: readonly GlobalDeclaration[]): GlobalRegistry {
   const entries = new Map<string, GlobalRegistryEntry>();
+  // Full provenance stays in each entry; conflict detection only needs the first opposite scope.
+  const firstSavedVariableScopes = new Map<GlobalRegistryEntry,
+    Map<string, Partial<Record<GlobalScope, GlobalDeclaration>>>>();
   const diagnostics: Diagnostic[] = [];
   for (const declaration of declarations) {
     // Registry is independent of the syntax and provenance of providers.
@@ -89,12 +92,19 @@ export function buildGlobalRegistry(declarations: readonly GlobalDeclaration[]):
       entry = { name: declaration.name, declarations: [] };
       entries.set(declaration.name, entry);
     }
-    if (declaration.kind === 'saved-variable') {
-      const conflicting = entry.declarations.find(previous =>
-        previous.kind === 'saved-variable' && previous.addonId === declaration.addonId &&
-        previous.scope !== undefined && declaration.scope !== undefined &&
-        previous.scope !== declaration.scope,
-      );
+    const scope = declaration.scope;
+    if (declaration.kind === 'saved-variable' && scope !== undefined) {
+      let byAddon = firstSavedVariableScopes.get(entry);
+      if (!byAddon) {
+        byAddon = new Map();
+        firstSavedVariableScopes.set(entry, byAddon);
+      }
+      let firstByScope = byAddon.get(declaration.addonId);
+      if (!firstByScope) {
+        firstByScope = {};
+        byAddon.set(declaration.addonId, firstByScope);
+      }
+      const conflicting = firstByScope[scope === 'account' ? 'character' : 'account'];
       if (conflicting) {
         diagnostics.push({
           code: 'SV0001', severity: 'warning',
@@ -103,6 +113,7 @@ export function buildGlobalRegistry(declarations: readonly GlobalDeclaration[]):
           related: [conflicting.source],
         });
       }
+      firstByScope[scope] ??= declaration;
     }
     entry.declarations.push(declaration);
   }
